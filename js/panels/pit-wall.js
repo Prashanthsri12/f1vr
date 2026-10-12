@@ -8,18 +8,21 @@ import { WeatherPanel } from './weather.js';
 import { TickerPanel } from './ticker.js';
 import { DriverPicker } from './driver-picker.js';
 import { PlaybackBarPanel } from './playback-bar.js';
+import { WristMenu, placeWristMenu } from './wrist-menu.js';
 
 /**
  * @param {object} o
  * @param {import('three').Object3D} o.parent scene (panels are fixed in the room, not on the table)
  * @param {import('../session-data.js').SessionData} o.data
  * @param {import('../playback.js').Playback} o.playback
- * @param {object} o.actions PanelContext actions (selectDriver, togglePlay, seekBy, seekToLap, speedUp, speedDown, setSpeed)
+ * @param {object} o.actions PanelContext actions (selectDriver, togglePlay, seekBy, seekToLap, speedUp, speedDown,
+ *   setSpeed, togglePassthrough, exit, recenter?)
+ * @param {boolean} [o.canPassthrough] the session can switch to passthrough (wrist menu shows the toggle)
  * @returns {{ctx: object, manager: PanelManager, ticker: TickerPanel, update: (dt: number) => void,
  *   setSelected: (n: number) => void, setMode: (m: string) => void, dispose: () => void}}
  */
-export function createPitWall({ parent, data, playback, actions }) {
-  const ctx = { data, playback, time: playback.time, selected: null, mode: 'pitwall', actions };
+export function createPitWall({ parent, data, playback, actions, canPassthrough = true }) {
+  const ctx = { data, playback, time: playback.time, selected: null, mode: 'pitwall', canPassthrough, actions };
   const manager = new PanelManager(parent);
 
   const place = (panel, spec, opts) => manager.add(panel, spec.position, opts);
@@ -32,6 +35,8 @@ export function createPitWall({ parent, data, playback, actions }) {
   place(new PlaybackBarPanel(data), LAYOUT.playbackBar);
   const picker = new DriverPicker(data);
   picker.addTo(manager);
+  // Wrist menu: registered for raycasts/redraws; placed every frame by updateWrist().
+  const wrist = manager.add(new WristMenu(data), { x: 0, y: -10, z: 0 });
 
   return {
     ctx,
@@ -43,6 +48,10 @@ export function createPitWall({ parent, data, playback, actions }) {
       manager.update(dt, ctx);
     },
     setSelected(n) { ctx.selected = n; },
+    /** Per frame in XR: show the wrist menu while the left palm faces the head. */
+    updateWrist(palmOk, palmPos, palmNormal, headPos) {
+      placeWristMenu(wrist, palmOk, palmPos, palmNormal, headPos);
+    },
     setMode(m) {
       ctx.mode = m;
       manager.setPassthrough(m === 'passthrough');

@@ -50,7 +50,8 @@ const EDGE_MIN = 0.6;          // table-local radius (tabletop r = 0.8) where a 
  * @param {(result: object, hand: 'left'|'right'|'none') => void} o.onSelect trigger on a selectable target
  * @param {object} [o.actions] button actions (all optional):
  *   togglePlay(), togglePassthrough(), stepDriver(dir: -1|1), seekBy(sec), speedUp(), speedDown(), recenter()
- * @returns {{update: (dt: number) => void, dispose: () => void}}
+ * @returns {{update: (dt: number) => void, getLeftPalm: (pos: THREE.Vector3, normal: THREE.Vector3) => boolean,
+ *   dispose: () => void}}
  */
 export function createXrInput({ renderer, scene, table, pickPanels, onHover, onSelect, actions = {} }) {
   const act = (name, ...args) => { if (typeof actions[name] === 'function') actions[name](...args); };
@@ -306,6 +307,34 @@ export function createXrInput({ renderer, scene, table, pickPanels, onHover, onS
     if (h.stickY !== 0 && Math.abs(y) < STICK_OFF) h.stickY = 0;
   }
 
+  const _q = new THREE.Quaternion();
+  const _v = new THREE.Vector3();
+  /**
+   * Left palm centre and its outward normal (world). Controllers: grip space, palm = +X
+   * (WebXR: the back of the left hand points -X). Hands: wrist joint, palm = -Y and the
+   * palm centre lies along -Z (WebXR Hand Input). Returns false when not tracked.
+   */
+  function getLeftPalm(pos, normal) {
+    for (const h of hands) {
+      if (!h.connected || h.handedness !== 'left') continue;
+      if (h.isHand) {
+        const wrist = h.hand.joints && h.hand.joints.wrist;
+        if (!wrist || !wrist.visible) return false;
+        wrist.getWorldPosition(pos);
+        wrist.getWorldQuaternion(_q);
+        normal.set(0, -1, 0).applyQuaternion(_q);
+        pos.addScaledVector(_v.set(0, 0, -1).applyQuaternion(_q), 0.05);
+        return true;
+      }
+      if (!h.grip.visible) return false;
+      h.grip.getWorldPosition(pos);
+      h.grip.getWorldQuaternion(_q);
+      normal.set(1, 0, 0).applyQuaternion(_q);
+      return true;
+    }
+    return false;
+  }
+
   /** Per frame while presenting. Allocation-free. */
   function update(dt = 0) {
     if (!renderer.xr.isPresenting) return;
@@ -338,5 +367,5 @@ export function createXrInput({ renderer, scene, table, pickPanels, onHover, onS
     dotGeometry.dispose();
   }
 
-  return { update, dispose };
+  return { update, getLeftPalm, dispose };
 }

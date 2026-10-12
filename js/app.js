@@ -1,4 +1,5 @@
 // Scene bootstrap: wires world, table, track, cars, playback, desktop input and the HTML HUD.
+import * as THREE from 'three';
 import { createWorld } from './scene/world.js';
 import { createTable, loadTrack } from './scene/track.js';
 import { Cars } from './scene/cars.js';
@@ -109,6 +110,7 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
   let playback;
   let hudDirty = true;
   let togglePassthrough = () => {};
+  const canPassthrough = !xrSession || xrMode === 'immersive-ar';
   try {
     // XR controllers must exist before the session starts: three.js only sends
     // 'connected' to controllers created by then. Targets appear once panels exist.
@@ -159,7 +161,10 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
         speedUp: () => playback.speedUp(),
         speedDown: () => playback.speedDown(),
         setSpeed: (sp) => playback.setSpeed(sp),
+        togglePassthrough: () => togglePassthrough(),
+        exit: () => { dispose(); if (onExit) onExit(); },
       },
+      canPassthrough,
     });
   } catch (err) {
     dispose();
@@ -194,7 +199,6 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
   selectDriver((lb0 && lb0[0] && lb0[0].driverNumber) ?? (data.drivers[0] && data.drivers[0].number));
 
   // --- pit wall / passthrough (one session, no restart; needs immersive-ar in XR) ---
-  const canPassthrough = !xrSession || xrMode === 'immersive-ar';
   let mode = canPassthrough && startMode === 'passthrough' ? 'passthrough' : 'pitwall';
   function applyMode() {
     world.setMode(mode);
@@ -306,6 +310,10 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
     }
   }
 
+  const palmPos = new THREE.Vector3();
+  const palmNormal = new THREE.Vector3();
+  const head = new THREE.Vector3();
+
   // --- frame loop (allocation-free apart from the 10 Hz HUD strings) ---
   unsubs.push(world.onFrame((dt) => {
     playback.update(dt);
@@ -313,6 +321,12 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
     pitWall.update(dt);
     input.update(dt);
     xrInput.update(dt);
+    if (world.renderer.xr.isPresenting) {
+      head.setFromMatrixPosition(world.renderer.xr.getCamera().matrixWorld);
+      pitWall.updateWrist(xrInput.getLeftPalm(palmPos, palmNormal), palmPos, palmNormal, head);
+    } else {
+      pitWall.updateWrist(false, palmPos, palmNormal, head);
+    }
 
     fpsFrames++;
     fpsAcc += dt;

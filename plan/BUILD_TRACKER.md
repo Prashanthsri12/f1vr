@@ -14,7 +14,7 @@ Update the item's status as soon as it is created or finished. Add a dated entry
 | 1 | Data layer and start page | ✅ | 14 / 14 |
 | 2 | Scene, track and cars (desktop preview) | ✅ | 13 / 13 |
 | 3 | Panels | ✅ | 14 / 14 |
-| 4 | WebXR | 🟡 | 9 / 19 |
+| 4 | WebXR | 🟡 | 10 / 19 |
 | 5 | Main screen | ⬜ | 0 / 8 |
 | 6 | Polish and performance | ⬜ | 0 / 12 |
 | 7 | Deploy | 🟡 | 3 / 7 |
@@ -99,7 +99,7 @@ Update the item's status as soon as it is created or finished. Add a dated entry
 | 4.6 | Grab the table with one grip, scale (0.5x–3x) and rotate with two, double-press to reset | `js/input/xr-input.js`, `js/scene/track.js` | ✅ | table-grab.js; 2-hand scale and rotate about the hands' midpoint, height kept; verified in emulator plus 5 unit tests |
 | 4.7 | Hand tracking: hand models, pinch as select (confirm Quest sends `select`) | `js/input/xr-input.js` | ✅ | Hand meshes (pinned assets) and hand rays; pinch fires select (confirmed in emulator, recheck on device) |
 | 4.8 | Pinch and hold on the table edge to grab it | `js/input/xr-input.js` | ✅ | Pinch-hold on the outer band (r ≥ 0.6) of the tabletop; panels in front take priority |
-| 4.9 | Wrist menu: shown when the palm is up or faces the user, with all §7 items | `js/panels/wrist-menu.js` | ⬜ | |
+| 4.9 | Wrist menu: shown when the palm is up or faces the user, with all §7 items | `js/panels/wrist-menu.js` | ✅ | Palm toward head shows it (controller grip +X, hand wrist -Y); all §7 items; re-centre greyed until 4.10; verified in emulator |
 | 4.10 | Re-centre panels to the user's position and facing | `js/scene/world.js` | ⬜ | |
 | 4.11 | Unlock AudioContext on the Enter click | `js/audio.js`, `js/main.js` | ⬜ | |
 | 4.12 | Clear message when XR is unsupported | `js/main.js` | ✅ | Start page message for no WebXR, no HTTPS, or unsupported device (verified) |
@@ -190,3 +190,4 @@ _(Record anything that differs from the spec, especially from OpenF1 docs verifi
 - **2026-10-12**: 4.6–4.8 done and verified in the emulated Quest 3: grip move, 2-hand scale and twist, double-grip reset, hand pinch select, pinch-hold edge grab. Fixed: 2-hand scaling no longer changes table height.
 - **2026-10-12**: Deployed early (7.1–7.3) so the app can be tested on a Quest over HTTPS. Repo made public, Pages built by Actions (checkout v7, pages v5/v6). Only index.html, css and js are published.
 - **2026-10-12**: Added 4.15–4.19 (move panels in VR, push/pull, saved layout, reset layout, desktop Shift-drag) at the user's request. This adds to spec §3's fixed layout; the defaults stay as specified.
+- **2026-10-12**: 4.9 wrist menu done and verified in the emulated Quest 3: palm-up shows it (controller and hand), turning away hides it, buttons work, Exit returns to the start page. Radio and sound toggles are saved in `js/settings.js` for Phase 6.

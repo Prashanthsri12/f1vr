@@ -82,15 +82,16 @@ export class Panel {
    * @param {number} o.width metres
    * @param {number} o.height metres
    * @param {number} [o.maxHz] redraw cap (default 10)
+   * @param {number} [o.pxPerM] canvas density (default 1024; near panels like the wrist menu use more)
    */
-  constructor({ name, width, height, maxHz = MAX_HZ }) {
+  constructor({ name, width, height, maxHz = MAX_HZ, pxPerM = PX_PER_M }) {
     this.name = name;
     this.width = width;
     this.height = height;
     this.maxHz = Math.min(maxHz, MAX_HZ);
     this.canvas = document.createElement('canvas');
-    this.canvas.width = Math.round(width * PX_PER_M);
-    this.canvas.height = Math.round(height * PX_PER_M);
+    this.canvas.width = Math.round(width * pxPerM);
+    this.canvas.height = Math.round(height * pxPerM);
     this.g = this.canvas.getContext('2d');
     this.texture = new THREE.CanvasTexture(this.canvas);
     this.texture.colorSpace = THREE.SRGBColorSpace;

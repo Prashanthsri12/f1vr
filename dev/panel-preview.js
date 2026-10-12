@@ -12,6 +12,7 @@ const MODULES = {
   ticker: ['../js/panels/ticker.js', 'TickerPanel'],
   picker: ['../js/panels/driver-picker.js', 'DriverPicker'],
   playback: ['../js/panels/playback-bar.js', 'PlaybackBarPanel'],
+  wrist: ['../js/panels/wrist-menu.js', 'WristMenu'],
 };
 
 const q = new URLSearchParams(location.search);
@@ -29,6 +30,7 @@ const playback = { time, speed: 1, playing: false, waiting: false, SPEEDS };
 const ctx = {
   data, playback, time, selected,
   mode: q.get('passthrough') ? 'passthrough' : 'pitwall',
+  canPassthrough: true,
   actions: new Proxy({}, { get: (_, k) => (...a) => console.log('[preview] action', String(k), ...a) }),
 };
 
@@ -52,6 +54,7 @@ for (const name of names) {
     else list.push(obj);
     for (const p of list) {
       if (ctx.mode === 'passthrough') p.setPassthrough(true);
+      p.mesh.visible = true; // some panels (wrist menu) start hidden in the scene
       const wrap = document.createElement('div');
       wrap.className = 'p';
       wrap.title = `${name} ${p.width}×${p.height} m`;
