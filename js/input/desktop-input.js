@@ -1,5 +1,6 @@
 // Desktop mouse + keyboard input.
 //  - Right-drag: orbit camera around the table (OrbitControls). Middle-drag: dolly.
+//  - Left-click on a panel: select what's under the pointer (hover highlights it).
 //  - Left-drag on the table: rotate the table around Y.
 //  - Wheel over the table: scale the table 0.5x-3x. Wheel elsewhere: dolly the camera.
 //  - Keys: Space play/pause, Left/Right seek -/+10 s, Up/Down speed,
@@ -22,10 +23,14 @@ const WHEEL_SCALE_STEP = 0.0012;
  * @param {(n: number) => void} opts.onSelectDriver
  * @param {() => void} opts.onTogglePassthrough
  * @param {() => (number|null)} [opts.getSelectedDriver] optional: current selection (else tracked internally)
+ * @param {(raycaster: THREE.Raycaster) => ({rect: object|null}|null)} [opts.pickPanels] raycast panels
+ * @param {(result: object|null) => void} [opts.onPanelHover]
+ * @param {(result: object) => void} [opts.onPanelSelect]
  * @returns {{update: (dt: number) => void, dispose: () => void}}
  */
 export function createDesktopInput({
   renderer, camera, table, playback, getDriverOrder, onSelectDriver, onTogglePassthrough, getSelectedDriver,
+  pickPanels, onPanelHover, onPanelSelect,
 }) {
   const el = renderer.domElement;
   const raycaster = new THREE.Raycaster();
@@ -35,11 +40,20 @@ export function createDesktopInput({
   let selected = null;
 
   // --- picking ---
-  function pickTable(clientX, clientY) {
+  function setRay(clientX, clientY) {
     const rect = el.getBoundingClientRect();
     ndc.x = ((clientX - rect.left) / rect.width) * 2 - 1;
     ndc.y = -((clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(ndc, camera);
+  }
+  function pickPanel(clientX, clientY) {
+    if (!pickPanels) return null;
+    setRay(clientX, clientY);
+    const r = pickPanels(raycaster);
+    return r && r.rect ? r : null;
+  }
+  function pickTable(clientX, clientY) {
+    setRay(clientX, clientY);
     hits.length = 0;
     const target = table.userData && table.userData.hitMesh;
     if (target) raycaster.intersectObject(target, false, hits);
@@ -51,8 +65,16 @@ export function createDesktopInput({
   let dragging = false;
   let dragPointer = -1;
   let lastX = 0;
+  // --- panel click (press + release within a few px) ---
+  let pressPanel = null;
+  let pressX = 0;
+  let pressY = 0;
+
   function onPointerDown(e) {
-    if (e.button !== 0 || !table.visible) return;
+    if (e.button !== 0) return;
+    const p = pickPanel(e.clientX, e.clientY);
+    if (p) { pressPanel = p; pressX = e.clientX; pressY = e.clientY; return; }
+    if (!table.visible) return;
     if (!pickTable(e.clientX, e.clientY)) return;
     dragging = true;
     dragPointer = e.pointerId;
@@ -61,12 +83,27 @@ export function createDesktopInput({
     el.style.cursor = 'grabbing';
   }
   function onPointerMove(e) {
-    if (!dragging || e.pointerId !== dragPointer) return;
+    if (!dragging) {
+      if (e.buttons === 0 && onPanelHover) {
+        const p = pickPanel(e.clientX, e.clientY);
+        onPanelHover(p);
+        el.style.cursor = p ? 'pointer' : '';
+      }
+      return;
+    }
+    if (e.pointerId !== dragPointer) return;
     const dx = e.clientX - lastX;
     lastX = e.clientX;
     table.rotation.y += dx * ROTATE_PER_PX;
   }
   function onPointerUp(e) {
+    if (pressPanel && e.button === 0) {
+      const moved = Math.abs(e.clientX - pressX) + Math.abs(e.clientY - pressY);
+      const p = moved < 8 ? pickPanel(e.clientX, e.clientY) : null;
+      if (p && p.panel === pressPanel.panel && onPanelSelect) onPanelSelect(p);
+      pressPanel = null;
+      return;
+    }
     if (!dragging || e.pointerId !== dragPointer) return;
     dragging = false;
     dragPointer = -1;

@@ -13,7 +13,7 @@ Update the item's status as soon as it is created or finished. Add a dated entry
 | 0 | Project setup | ✅ | 5 / 5 |
 | 1 | Data layer and start page | ✅ | 14 / 14 |
 | 2 | Scene, track and cars (desktop preview) | ✅ | 13 / 13 |
-| 3 | Panels | ⬜ | 0 / 14 |
+| 3 | Panels | ✅ | 14 / 14 |
 | 4 | WebXR | ⬜ | 0 / 14 |
 | 5 | Main screen | ⬜ | 0 / 8 |
 | 6 | Polish and performance | ⬜ | 0 / 12 |
@@ -72,20 +72,20 @@ Update the item's status as soon as it is created or finished. Add a dated entry
 
 | ID | Item | Files | Status | Notes |
 |---|---|---|---|---|
-| 3.1 | Panel base: CanvasTexture, 1024 px/m, redraw limited to 10 Hz, rect hit testing, shared raycaster, wait for fonts | `js/panels/panel-base.js` | ⬜ | §10 |
-| 3.2 | Leaderboard (columns, header, track status pill, tap to select) | `js/panels/leaderboard.js` | ⬜ | Animations come in Phase 6 |
-| 3.3 | Practice/qualifying variant showing best lap instead of gaps | `js/panels/leaderboard.js` | ⬜ | |
-| 3.4 | Telemetry: name, headshot or fallback tile, speed, gear, RPM, throttle, brake, DRS | `js/panels/telemetry.js` | ⬜ | |
-| 3.5 | Speed trace over distance, with the previous lap drawn faintly | `js/panels/telemetry.js` | ⬜ | |
-| 3.6 | Laps and tyres: running, last, personal best and session best times; coloured sectors; speed trap; stint strip | `js/panels/laps.js` | ⬜ | |
-| 3.7 | Weather panel with wind arrow and rain indicator | `js/panels/weather.js` | ⬜ | |
-| 3.8 | Race control ticker: flag background, scrolling, expands to show the last 5 | `js/panels/ticker.js` | ⬜ | |
-| 3.9 | Driver picker: arc of 20 tiles at waist height | `js/panels/driver-picker.js` | ⬜ | |
-| 3.10 | Playback bar: play/pause, speed, lap slider, elapsed time and session clock | `js/panels/playback-bar.js` | ⬜ | |
-| 3.11 | Place all panels per the §3 layout, facing the user | `js/scene/world.js` | ⬜ | |
-| 3.12 | Selection wiring: picking a driver updates telemetry, the car highlight and the leaderboard row | `js/main.js` | ⬜ | |
-| 3.13 | Panel transparency for passthrough (75%) | `js/panels/panel-base.js` | ⬜ | |
-| 3.14 | Manual test: values match the API at the same timestamp | — | ⬜ | |
+| 3.1 | Panel base: CanvasTexture, 1024 px/m, redraw limited to 10 Hz, rect hit testing, shared raycaster, wait for fonts | `js/panels/panel-base.js` | ✅ | panel-base.js + layout.js + dev/panel-preview |
+| 3.2 | Leaderboard (columns, header, track status pill, tap to select) | `js/panels/leaderboard.js` | ✅ | race-status.js checked against real SC/VSC/red-flag data |
+| 3.3 | Practice/qualifying variant showing best lap instead of gaps | `js/panels/leaderboard.js` | ✅ | race-status.js checked against real SC/VSC/red-flag data |
+| 3.4 | Telemetry: name, headshot or fallback tile, speed, gear, RPM, throttle, brake, DRS | `js/panels/telemetry.js` | ✅ | Headshot with tile fallback; trace cached per lap |
+| 3.5 | Speed trace over distance, with the previous lap drawn faintly | `js/panels/telemetry.js` | ✅ | Headshot with tile fallback; trace cached per lap |
+| 3.6 | Laps and tyres: running, last, personal best and session best times; coloured sectors; speed trap; stint strip | `js/panels/laps.js` | ✅ | |
+| 3.7 | Weather panel with wind arrow and rain indicator | `js/panels/weather.js` | ✅ | |
+| 3.8 | Race control ticker: flag background, scrolling, expands to show the last 5 | `js/panels/ticker.js` | ✅ | |
+| 3.9 | Driver picker: arc of 20 tiles at waist height | `js/panels/driver-picker.js` | ✅ | |
+| 3.10 | Playback bar: play/pause, speed, lap slider, elapsed time and session clock | `js/panels/playback-bar.js` | ✅ | |
+| 3.11 | Place all panels per the §3 layout, facing the user | `js/scene/world.js` | ✅ | pit-wall.js + layout.js; picker is 2 rows of 10 (one arc can't fit) |
+| 3.12 | Selection wiring: picking a driver updates telemetry, the car highlight and the leaderboard row | `js/main.js` | ✅ | Click tile or row selects; car, row, telemetry and laps follow |
+| 3.13 | Panel transparency for passthrough (75%) | `js/panels/panel-base.js` | ✅ | |
+| 3.14 | Manual test: values match the API at the same timestamp | — | ✅ | VER 15:23:42: 220 km/h, gear 6, 10075 rpm, exact match with raw car_data |
 
 ## Phase 4: WebXR
 
@@ -164,6 +164,12 @@ _(Record anything that differs from the spec, especially from OpenF1 docs verifi
 - Team radio coverage drops sharply from 2026 (per the docs).
 - Extra endpoints exist that the spec doesn't use: `overtakes`, `session_result`, `starting_grid`, and championship standings (beta). These could help Phase 6 (overtake whoosh, retired/OUT).
 - `location` timestamps jitter by ±100–200 ms (positions are fine). They are smoothed in `js/retime.js`.
+- **Qualifying out-laps:** `lap_duration` includes garage time, so start + duration can land after the next lap starts. `lap-stats.js` ends a lap no later than the next lap's start.
+- **Qualifying stints** overlap by one lap (`lap_end` 4, next `lap_start` 4).
+- **SC/VSC/red flag end** with a `Flag CLEAR` scoped to Track ("TRACK CLEAR"), not with a SafetyCar message. A RED and a DOUBLE YELLOW can appear after the chequered flag (`race-status.js` handles this).
+- **TODO (data layer):** `getLeaderboardAt().retired` misses cars that stop on track while still visible (2023 Australia: LEC, ALB). `leaderboard.js` has a local `_isOut` workaround; move it into session-data. Could use the `session_result` endpoint (dnf).
+- **TODO (data layer):** `totalLaps` = max `lap_number` is 59 for 2023 Australia (a 58-lap race, red-flag restarts). Prefer `session_result.number_of_laps` for the winner.
+- **Open layout question:** the driver picker tiles (waist height at 0.62 m) hover over the near part of the track table. Waiting on the user's decision.
 - Location data begins about an hour before the session `date_start`. The race starts at the min lap-1 `date_start` (15:03:42Z for 2024 Bahrain).
 
 **Structure addition:** `js/app.js` is a scene bootstrap, so `main.js` stays focused on the start page. Reference-lap selection (2.3) lives in `session-data.js`. Module interfaces are in `plan/CONTRACTS.md`. `plan/tracker.mjs` updates this file.
@@ -173,3 +179,4 @@ _(Record anything that differs from the spec, especially from OpenF1 docs verifi
 - **2026-10-12**: Tracker created. Decisions: remove the Python scaffold; tracker kept in the repo; deploy with GitHub Actions; unit tests with `node --test` (no npm dependencies).
 - **2026-10-12**: Phases 1 and 2 done (5 parallel agents plus integration). `hasDrs` is now set up front from race_control `Drs` messages. Pit rule: `pit.lap_number` is the in-lap, so reference-lap selection excludes both lap N and N+1. Verified in headless Chrome against the 2024 Bahrain GP.
 - **2026-10-12**: Fixed cars surging and dragging at 1x, reported by the user on straights. The cause was OpenF1 location timestamp jitter. Added `js/retime.js`, which cut the average speed jump between samples from 62 to 14 km/h across all cars.
+- **2026-10-12**: Phase 3 done (panel base by the orchestrator plus 4 parallel panel agents). Desktop click selection verified with real mouse events. Telemetry matches raw car_data exactly. 46 draw calls, about 12 panel redraws per second.

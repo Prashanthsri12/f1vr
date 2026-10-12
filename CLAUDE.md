@@ -39,4 +39,6 @@ node --test                  # run unit tests in tests/ (pure logic only: interp
 node --test tests/interp.test.js   # run a single test file
 ```
 
+Panel dev preview: `/dev/panel-preview?panels=leaderboard,telemetry&t=2024-03-02T15:40:00Z&driver=1&passthrough=1` draws panels against real cached data. The desktop HUD shows fps, draw calls, triangles and panel redraws per second.
+
 WebXR needs HTTPS on the Quest. On desktop, use the Immersive Web Emulator Chrome extension, or "Preview on desktop" on the start page. Deployment is to GitHub Pages through `.github/workflows/pages.yml`.

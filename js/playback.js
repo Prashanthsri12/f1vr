@@ -120,6 +120,13 @@ export class Playback {
     this._setSpeedIndex(this._speedIndex() - 1);
   }
 
+  /** Set one of SPEEDS (other values snap to the nearest). */
+  setSpeed(s) {
+    let best = 0;
+    for (let i = 1; i < SPEEDS.length; i++) if (Math.abs(SPEEDS[i] - s) < Math.abs(SPEEDS[best] - s)) best = i;
+    this._setSpeedIndex(best);
+  }
+
   /** @private */
   _speedIndex() {
     const i = SPEEDS.indexOf(this.speed);

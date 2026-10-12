@@ -4,6 +4,8 @@ import { createTable, loadTrack } from './scene/track.js';
 import { Cars } from './scene/cars.js';
 import { Playback } from './playback.js';
 import { createDesktopInput } from './input/desktop-input.js';
+import { createPitWall } from './panels/pit-wall.js';
+import { panelStats } from './panels/panel-base.js';
 
 const HUD_INTERVAL = 0.1; // seconds (10 Hz)
 const STYLE_ID = 'f1vr-hud-style';
@@ -64,6 +66,7 @@ export async function startApp({ data, container, onExit, onStatus }) {
   // Cleanup state, filled as we go so a failure mid-setup still disposes.
   let cars = null;
   let input = null;
+  let pitWall = null;
   const unsubs = [];
   let overlay = null;
   let disposed = false;
@@ -73,6 +76,7 @@ export async function startApp({ data, container, onExit, onStatus }) {
     disposed = true;
     for (const u of unsubs) { try { u(); } catch (_) { /* ignore */ } }
     if (input) input.dispose();
+    if (pitWall) pitWall.dispose();
     if (cars) cars.dispose();
     world.dispose();
     if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
@@ -86,6 +90,21 @@ export async function startApp({ data, container, onExit, onStatus }) {
     status('Placing cars…');
     cars = new Cars(data.drivers, transform, table);
     playback = new Playback(data);
+    status('Building panels…');
+    pitWall = createPitWall({
+      parent: world.scene,
+      data,
+      playback,
+      actions: {
+        selectDriver: (n) => selectDriver(n),
+        togglePlay: () => playback.toggle(),
+        seekBy: (sec) => playback.seekBy(sec),
+        seekToLap: (n) => playback.seekToLap(n),
+        speedUp: () => playback.speedUp(),
+        speedDown: () => playback.speedDown(),
+        setSpeed: (sp) => playback.setSpeed(sp),
+      },
+    });
   } catch (err) {
     dispose();
     throw err;
@@ -98,6 +117,7 @@ export async function startApp({ data, container, onExit, onStatus }) {
     selected = n;
     data.setSelectedDriver(n);
     cars.setSelected(n);
+    pitWall.setSelected(n);
     hudDirty = true;
   }
   function getDriverOrder() {
@@ -113,6 +133,7 @@ export async function startApp({ data, container, onExit, onStatus }) {
   function togglePassthrough() {
     mode = mode === 'pitwall' ? 'passthrough' : 'pitwall';
     world.setMode(mode);
+    pitWall.setMode(mode);
     hudDirty = true;
   }
 
@@ -125,7 +146,13 @@ export async function startApp({ data, container, onExit, onStatus }) {
     onSelectDriver: selectDriver,
     onTogglePassthrough: togglePassthrough,
     getSelectedDriver: () => selected,
+    pickPanels: (raycaster) => pitWall.manager.raycast(raycaster),
+    onPanelHover: (r) => pitWall.manager.setHover(r),
+    onPanelSelect: (r) => pitWall.manager.select(r, pitWall.ctx),
   });
+  // Desktop only: step back from the user's standing spot so the whole pit wall is in view
+  // (in XR the headset pose drives the camera; the user never moves).
+  world.camera.position.set(0, 1.75, 1.0);
 
   // --- overlay ---
   if (!document.getElementById(STYLE_ID)) {
@@ -146,7 +173,7 @@ export async function startApp({ data, container, onExit, onStatus }) {
   const hudPerf = el('div', 'perf', hud);
   const loading = el('div', 'f1vr-loading', overlay, 'Loading data…');
   el('div', 'f1vr-help', overlay,
-    'Space play/pause · ←/→ seek 10 s · ↑/↓ speed · [ ] driver · P passthrough · left-drag table rotate · wheel on table scale · right-drag orbit');
+    'Click panels · Space play/pause · ←/→ seek 10 s · ↑/↓ speed · [ ] driver · P passthrough · drag table rotate · wheel on table scale · right-drag orbit');
   const exitBtn = el('button', 'f1vr-exit', overlay, 'Exit');
   exitBtn.type = 'button';
   exitBtn.addEventListener('click', () => {
@@ -179,6 +206,8 @@ export async function startApp({ data, container, onExit, onStatus }) {
   let fpsFrames = 0;
   let fpsAcc = 0;
   let fps = 0;
+  let redrawRate = 0;
+  let redrawBase = 0;
   const info = world.renderer.info.render;
 
   function updateHud() {
@@ -197,7 +226,7 @@ export async function startApp({ data, container, onExit, onStatus }) {
       setText(hudDrv, 'drv', '');
     }
     setText(hudErr, 'err', lastError);
-    setText(hudPerf, 'perf', fps + ' fps   ' + info.calls + ' calls   ' + Math.round(info.triangles / 1000) + 'k tris');
+    setText(hudPerf, 'perf', fps + ' fps   ' + info.calls + ' calls   ' + Math.round(info.triangles / 1000) + 'k tris   ' + redrawRate + ' redraws/s');
     if (prev.loading !== playback.waiting) {
       prev.loading = playback.waiting;
       loading.style.display = playback.waiting ? 'block' : 'none';
@@ -208,11 +237,17 @@ export async function startApp({ data, container, onExit, onStatus }) {
   unsubs.push(world.onFrame((dt) => {
     playback.update(dt);
     cars.update(data, playback.time, world.camera);
+    pitWall.update(dt);
     input.update(dt);
 
     fpsFrames++;
     fpsAcc += dt;
-    if (fpsAcc >= 0.5) { fps = Math.round(fpsFrames / fpsAcc); fpsFrames = 0; fpsAcc = 0; }
+    if (fpsAcc >= 0.5) {
+      fps = Math.round(fpsFrames / fpsAcc);
+      redrawRate = Math.round((panelStats.redraws - redrawBase) / fpsAcc);
+      redrawBase = panelStats.redraws;
+      fpsFrames = 0; fpsAcc = 0;
+    }
 
     hudAcc += dt;
     if (hudAcc >= HUD_INTERVAL || (hudDirty && hudAcc >= 0.02)) {

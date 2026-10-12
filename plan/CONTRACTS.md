@@ -194,3 +194,60 @@ export function createDesktopInput({ renderer, camera, table, playback, getDrive
 export async function startApp({ data, container, onExit, onStatus }) -> { playback, world, dispose() }
 ```
 Wires world, table, track, cars, playback and desktop input. Shows "Loading data…" in an HTML overlay while `playback.waiting` (the main screen arrives in Phase 5) and a small HUD with session time, lap, speed and the selected driver. Selects the race leader by default.
+
+---
+
+# Phase 3: Panels
+
+## Base (`js/panels/panel-base.js`, already written; read it)
+
+- `class Panel({ name, width, height, maxHz })` is a canvas-texture plane at 1024 px/m. Subclasses implement:
+  - `refresh(ctx) -> boolean`: cheap, called at most `maxHz` times a second. Compare the values you show with what you last drew, and return true to request a redraw. Keep your own "last drawn" snapshot and don't allocate much here.
+  - `draw(g, w, h, ctx)`: start with `this.clear(g, w, h)`, which handles passthrough's 75% background. Register click targets with `this.addHit(id, x, y, w, h, payload)` while drawing. Use `this.hover === id` for hover styling.
+  - `onHit(hit, ctx, px)`: called when the user selects a registered rect. `px` is the canvas-pixel hit point, which sliders need.
+- Use the helpers from the base: `THEME` colours, `TYRE_COLOURS`, `font(px, weight)`, `roundRect`, `fmtLap(sec)` and `fmtGap(v)` (numbers or strings like "+1 LAP").
+- **Text:** at least 24 px tall on the canvas (spec §12), and 28–36 px for primary values. Use tabular numbers for timing columns: `g.fontVariantNumeric` isn't reliable, so right-align numeric columns, or use `ctx.font` with Titillium Web, whose digits are already close to tabular. Fonts are guaranteed ready before the first `draw`.
+- Drawing must stay cheap: no `getImageData`, and redraw only when `refresh` says so. Animations (Phase 6) will redraw at most 10 Hz.
+- `PanelManager.add(panel, position, { tiltDeg })` places a panel facing the user. The positions are in `js/panels/layout.js` (`LAYOUT`), which is already written.
+
+## PanelContext (`ctx`)
+
+`app.js` builds one shared object and mutates it every frame:
+```js
+ctx = {
+  data,            // SessionData (see the SessionData contract above + extras: getDriverLaps(n), getDriverStints(n))
+  playback,        // Playback (time, speed, playing, waiting, SPEEDS)
+  time,            // = playback.time (ms)
+  selected,        // selected driver number
+  mode,            // 'pitwall' | 'passthrough'
+  actions: {
+    selectDriver(n), togglePlay(), seekBy(sec), seekToLap(n), speedUp(), speedDown(), setSpeed(s),
+  },
+}
+```
+Panels never mutate `data` or `playback` directly. They go through `ctx.actions`.
+
+## Useful SessionData shapes (actual implementation)
+
+- `getLeaderboardAt(t)` returns rows sorted by position: `{ driverNumber, position, gapToLeader (number|string|null), interval, compound ('SOFT'|'MEDIUM'|'HARD'|'INTERMEDIATE'|'WET'|null), tyreAge, pitStops, lapNumber, bestLap (s), lastLap (s), retired }`. It allocates, so call it from `refresh` (≤10 Hz), never per frame.
+- `getDriverLaps(n)` returns laps sorted by `lap_number` with `{ lap_number, date_start (ms), date_end (ms), lap_duration (s), duration_sector_1..3, i1_speed, i2_speed, st_speed, is_pit_out_lap }`. A lap is completed at t when `date_end <= t`.
+- `getDriverStints(n)` returns `{ stint_number, compound, lap_start, lap_end, tyre_age_at_start }`.
+- `getWeatherAt(t)` returns `{ date, air_temperature, track_temperature, humidity, pressure, rainfall, wind_speed, wind_direction }` or null.
+- `getRaceControlAt(t, n)` returns the newest messages first: `{ date, category, flag, message, lap_number, driver_number, scope, sector }`.
+- `getTeamRadioUpTo(n, t)` returns records oldest first.
+- `getTelemetryAt(n, t, out)` fills `{ speed, rpm, gear, throttle, brake, drs }` and returns false while not loaded. Only the selected driver's car_data is loaded. `data.hasDrs` is true, false, or null (unknown); hide DRS unless it is true.
+- `data.session` is `{ name, type, circuit, country, year, … }`, `data.hasIntervals` is false for practice and qualifying, and `data.totalLaps` is the lap count.
+
+## Panel modules (named exports)
+
+| File | Export | Notes |
+|---|---|---|
+| `js/panels/leaderboard.js` | `class LeaderboardPanel extends Panel` (constructor `(data)`) | Uses `LAYOUT.leaderboard`. Tapping a row calls `selectDriver`. |
+| `js/panels/race-status.js` | `trackStatusAt(data, t) -> { status: 'GREEN'|'YELLOW'|'SC'|'VSC'|'RED'|'CHEQUERED', label, colour }` | Derived from race_control. Shared with the ticker. |
+| `js/panels/telemetry.js` | `class TelemetryPanel extends Panel` (`(data)`) | |
+| `js/panels/lap-trace.js` | `class LapTraceCache` with `getTrace(data, driver, lapNumber) -> { dist: Float32Array, speed: Float32Array, time: Float64Array } \| null` (sync; starts an async fetch on a miss) | Fetches `/car_data` for the lap window through `fetchJson(..., { priority: -1 })` and keeps the last 6 laps in memory. |
+| `js/panels/laps.js` | `class LapsPanel extends Panel` (`(data)`) | |
+| `js/panels/weather.js` | `class WeatherPanel extends Panel` (`(data)`) | |
+| `js/panels/ticker.js` | `class TickerPanel extends Panel` (`(data)`) | Its mesh is 2.4×0.65 m, and only the top 0.15 m strip is drawn when collapsed (transparent below). A tap toggles the expanded view of the last 5 messages. Expose `onNewMessage(cb)` for the chime (Phase 6). |
+| `js/panels/driver-picker.js` | `class DriverPicker` (`(data)`) with `addTo(manager)`, `dispose()` | 20 small tiles, each its own `Panel` (0.12 m), in the `LAYOUT.driverPicker` arc. |
+| `js/panels/playback-bar.js` | `class PlaybackBarPanel extends Panel` (`(data)`) | Play/pause, speed −/+, a lap slider (click to seek to that lap), elapsed race time and the session clock. |

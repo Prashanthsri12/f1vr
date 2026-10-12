@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Panel preview</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@400;600;700&display=swap" rel="stylesheet">
+  <script type="importmap">
+  { "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+  </script>
+  <style>
+    body { margin: 0; padding: 16px; background: #5a6070; color: #fff; font: 14px system-ui; }
+    .p { display: inline-block; margin: 0 16px 16px 0; vertical-align: top; }
+    .p canvas { display: block; outline: 1px dashed rgba(255,255,255,.4); }
+    #status { margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+  <!-- Dev tool: renders panels against real (IndexedDB-cached) data.
+       /dev/panel-preview?panels=leaderboard,telemetry&t=2024-03-02T15:20:00Z&session=9472&driver=1&passthrough=1&scale=0.5 -->
+  <div id="status">Loading…</div>
+  <div id="out"></div>
+  <script type="module" src="panel-preview.js"></script>
+</body>
+</html>
