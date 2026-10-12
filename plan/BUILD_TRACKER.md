@@ -17,7 +17,7 @@ Update the item's status as soon as it is created or finished. Add a dated entry
 | 4 | WebXR | 🟡 | 9 / 14 |
 | 5 | Main screen | ⬜ | 0 / 8 |
 | 6 | Polish and performance | ⬜ | 0 / 12 |
-| 7 | Deploy | 🟡 | 1 / 7 |
+| 7 | Deploy | 🟡 | 3 / 7 |
 
 ---
 
@@ -141,8 +141,8 @@ Update the item's status as soon as it is created or finished. Add a dated entry
 | ID | Item | Files | Status | Notes |
 |---|---|---|---|---|
 | 7.1 | GitHub Actions Pages workflow | `.github/workflows/pages.yml` | ✅ | Actions workflow publishes only index.html, css and js |
-| 7.2 | Create the GitHub repo and push | — | 🟡 | Confirm with the user before pushing |
-| 7.3 | Enable Pages and confirm the HTTPS URL works | — | 🟡 | |
+| 7.2 | Create the GitHub repo and push | — | ✅ | Repo public at github.com/Prashanthsri12/f1vr; history re-stamped with the noreply email |
+| 7.3 | Enable Pages and confirm the HTTPS URL works | — | ✅ | https://prashanthsri12.github.io/f1vr/ verified end to end (cold load 11 s) |
 | 7.4 | README: what it is, how to open it on Quest 3, controls table | `README.md` | 🟡 | README written; finalise after Phases 5–6 |
 | 7.5 | README: video source setup, running locally, data credit, known limits | `README.md` | 🟡 | README written; finalise after Phases 5–6 |
 | 7.6 | Final CLAUDE.md update | `CLAUDE.md` | ⬜ | |
@@ -183,3 +183,4 @@ _(Record anything that differs from the spec, especially from OpenF1 docs verifi
 - **2026-10-12**: 4.1–4.3 built and verified under an emulated Quest 3 (IWER 2.5.0, injected by the test driver, not shipped). Passthrough start, trigger select, B toggle and session end all work. Fixed: XR input must be created before setSession or three.js never sends 'connected'. In XR each eye is a separate pass, so about 98 draw calls; revisit in Phase 6.
 - **2026-10-12**: 4.4–4.5 done. Full Touch controller map verified in the emulated Quest 3.
 - **2026-10-12**: 4.6–4.8 done and verified in the emulated Quest 3: grip move, 2-hand scale and twist, double-grip reset, hand pinch select, pinch-hold edge grab. Fixed: 2-hand scaling no longer changes table height.
+- **2026-10-12**: Deployed early (7.1–7.3) so the app can be tested on a Quest over HTTPS. Repo made public, Pages built by Actions (checkout v7, pages v5/v6). Only index.html, css and js are published.

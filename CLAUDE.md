@@ -42,4 +42,4 @@ THREE_DIR=<three@0.160.0 package dir> node --import ./tests/support/three-regist
 
 Panel dev preview: `/dev/panel-preview?panels=leaderboard,telemetry&t=2024-03-02T15:40:00Z&driver=1&passthrough=1` draws panels against real cached data. The desktop HUD shows fps, draw calls, triangles and panel redraws per second.
 
-WebXR needs HTTPS on the Quest. On desktop, use the Immersive Web Emulator Chrome extension, or "Preview on desktop" on the start page. Deployment is to GitHub Pages through `.github/workflows/pages.yml`.
+WebXR needs HTTPS on the Quest. On desktop, use the Immersive Web Emulator Chrome extension, or "Preview on desktop" on the start page. Deployment: every push to `master` deploys to https://prashanthsri12.github.io/f1vr/ through `.github/workflows/pages.yml`. Only `index.html`, `css/` and `js/` are published. **The repo is public**, so commit with the GitHub no-reply email (already set in this repo's git config).
