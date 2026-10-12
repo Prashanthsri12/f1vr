@@ -115,6 +115,7 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
     xrInput = createXrInput({
       renderer: world.renderer,
       scene: world.scene,
+      table,
       pickPanels: (raycaster) => (pitWall ? pitWall.manager.raycast(raycaster) : null),
       onHover: (r) => { if (pitWall) pitWall.manager.setHover(r); },
       onSelect: (r) => { if (pitWall) pitWall.manager.select(r, pitWall.ctx); },
@@ -329,6 +330,12 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
       updateHud();
     }
   }));
+
+  // Dev/test hook: ?debug exposes the live objects (used by headless XR tests).
+  if (new URLSearchParams(location.search).has('debug')) {
+    window.__f1vr = { world, table, data, playback, pitWall, getMode: () => mode };
+    unsubs.push(() => { if (window.__f1vr && window.__f1vr.table === table) delete window.__f1vr; });
+  }
 
   status('Ready');
   return { playback, world, dispose };

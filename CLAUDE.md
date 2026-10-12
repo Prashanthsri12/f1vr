@@ -37,6 +37,7 @@ F1 Pit Wall VR is a WebXR app for the Meta Quest 3 browser that also runs in des
 npx serve .                  # serve locally (python isn't on PATH on this machine; `uv run python -m http.server` also works)
 node --test                  # run unit tests in tests/ (pure logic only: interp, queue, indexing)
 node --test tests/interp.test.js   # run a single test file
+THREE_DIR=<three@0.160.0 package dir> node --import ./tests/support/three-register.mjs --test   # also run tests of three-importing modules (skipped otherwise)
 ```
 
 Panel dev preview: `/dev/panel-preview?panels=leaderboard,telemetry&t=2024-03-02T15:40:00Z&driver=1&passthrough=1` draws panels against real cached data. The desktop HUD shows fps, draw calls, triangles and panel redraws per second.

@@ -4,11 +4,15 @@
 //   Left X: previous driver  Left Y: next driver (by position)
 //   Right stick ←/→: seek ∓10 s (repeats while held)   Right stick ↑/↓: speed up/down
 //   Left stick press: re-centre
+//   Grip: grab the table (one hand moves it, two hands scale + rotate); double grip resets
+// Hand tracking: hand meshes, a ray from each hand, pinch = select (Quest emits the
+// standard select events for pinches), pinch-and-hold on the table edge grabs it.
 // Rays turn red over anything selectable; small hovered panels (driver tiles)
 // scale up slightly. Raycasts run only when a controller moves (or on select).
-// Later Phase 4 items extend this module: grab, hands.
 import * as THREE from 'three';
 import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
+import { XRHandModelFactory } from 'three/addons/webxr/XRHandModelFactory.js';
+import { createTableGrab } from './table-grab.js';
 
 // Controller models come from the WebXR input-profiles assets (the same CDN three's
 // hand models use), pinned instead of three's floating "@1.0" default.
@@ -32,11 +36,15 @@ const STICK_OFF = 0.3;         // must return below this to re-arm
 const SEEK_REPEAT_DELAY = 0.5; // s before a held seek repeats
 const SEEK_REPEAT_EVERY = 0.25;
 const SELECT_PULSE = { intensity: 0.35, ms: 25 };
+const GRAB_PULSE = { intensity: 0.5, ms: 40 };
+const DOUBLE_GRIP_MS = 400;    // two grip presses within this reset the table
+const EDGE_MIN = 0.6;          // table-local radius (tabletop r = 0.8) where a pinch grabs the edge
 
 /**
  * @param {object} o
  * @param {THREE.WebGLRenderer} o.renderer
  * @param {THREE.Scene} o.scene
+ * @param {THREE.Object3D} o.table track table group (grabbed; userData.hitMesh is the tabletop)
  * @param {(raycaster: THREE.Raycaster) => ({panel, rect, point: THREE.Vector3, distance: number}|null)} o.pickPanels
  * @param {(result: object|null) => void} o.onHover   hover target changed (null = nothing)
  * @param {(result: object, hand: 'left'|'right'|'none') => void} o.onSelect trigger on a selectable target
@@ -44,12 +52,17 @@ const SELECT_PULSE = { intensity: 0.35, ms: 25 };
  *   togglePlay(), togglePassthrough(), stepDriver(dir: -1|1), seekBy(sec), speedUp(), speedDown(), recenter()
  * @returns {{update: (dt: number) => void, dispose: () => void}}
  */
-export function createXrInput({ renderer, scene, pickPanels, onHover, onSelect, actions = {} }) {
+export function createXrInput({ renderer, scene, table, pickPanels, onHover, onSelect, actions = {} }) {
   const act = (name, ...args) => { if (typeof actions[name] === 'function') actions[name](...args); };
   const raycaster = new THREE.Raycaster();
   const rayMatrix = new THREE.Matrix4();
   const modelFactory = new XRControllerModelFactory();
   modelFactory.path = PROFILES_PATH;
+  const handFactory = new XRHandModelFactory();
+  handFactory.setPath(`${PROFILES_PATH}/generic-hand/`);
+  const grab = createTableGrab(table);
+  const tableHits = [];
+  const local = new THREE.Vector3();
 
   const rayGeometry = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1)]);
   const dotGeometry = new THREE.SphereGeometry(0.006, 12, 8);
@@ -71,11 +84,17 @@ export function createXrInput({ renderer, scene, pickPanels, onHover, onSelect, 
 
     const grip = renderer.xr.getControllerGrip(i);
     grip.add(modelFactory.createControllerModel(grip));
+    const hand = renderer.xr.getHand(i);
+    hand.add(handFactory.createHandModel(hand, 'mesh'));
 
     const h = {
       index: i,
+      id: `xr${i}`,
       controller,
       grip,
+      hand,
+      lastSqueeze: -Infinity,
+      pinchGrab: false,   // this hand's current pinch is holding the table
       ray,
       dot,
       handedness: 'none',
@@ -97,11 +116,14 @@ export function createXrInput({ renderer, scene, pickPanels, onHover, onSelect, 
       h.connected = true;
       h.source = src;
       h.handedness = src.handedness || 'none';
-      h.isHand = !!src.hand;          // hand tracking: rays come in item 4.7
-      ray.visible = !h.isHand && src.targetRayMode === 'tracked-pointer';
+      h.isHand = !!src.hand;
+      grip.visible = !h.isHand;       // controller model only for controllers
+      ray.visible = src.targetRayMode === 'tracked-pointer'; // controllers and hands
       h.lastMatrix.fill(NaN);         // force a raycast on the next update
     };
     h.onDisconnected = () => {
+      grab.end(h.id);
+      h.pinchGrab = false;
       h.connected = false;
       h.source = null;
       ray.visible = false;
@@ -109,7 +131,7 @@ export function createXrInput({ renderer, scene, pickPanels, onHover, onSelect, 
       setResult(h, null);
     };
     h.onSelect = () => {
-      if (!h.connected) return;
+      if (!h.connected || h.pinchGrab) return;
       raycastFrom(h);                 // fresh hit at the moment of the press
       if (h.result && h.result.rect) {
         onSelect(h.result, h.handedness);
@@ -119,8 +141,44 @@ export function createXrInput({ renderer, scene, pickPanels, onHover, onSelect, 
     controller.addEventListener('connected', h.onConnected);
     controller.addEventListener('disconnected', h.onDisconnected);
     controller.addEventListener('select', h.onSelect);
+    // Grip: grab the table; a quick double press resets it.
+    h.onSqueezeStart = () => {
+      const now = performance.now();
+      if (now - h.lastSqueeze < DOUBLE_GRIP_MS) {
+        grab.end(h.id);
+        grab.reset();
+        h.lastSqueeze = -Infinity;
+        pulse(h, GRAB_PULSE.intensity, GRAB_PULSE.ms);
+        return;
+      }
+      h.lastSqueeze = now;
+      grab.begin(h.id, controller);
+      pulse(h, GRAB_PULSE.intensity, GRAB_PULSE.ms);
+    };
+    h.onSqueezeEnd = () => grab.end(h.id);
+    // Hands: pinch-and-hold on the table edge grabs it (unless a panel is in front).
+    h.onSelectStart = () => {
+      if (!h.connected || !h.isHand) return;
+      raycastFrom(h);
+      if (h.result && h.result.rect) return;           // panel target: normal select
+      const d = tableEdgeDistance();
+      if (d < 0 || (h.result && h.result.distance < d)) return;
+      h.pinchGrab = true;
+      grab.begin(h.id, controller);
+    };
+    h.onSelectEnd = () => {
+      if (!h.pinchGrab) return;
+      grab.end(h.id);
+      // 'select' fires after 'selectend'; skip it for this pinch.
+      setTimeout(() => { h.pinchGrab = false; }, 0);
+    };
+    controller.addEventListener('squeezestart', h.onSqueezeStart);
+    controller.addEventListener('squeezeend', h.onSqueezeEnd);
+    controller.addEventListener('selectstart', h.onSelectStart);
+    controller.addEventListener('selectend', h.onSelectEnd);
     scene.add(controller);
     scene.add(grip);
+    scene.add(hand);
     return h;
   });
 
@@ -162,6 +220,18 @@ export function createXrInput({ renderer, scene, pickPanels, onHover, onSelect, 
     raycaster.ray.origin.setFromMatrixPosition(h.controller.matrixWorld);
     raycaster.ray.direction.set(0, 0, -1).applyMatrix4(rayMatrix);
     setResult(h, pickPanels(raycaster));
+  }
+
+  /** Distance along the current ray to the tabletop's outer band, or -1. Uses the last raycaster pose. */
+  function tableEdgeDistance() {
+    const top = table.userData && table.userData.hitMesh;
+    if (!top || !table.visible) return -1;
+    tableHits.length = 0;
+    raycaster.intersectObject(top, false, tableHits);
+    if (!tableHits.length) return -1;
+    local.copy(tableHits[0].point);
+    table.worldToLocal(local);
+    return Math.hypot(local.x, local.z) >= EDGE_MIN ? tableHits[0].distance : -1;
   }
 
   function moved(h) {
@@ -244,6 +314,7 @@ export function createXrInput({ renderer, scene, pickPanels, onHover, onSelect, 
       if (h.ray.visible && moved(h)) raycastFrom(h);
       handleButtons(h, dt);
     }
+    grab.update();
   }
 
   function dispose() {
@@ -251,11 +322,16 @@ export function createXrInput({ renderer, scene, pickPanels, onHover, onSelect, 
       h.controller.removeEventListener('connected', h.onConnected);
       h.controller.removeEventListener('disconnected', h.onDisconnected);
       h.controller.removeEventListener('select', h.onSelect);
+      h.controller.removeEventListener('squeezestart', h.onSqueezeStart);
+      h.controller.removeEventListener('squeezeend', h.onSqueezeEnd);
+      h.controller.removeEventListener('selectstart', h.onSelectStart);
+      h.controller.removeEventListener('selectend', h.onSelectEnd);
       h.controller.remove(h.ray);
       h.ray.material.dispose();
       h.dot.material.dispose();
-      scene.remove(h.dot, h.controller, h.grip);
+      scene.remove(h.dot, h.controller, h.grip, h.hand);
       h.grip.clear();
+      h.hand.clear();
     }
     if (scaledMesh) scaledMesh.scale.setScalar(1);
     rayGeometry.dispose();

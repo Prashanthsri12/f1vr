@@ -14,7 +14,7 @@ Update the item's status as soon as it is created or finished. Add a dated entry
 | 1 | Data layer and start page | ✅ | 14 / 14 |
 | 2 | Scene, track and cars (desktop preview) | ✅ | 13 / 13 |
 | 3 | Panels | ✅ | 14 / 14 |
-| 4 | WebXR | 🟡 | 6 / 14 |
+| 4 | WebXR | 🟡 | 9 / 14 |
 | 5 | Main screen | ⬜ | 0 / 8 |
 | 6 | Polish and performance | ⬜ | 0 / 12 |
 | 7 | Deploy | ⬜ | 0 / 7 |
@@ -96,9 +96,9 @@ Update the item's status as soon as it is created or finished. Add a dated entry
 | 4.3 | Controllers with laser rays, hit dot, red hover, hover scale | `js/input/xr-input.js` | ✅ | Pinned input-profiles@1.0.20 controller models; raycast only on move |
 | 4.4 | Trigger to select, plus a haptic pulse | `js/input/xr-input.js` | ✅ | Trigger selects; 25 ms haptic pulse (verified in emulator) |
 | 4.5 | Button mapping: A, B, X, Y, thumbsticks, left stick press | `js/input/xr-input.js` | ✅ | A, B, X, Y and right stick verified; seek repeats while held; left stick press calls recenter (action is 4.10) |
-| 4.6 | Grab the table with one grip, scale (0.5x–3x) and rotate with two, double-press to reset | `js/input/xr-input.js`, `js/scene/track.js` | ⬜ | |
-| 4.7 | Hand tracking: hand models, pinch as select (confirm Quest sends `select`) | `js/input/xr-input.js` | ⬜ | |
-| 4.8 | Pinch and hold on the table edge to grab it | `js/input/xr-input.js` | ⬜ | |
+| 4.6 | Grab the table with one grip, scale (0.5x–3x) and rotate with two, double-press to reset | `js/input/xr-input.js`, `js/scene/track.js` | ✅ | table-grab.js; 2-hand scale and rotate about the hands' midpoint, height kept; verified in emulator plus 5 unit tests |
+| 4.7 | Hand tracking: hand models, pinch as select (confirm Quest sends `select`) | `js/input/xr-input.js` | ✅ | Hand meshes (pinned assets) and hand rays; pinch fires select (confirmed in emulator, recheck on device) |
+| 4.8 | Pinch and hold on the table edge to grab it | `js/input/xr-input.js` | ✅ | Pinch-hold on the outer band (r ≥ 0.6) of the tabletop; panels in front take priority |
 | 4.9 | Wrist menu: shown when the palm is up or faces the user, with all §7 items | `js/panels/wrist-menu.js` | ⬜ | |
 | 4.10 | Re-centre panels to the user's position and facing | `js/scene/world.js` | ⬜ | |
 | 4.11 | Unlock AudioContext on the Enter click | `js/audio.js`, `js/main.js` | ⬜ | |
@@ -182,3 +182,4 @@ _(Record anything that differs from the spec, especially from OpenF1 docs verifi
 - **2026-10-12**: Phase 3 done (panel base by the orchestrator plus 4 parallel panel agents). Desktop click selection verified with real mouse events. Telemetry matches raw car_data exactly. 46 draw calls, about 12 panel redraws per second.
 - **2026-10-12**: 4.1–4.3 built and verified under an emulated Quest 3 (IWER 2.5.0, injected by the test driver, not shipped). Passthrough start, trigger select, B toggle and session end all work. Fixed: XR input must be created before setSession or three.js never sends 'connected'. In XR each eye is a separate pass, so about 98 draw calls; revisit in Phase 6.
 - **2026-10-12**: 4.4–4.5 done. Full Touch controller map verified in the emulated Quest 3.
+- **2026-10-12**: 4.6–4.8 done and verified in the emulated Quest 3: grip move, 2-hand scale and twist, double-grip reset, hand pinch select, pinch-hold edge grab. Fixed: 2-hand scaling no longer changes table height.
