@@ -33,6 +33,7 @@ These are the shared interfaces between modules. Every module must implement its
   | `location`, 60 s, all drivers | 560 KB | about 4400 | about 1–3 s per request |
   | `car_data`, 60 s, one driver | 39 KB | about 230 | |
 
+- **`location` timestamps jitter by ±100–200 ms** even though the positions are accurate. Interpolating them raw makes cars surge and drag on straights (implied speed 143↔352 km/h at a steady 250). `js/retime.js` re-times each car's samples with a local fit of time against distance (±3 samples, shift capped at 400 ms, endpoints fixed). `parseSeries` applies it to every location series.
 - `intervals.gap_to_leader` / `interval` can be a number, `null`, or a **string** such as `"+1 LAP"` or `"+2 LAPS"`.
 - `pit`: use `lane_duration` and `stop_duration`. `pit_duration` is deprecated (removed after 2026).
 - `race_control.flag` values include `GREEN`, `YELLOW`, `DOUBLE YELLOW`, `RED`, `BLUE`, `CLEAR`, `CHEQUERED`, `BLACK AND WHITE`. Categories are `Flag`, `SafetyCar`, `Drs`, `CarEvent`, `SessionStatus` and `Other`. Extra fields: `scope`, `sector`, `qualifying_phase`.

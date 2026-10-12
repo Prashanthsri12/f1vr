@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs';
 import { SessionData, SESSION_TYPES_WITH_INTERVALS } from '../js/session-data.js';
 import { normaliseSession, gapValue } from '../js/session-index.js';
 import { CHUNK_MS } from '../js/chunk-loader.js';
+import { retimeSeries } from '../js/retime.js';
 
 const FIX = new URL('./fixtures/', import.meta.url);
 const fx = (name) => JSON.parse(readFileSync(new URL(name + '.json', FIX), 'utf8'));
@@ -174,11 +175,13 @@ test('real location + car_data chunk: interpolation and visibility', async () =>
   const loc = fetchJson.calls.find((c) => c.endpoint === 'location');
   assert.deepEqual(loc.params, { session_key: 9472, 'date>=': '2024-03-02T15:12:47.000Z', 'date<': '2024-03-02T15:13:47.000Z' });
 
-  // independent check against the raw samples of driver 11
-  const raw = fx('location').filter((r) => r.driver_number === 11);
-  const i = raw.findIndex((r) => ms(r.date) > T_LOC);
+  // independent check against the raw samples of driver 11 (re-timed like the loader does)
+  const raw = fx('location').filter((r) => r.driver_number === 11).sort((p, q) => ms(p.date) - ms(q.date));
+  const rt = Float64Array.from(raw, (r) => ms(r.date));
+  retimeSeries(rt, Float32Array.from(raw, (r) => r.x), Float32Array.from(raw, (r) => r.y), Float32Array.from(raw, (r) => r.z));
+  const i = rt.findIndex((t) => t > T_LOC);
   const a = raw[i - 1]; const b = raw[i];
-  const f = (T_LOC - ms(a.date)) / (ms(b.date) - ms(a.date));
+  const f = (T_LOC - rt[i - 1]) / (rt[i] - rt[i - 1]);
   const out = { x: 0, y: 0, z: 0 };
   assert.equal(d.getCarPositionAt(11, T_LOC, out), true);
   assert.ok(Math.abs(out.x - (a.x + (b.x - a.x) * f)) < 1e-3);

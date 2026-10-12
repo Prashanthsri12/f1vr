@@ -3,6 +3,7 @@
 // car_data for one driver. Chunk k covers [origin + k*CHUNK_MS, +CHUNK_MS).
 // Pure module: no three.js, runs under Node.
 
+import { retimeSeries } from './retime.js';
 import { bracket } from './interp.js';
 
 export const CHUNK_MS = 60000;
@@ -52,6 +53,7 @@ export function parseSeries(raw, fields) {
         s[name][i] = Number.isFinite(v) ? v : 0;
       }
     }
+    if (s.x && s.y && s.z) retimeSeries(s.times, s.x, s.y, s.z); // location: de-jitter timestamps
     out.set(n, s);
   }
   return out;

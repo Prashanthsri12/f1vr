@@ -163,6 +163,7 @@ _(Record anything that differs from the spec, especially from OpenF1 docs verifi
 - `drs` codes 2, 3 and 9 are undocumented ("?"). They are treated as off.
 - Team radio coverage drops sharply from 2026 (per the docs).
 - Extra endpoints exist that the spec doesn't use: `overtakes`, `session_result`, `starting_grid`, and championship standings (beta). These could help Phase 6 (overtake whoosh, retired/OUT).
+- `location` timestamps jitter by ±100–200 ms (positions are fine). They are smoothed in `js/retime.js`.
 - Location data begins about an hour before the session `date_start`. The race starts at the min lap-1 `date_start` (15:03:42Z for 2024 Bahrain).
 
 **Structure addition:** `js/app.js` is a scene bootstrap, so `main.js` stays focused on the start page. Reference-lap selection (2.3) lives in `session-data.js`. Module interfaces are in `plan/CONTRACTS.md`. `plan/tracker.mjs` updates this file.
@@ -171,3 +172,4 @@ _(Record anything that differs from the spec, especially from OpenF1 docs verifi
 
 - **2026-10-12**: Tracker created. Decisions: remove the Python scaffold; tracker kept in the repo; deploy with GitHub Actions; unit tests with `node --test` (no npm dependencies).
 - **2026-10-12**: Phases 1 and 2 done (5 parallel agents plus integration). `hasDrs` is now set up front from race_control `Drs` messages. Pit rule: `pit.lap_number` is the in-lap, so reference-lap selection excludes both lap N and N+1. Verified in headless Chrome against the 2024 Bahrain GP.
+- **2026-10-12**: Fixed cars surging and dragging at 1x, reported by the user on straights. The cause was OpenF1 location timestamp jitter. Added `js/retime.js`, which cut the average speed jump between samples from 62 to 14 km/h across all cars.
