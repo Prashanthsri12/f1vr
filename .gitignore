@@ -1,10 +1,12 @@
-# Python-generated files
-__pycache__/
-*.py[oc]
-build/
-dist/
-wheels/
-*.egg-info
+# Dependencies (none at runtime; npx tools only)
+node_modules/
 
-# Virtual environments
-.venv
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Local test media
+*.mp4
+*.webm

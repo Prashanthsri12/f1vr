@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>F1 Pit Wall VR</title>
+  <meta name="description" content="Replay historical Formula 1 sessions in a WebXR pit wall. Data from OpenF1.">
+  <meta name="theme-color" content="#101014">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@400;600;700&display=swap">
+  <link rel="stylesheet" href="css/start.css">
+  <script type="importmap">
+  { "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+  </script>
+</head>
+<body>
+  <main id="start-page" class="start">
+    <header class="start__header">
+      <h1 class="start__title"><span class="accent-bar" aria-hidden="true"></span>F1 Pit Wall VR</h1>
+      <p class="start__subtitle">Replay a historical session around a 3D track table.</p>
+    </header>
+
+    <section class="card" aria-labelledby="pick-heading">
+      <h2 id="pick-heading" class="card__heading">Choose a session</h2>
+
+      <div class="field">
+        <label for="season-select">Season</label>
+        <select id="season-select"></select>
+      </div>
+
+      <div class="field">
+        <span class="field__label" id="weekend-label">Race weekend</span>
+        <div id="weekend-list" class="choice-list" role="listbox" aria-labelledby="weekend-label"></div>
+      </div>
+
+      <div class="field">
+        <span class="field__label" id="session-label">Session</span>
+        <div id="session-list" class="choice-list choice-list--compact" role="listbox" aria-labelledby="session-label"></div>
+      </div>
+
+      <div id="pick-error" class="error" role="alert" hidden>
+        <span class="error__text"></span>
+        <button type="button" class="btn btn--small error__retry">Retry</button>
+      </div>
+    </section>
+
+    <section class="card actions" aria-label="Start">
+      <div class="actions__buttons">
+        <button type="button" id="btn-enter-vr" class="btn btn--primary" disabled>Enter VR</button>
+        <button type="button" id="btn-enter-pt" class="btn" disabled>Enter Passthrough</button>
+        <button type="button" id="btn-preview" class="btn btn--accent-outline" disabled>Preview on desktop</button>
+      </div>
+      <p id="xr-status" class="hint"></p>
+      <p id="load-status" class="status" aria-live="polite"></p>
+      <div id="load-error" class="error" role="alert" hidden>
+        <span class="error__text"></span>
+        <button type="button" class="btn btn--small error__retry">Retry</button>
+      </div>
+    </section>
+
+    <details class="card collapsible">
+      <summary>Video screen</summary>
+      <p class="hint">Coming in a later phase. You will be able to set a video URL, HLS stream or local file for the main screen here.</p>
+    </details>
+
+    <details class="card collapsible" id="debug-panel">
+      <summary>Debug</summary>
+      <div id="debug-root"></div>
+    </details>
+
+    <section class="card card--quiet">
+      <button type="button" id="btn-clear-cache" class="btn btn--small">Clear cache</button>
+      <span id="cache-status" class="hint" aria-live="polite"></span>
+    </section>
+
+    <footer class="start__footer">Data from OpenF1 (unofficial, not affiliated with Formula 1).</footer>
+  </main>
+
+  <div id="app-container" class="app-container" hidden></div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

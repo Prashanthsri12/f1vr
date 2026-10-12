@@ -1,0 +1,195 @@
+# Module contracts (Phases 1–2)
+
+These are the shared interfaces between modules. Every module must implement its contract exactly so that modules written in parallel fit together. If a contract has to change, change it here first.
+
+## Global conventions
+
+- **Time:** every timestamp inside the app is a **number of ms since the epoch (UTC)**, from `Date.parse(apiDateString)`. ISO strings exist only at the API boundary.
+- **Positions:** OpenF1 `x`, `y`, `z` are raw circuit units (roughly decimetres; Bahrain spans about ±10000). `x`/`y` are the horizontal plane and `z` is elevation. Only `track.js` converts raw coordinates to scene metres.
+- **three.js:** import map in `index.html`:
+  ```json
+  { "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+  ```
+  Import with `import * as THREE from 'three'` and `import { OrbitControls } from 'three/addons/controls/OrbitControls.js'`.
+- **Pure modules** (`api.js`, `cache.js`, `interp.js`, `session-data.js`, `playback.js`) must **not import three** and must run under Node 24 (`node --test`). Browser globals (`indexedDB`, `window`) must be feature-detected.
+- **Render loop:** no allocation per frame. Reuse objects and vectors, and pass an `out` parameter where a contract has one.
+- **Module style:** ES modules, named exports, JSDoc on public functions, files under about 400 lines.
+
+## Verified OpenF1 facts (checked 2026-10-12 against the docs and live responses)
+
+- Rate limit for the free tier: **3 req/s and 30 req/min**. The per-minute limit is the one that binds.
+- Date filter encoding: `date%3E%3D2024-03-02T15:10:00` for `>=` and `date%3C...` for `<`. A fully encoded value (`%3A` colons, or the `toISOString()` form) is also accepted.
+- An empty result is **HTTP 404** with body `{"detail":"No results found."}`. `fetchJson` maps it to `[]`.
+- Session 9472 = 2024 Bahrain GP Race (meeting 1229). 20 drivers, 57 laps, race start (min lap-1 `date_start`) is `2024-03-02T15:03:42.341Z`. Session `date_start` is 15:00Z, but data begins around 14:03Z.
+- Response sizes and record counts for 9472:
+
+  | Endpoint | Size | Records | Notes |
+  |---|---|---|---|
+  | `intervals` | 4.2 MB | 30k | |
+  | `laps` | 560 KB | | |
+  | `position` | 80 KB | | |
+  | `location`, 60 s, all drivers | 560 KB | about 4400 | about 1–3 s per request |
+  | `car_data`, 60 s, one driver | 39 KB | about 230 | |
+
+- `intervals.gap_to_leader` / `interval` can be a number, `null`, or a **string** such as `"+1 LAP"` or `"+2 LAPS"`.
+- `pit`: use `lane_duration` and `stop_duration`. `pit_duration` is deprecated (removed after 2026).
+- `race_control.flag` values include `GREEN`, `YELLOW`, `DOUBLE YELLOW`, `RED`, `BLUE`, `CLEAR`, `CHEQUERED`, `BLACK AND WHITE`. Categories are `Flag`, `SafetyCar`, `Drs`, `CarEvent`, `SessionStatus` and `Other`. Extra fields: `scope`, `sector`, `qualifying_phase`.
+- `drs` codes: 0/1 off, 8 eligible, 10/12/14 open, 2/3/9 unknown (treat as off).
+- `team_colour` has no `#`. Meetings carry `country_flag` (an image URL), `is_cancelled` and `year`.
+- Laps carry `segments_sector_*` arrays (unused for now).
+- Team radio coverage drops sharply from 2026.
+
+---
+
+## `js/cache.js`
+
+```js
+export async function cacheGet(key, store = 'responses')   // -> value | undefined
+export async function cachePut(key, value, store = 'responses') // -> void
+export async function cacheClear()                          // clears all stores
+```
+- The IndexedDB database is `f1vr`, version 1, with object stores `responses` (API JSON keyed by full URL) and `tracks` (built track data keyed by circuit).
+- When IndexedDB is unavailable (Node, private mode, an error), fall back silently to an in-memory `Map` per store. It never throws.
+
+## `js/api.js`
+
+```js
+export const BASE_URL = 'https://api.openf1.org/v1';
+export function buildUrl(endpoint, params)      // params: { session_key: 9472, 'date>=': iso, 'date<': iso }
+export class RequestQueue {
+  constructor({ perSecond = 3, perMinute = 30, fetchFn = fetch, now = Date.now, sleep, maxRetries = 5 })
+  enqueue(url, { priority = 0 } = {})          // -> Promise<any>; higher priority runs first; FIFO within a priority
+  get pending()                                  // number queued + in flight
+}
+export class ApiError extends Error { status; url }
+export async function fetchJson(endpoint, params = {}, { priority = 0, cache = true } = {}) // -> parsed JSON (array)
+export function getQueue()                       // the shared default RequestQueue
+```
+- `buildUrl`: a key ending in `>=`, `<=`, `>` or `<` is emitted as `field%3E%3Dvalue` and so on. Other keys are emitted as `key=encodeURIComponent(value)`. Keep a stable key order (as inserted).
+- The queue runs **one request at a time** and enforces both windows with a sliding window of start timestamps.
+- On HTTP 429 or 5xx it retries with exponential backoff (1 s, 2 s, 4 s … plus jitter, and `Retry-After` if present). Other non-2xx responses, or exhausted retries, throw `ApiError`.
+- `fetchJson` checks `cacheGet(url)` first. On a miss it enqueues the request, then `cachePut`s it. A 404 or "no results" response (the API may return a `{detail: ...}` object) resolves to `[]`, and `[]` is cached too.
+- Errors surface as rejected promises. Never swallow them silently.
+
+## `js/interp.js`
+
+```js
+export function lowerBound(times, t)            // first i with times[i] >= t (times.length if none)
+export function indexAtOrBefore(times, t)       // last i with times[i] <= t, or -1
+export function bracket(times, t, out)          // fills out {i0, i1, f}; returns true if t is inside [times[0], times[last]]
+export function lerp(a, b, f)
+export function lerpAngle(a, b, f)              // shortest path, radians
+```
+- `times` can be an `Array` or `Float64Array`, sorted ascending. Every function is O(log n) and allocation-free.
+
+## `js/session-data.js`
+
+```js
+export const SESSION_TYPES_WITH_INTERVALS = ['Race', 'Sprint'];   // match on session_name / session_type
+export class SessionData {
+  static async load(sessionKey, { onProgress } = {})  // onProgress({ step: 'drivers'|'laps'|..., done, total })
+  // --- static facts ---
+  session          // { key, meetingKey, name, type, circuit, country, year, start, end }   (ms)
+  drivers          // [{ number, acronym, fullName, teamName, teamColour: '#rrggbb', headshotUrl }]
+  driverByNumber   // Map<number, driver>
+  totalLaps        // max lap_number across laps
+  raceStartTime    // ms: min lap-1 date_start (or session.start if none)
+  dataStartTime    // ms: earliest location/position sample known (use first position date)
+  dataEndTime      // ms: session end or last lap end, whichever is later
+  hasIntervals     // boolean
+  hasDrs           // boolean | null (null until car_data seen; false if all samples are 0/1/missing)
+  // --- chunk loading ---
+  setPlayhead(t, speed)          // schedules the location chunks + selected-driver car_data chunks; evicts old ones
+  setSelectedDriver(number)      // loads that driver's car_data chunk for the current playhead at high priority
+  isReady(t)                     // true if the location chunk covering t is loaded
+  onStatus(cb)                   // cb({ loading: boolean, pending: number, error?: Error }); returns an unsubscribe fn
+  // --- queries (allocation-free when out is given) ---
+  getCarPositionAt(driverNumber, t, out)  // fills out {x,y,z}; returns true if the car is visible at t
+  getCarsAt(t, outArray)                  // outArray[i] = {number, x, y, z, visible} for drivers[i]; reuses entries
+  getTelemetryAt(driverNumber, t, out)    // fills {speed,rpm,gear,throttle,brake,drs}; returns false if not loaded
+  getPositionAt(driverNumber, t)          // race position number or null
+  getLeaderboardAt(t)                     // [{driverNumber, position, gapToLeader, interval, compound, tyreAge, pitStops, lapNumber, bestLap, lastLap, retired}] sorted by position
+  getLeaderLapAt(t)                       // current lap number of the leader (1..totalLaps), 0 before the start
+  getLapStartTime(lapNumber)              // ms: earliest date_start for that lap among all drivers
+  getWeatherAt(t)                         // latest weather record at or before t (normalised, date in ms) or null
+  getRaceControlAt(t, n = 5)              // last n messages at or before t, newest first
+  getTeamRadioUpTo(driverNumber, t)       // radio records for driver at or before t
+  async getReferenceLap()                 // -> { driverNumber, lapNumber, start, end, points: [{x,y,z}] } (raw coords, zero points removed)
+  dispose()
+}
+```
+- **Load all at once:** `drivers`, `laps`, `stints`, `pit`, `race_control`, `weather`, `team_radio`, `position`, plus `intervals` only for race/sprint sessions. Session metadata comes from `/sessions?session_key=X`.
+- **Location chunks:** chunk `k` covers `[dataStartTime + k*60s, +60s)`. Each chunk is one request for all drivers. Keep the current chunk plus the next 2 (next 6 when `speed >= 5`), and evict chunks that end more than 2 minutes behind the playhead.
+- **car_data chunks:** same chunk grid, selected driver only, same buffer rule.
+- **Storage:** per chunk, per driver: `times` Float64Array plus `x`/`y`/`z` Float32Array (car_data: `speed`, `rpm`, `gear`, `throttle`, `brake`, `drs`). Interpolation across a chunk boundary must work: if `t` is before the first sample of its chunk, use the last sample of the previous chunk.
+- **Visibility:** a car is hidden when the bracketing samples include (0,0,0), when the gap between them is over 5 s, or when there are no samples.
+- **`getTelemetryAt`:** speed, rpm and throttle are interpolated; gear, brake and drs use the nearest earlier sample.
+- **Reference lap:** the driver with the most laps, then that driver's fastest valid lap that is not a pit-out lap and is not followed by a pit entry (lap_number+1 not in pit list for that driver). Prefer laps with no race-control flag other than GREEN/CLEAR/BLUE in their window. Fetch `/location` for that driver only (`driver_number=N`, `date>=start`, `date<start+lap_duration+0.5s`).
+- No three.js imports. A live source can replace the internals later without changing these signatures.
+
+## `js/playback.js`
+
+```js
+export const SPEEDS = [0.5, 1, 2, 5, 10];
+export class Playback {
+  constructor(data)               // data: SessionData; initial time = raceStartTime - 120000 (clamped to dataStartTime), speed 1, paused
+  time; speed; playing; waiting   // waiting = playing but blocked on data
+  update(dtSeconds)               // advances time by dt*speed*1000 when playing && data.isReady(next); always calls data.setPlayhead(time, speed)
+  play(); pause(); toggle();
+  seek(t); seekBy(seconds); seekToLap(n);   // clamp to [dataStartTime, dataEndTime]
+  speedUp(); speedDown();          // step through SPEEDS
+  onChange(cb)                     // fired on play/pause/seek/speed/waiting change (not every frame); returns an unsubscribe fn
+}
+```
+
+## Scene modules (browser only, import three)
+
+### `js/scene/world.js`
+```js
+export function createWorld(container) -> {
+  renderer, scene, camera,         // camera: Perspective, at (0, 1.6, 0) looking toward -Z (desktop)
+  roomGroup,                       // pit wall room geometry (hidden in passthrough)
+  setMode(mode),                   // 'pitwall' | 'passthrough'  (desktop passthrough: neutral grey background, room hidden)
+  onFrame(cb),                     // cb(dtSeconds, timeMs) each frame; returns an unsubscribe fn
+  dispose()
+}
+```
+- `renderer.xr.enabled = true` (XR comes in Phase 4) and `renderer.setAnimationLoop`. The renderer handles resize.
+- Room: dark floor with a subtle grid, low walls, a few emissive light strips, blue-grey lighting, faint fog. Keep it cheap: no textures over 1024 px.
+
+### `js/scene/track.js`
+```js
+export function createTable(parent) -> THREE.Group   // positioned at (0, 0.9, -1.0); includes a dark disc/tabletop (~1.6 m dia)
+export async function loadTrack(data, table) -> TrackTransform
+// TrackTransform: { scale, center:{x,y,z}, toScene(x, y, z, outVector3) }  // raw API coords -> table-local metres
+```
+- Builds the outline from `data.getReferenceLap()`: a closed `CatmullRomCurve3`, a flat ribbon about 1.5% of the longest dimension wide, and a start/finish line where the reference lap starts.
+- Normalise so the longest horizontal dimension is 1.4 m, centred at the table origin. Mapping: API `x` → scene `x`, API `y` → scene `-z` (keeps the map un-mirrored when viewed from above), API `z` → scene `y` (×2 exaggeration, offset so the lowest point sits just above the table top).
+- Caches the computed outline points and transform in `cache.js` store `tracks`, keyed by `circuit + year`.
+
+### `js/scene/cars.js`
+```js
+export class Cars {
+  constructor(drivers, transform, table)   // InstancedMesh of 20 low-poly wedges (~2.5 cm), per-instance team colour; label atlas
+  update(data, t, camera)                  // positions, heading from positions at t-250ms and t+250ms, labels "VER 1" facing camera, hide invisible
+  setSelected(driverNumber)                // bigger + emissive pulse + 5 s fading trail in team colour
+  dispose()
+}
+```
+- Labels: one canvas atlas texture plus one InstancedMesh (or Points) of billboard quads, so labels cost 1–2 draw calls in total. Redraw the atlas only when positions change.
+
+### `js/input/desktop-input.js`
+```js
+export function createDesktopInput({ renderer, camera, table, playback, getDriverOrder, onSelectDriver, onTogglePassthrough }) -> { update(dt), dispose() }
+```
+- OrbitControls on **right-drag only** (left-drag is table rotation), with the target at the table.
+- Left-drag on the table rotates it around Y. Wheel over the table scales it 0.5×–3×.
+- Keys: Space play/pause, ←/→ seek ∓10 s, ↑/↓ speed, `[`/`]` previous/next driver by position, `P` toggle passthrough look.
+
+### `js/app.js` (scene bootstrap, called by `main.js`)
+```js
+export async function startApp({ data, container, onExit, onStatus }) -> { playback, world, dispose() }
+```
+Wires world, table, track, cars, playback and desktop input. Shows "Loading data…" in an HTML overlay while `playback.waiting` (the main screen arrives in Phase 5) and a small HUD with session time, lap, speed and the selected driver. Selects the race leader by default.
