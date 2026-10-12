@@ -17,7 +17,7 @@ Update the item's status as soon as it is created or finished. Add a dated entry
 | 4 | WebXR | 🟡 | 9 / 14 |
 | 5 | Main screen | ⬜ | 0 / 8 |
 | 6 | Polish and performance | ⬜ | 0 / 12 |
-| 7 | Deploy | ⬜ | 0 / 7 |
+| 7 | Deploy | 🟡 | 1 / 7 |
 
 ---
 
@@ -140,11 +140,11 @@ Update the item's status as soon as it is created or finished. Add a dated entry
 
 | ID | Item | Files | Status | Notes |
 |---|---|---|---|---|
-| 7.1 | GitHub Actions Pages workflow | `.github/workflows/pages.yml` | ⬜ | |
-| 7.2 | Create the GitHub repo and push | — | ⬜ | Confirm with the user before pushing |
-| 7.3 | Enable Pages and confirm the HTTPS URL works | — | ⬜ | |
-| 7.4 | README: what it is, how to open it on Quest 3, controls table | `README.md` | ⬜ | |
-| 7.5 | README: video source setup, running locally, data credit, known limits | `README.md` | ⬜ | |
+| 7.1 | GitHub Actions Pages workflow | `.github/workflows/pages.yml` | ✅ | Actions workflow publishes only index.html, css and js |
+| 7.2 | Create the GitHub repo and push | — | 🟡 | Confirm with the user before pushing |
+| 7.3 | Enable Pages and confirm the HTTPS URL works | — | 🟡 | |
+| 7.4 | README: what it is, how to open it on Quest 3, controls table | `README.md` | 🟡 | README written; finalise after Phases 5–6 |
+| 7.5 | README: video source setup, running locally, data credit, known limits | `README.md` | 🟡 | README written; finalise after Phases 5–6 |
 | 7.6 | Final CLAUDE.md update | `CLAUDE.md` | ⬜ | |
 | 7.7 | Final end-to-end test on Quest 3 | — | ⬜ | User test |
 
