@@ -5,6 +5,8 @@ import { Cars } from './scene/cars.js';
 import { Playback } from './playback.js';
 import { createDesktopInput } from './input/desktop-input.js';
 import { createPitWall } from './panels/pit-wall.js';
+import { createXrInput } from './input/xr-input.js';
+import { showXrLoading } from './scene/xr-loading.js';
 import { panelStats } from './panels/panel-base.js';
 
 const HUD_INTERVAL = 0.1; // seconds (10 Hz)
@@ -49,15 +51,24 @@ function el(tag, cls, parent, text) {
 /**
  * Start the 3D app inside `container`.
  * @param {object} opts
- * @param {import('./session-data.js').SessionData} opts.data loaded session
+ * @param {import('./session-data.js').SessionData} [opts.data] loaded session (desktop preview)
+ * @param {(onStep: (s: string) => void) => Promise<import('./session-data.js').SessionData>} [opts.loadData]
+ *   loads the session after an XR session has started (used instead of data)
+ * @param {XRSession} [opts.xrSession] immersive session requested by the start page (in the click gesture)
+ * @param {'immersive-ar'|'immersive-vr'} [opts.xrMode] the session's mode; passthrough needs immersive-ar
+ * @param {'pitwall'|'passthrough'} [opts.startMode]
  * @param {HTMLElement} opts.container
  * @param {() => void} [opts.onExit] called after dispose when the user presses Exit
  * @param {(s: string|object) => void} [opts.onStatus] setup step strings ('Building track…'),
  *   then forwarded data.onStatus objects ({loading, pending, error?})
  * @returns {Promise<{playback: Playback, world: object, dispose: () => void}>}
  */
-export async function startApp({ data, container, onExit, onStatus }) {
-  const status = (m) => { if (onStatus) { try { onStatus(m); } catch (_) { /* ignore */ } } };
+export async function startApp({ data, loadData, xrSession, xrMode, startMode = 'pitwall', container, onExit, onStatus }) {
+  let xrLoading = null;
+  const status = (m) => {
+    if (xrLoading && typeof m === 'string') xrLoading.setText(m);
+    if (onStatus) { try { onStatus(m); } catch (_) { /* ignore */ } }
+  };
   if (getComputedStyle(container).position === 'static') container.style.position = 'relative';
 
   const world = createWorld(container);
@@ -67,6 +78,7 @@ export async function startApp({ data, container, onExit, onStatus }) {
   let cars = null;
   let input = null;
   let pitWall = null;
+  let xrInput = null;
   const unsubs = [];
   let overlay = null;
   let disposed = false;
@@ -75,6 +87,12 @@ export async function startApp({ data, container, onExit, onStatus }) {
     if (disposed) return;
     disposed = true;
     for (const u of unsubs) { try { u(); } catch (_) { /* ignore */ } }
+    if (xrSession) {
+      xrSession.removeEventListener('end', onSessionEnd);
+      xrSession.end().catch(() => { /* already ended */ });
+    }
+    if (xrLoading) xrLoading.dispose();
+    if (xrInput) xrInput.dispose();
     if (input) input.dispose();
     if (pitWall) pitWall.dispose();
     if (cars) cars.dispose();
@@ -82,9 +100,38 @@ export async function startApp({ data, container, onExit, onStatus }) {
     if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
   }
 
+  // Headset closed the session (Quest menu / Exit): back to the start page.
+  function onSessionEnd() {
+    dispose();
+    if (onExit) onExit();
+  }
+
   let playback;
   let hudDirty = true;
+  let togglePassthrough = () => {};
   try {
+    // XR controllers must exist before the session starts: three.js only sends
+    // 'connected' to controllers created by then. Targets appear once panels exist.
+    xrInput = createXrInput({
+      renderer: world.renderer,
+      scene: world.scene,
+      pickPanels: (raycaster) => (pitWall ? pitWall.manager.raycast(raycaster) : null),
+      onHover: (r) => { if (pitWall) pitWall.manager.setHover(r); },
+      onSelect: (r) => { if (pitWall) pitWall.manager.select(r, pitWall.ctx); },
+      onTogglePassthrough: () => togglePassthrough(),
+    });
+    if (xrSession) {
+      world.renderer.xr.setReferenceSpaceType('local-floor');
+      await world.renderer.xr.setSession(xrSession);
+      xrSession.addEventListener('end', onSessionEnd);
+      xrLoading = showXrLoading(world.scene);
+      const offLoading = world.onFrame((dt) => { if (xrLoading) xrLoading.update(dt); });
+      unsubs.push(offLoading);
+    }
+    if (!data) {
+      if (!loadData) throw new Error('startApp needs data or loadData');
+      data = await loadData((step) => status(step));
+    }
     status('Building track…');
     const transform = await loadTrack(data, table);
     status('Placing cars…');
@@ -128,14 +175,22 @@ export async function startApp({ data, container, onExit, onStatus }) {
   const lb0 = data.getLeaderboardAt(playback.time);
   selectDriver((lb0 && lb0[0] && lb0[0].driverNumber) ?? (data.drivers[0] && data.drivers[0].number));
 
-  // --- passthrough look ---
-  let mode = 'pitwall';
-  function togglePassthrough() {
-    mode = mode === 'pitwall' ? 'passthrough' : 'pitwall';
+  // --- pit wall / passthrough (one session, no restart; needs immersive-ar in XR) ---
+  const canPassthrough = !xrSession || xrMode === 'immersive-ar';
+  let mode = canPassthrough && startMode === 'passthrough' ? 'passthrough' : 'pitwall';
+  function applyMode() {
     world.setMode(mode);
     pitWall.setMode(mode);
     hudDirty = true;
   }
+  togglePassthrough = () => {
+    if (!canPassthrough) return;
+    mode = mode === 'pitwall' ? 'passthrough' : 'pitwall';
+    applyMode();
+  };
+  applyMode();
+
+  if (xrLoading) { xrLoading.dispose(); xrLoading = null; }
 
   input = createDesktopInput({
     renderer: world.renderer,
@@ -239,6 +294,7 @@ export async function startApp({ data, container, onExit, onStatus }) {
     cars.update(data, playback.time, world.camera);
     pitWall.update(dt);
     input.update(dt);
+    xrInput.update();
 
     fpsFrames++;
     fpsAcc += dt;

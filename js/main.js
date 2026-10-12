@@ -7,7 +7,6 @@ import { initDebug } from './start-debug.js';
 
 const FIRST_SEASON = 2023;
 const STORAGE_KEY = 'f1vr.lastChoice';
-const XR_PHASE_TIP = 'WebXR comes in Phase 4';
 
 const $ = (id) => document.getElementById(id);
 const el = {
@@ -36,6 +35,7 @@ const state = {
   sessionKey: null,
   busy: false,
   app: null,     // { handle, data } while the 3D app is running
+  xr: { vr: false, ar: false }, // immersive modes this browser supports
 };
 
 let pickToken = 0; // invalidates stale season/meeting responses
@@ -149,7 +149,11 @@ function makeChoice({ name, meta, flagUrl, flagText, selected, onSelect }) {
 }
 
 function updateButtons() {
-  el.btnPreview.disabled = state.busy || !state.sessionKey;
+  const off = state.busy || !state.sessionKey;
+  el.btnPreview.disabled = off;
+  el.btnVr.disabled = off || !(state.xr.vr || state.xr.ar);
+  el.btnPt.disabled = off || !state.xr.ar;
+  el.btnPt.hidden = !state.xr.ar && state.xr.vr; // VR-only device: no passthrough toggle
 }
 
 // ---------- season / weekend / session ----------
@@ -272,11 +276,9 @@ function selectSession(sessionKey) {
   updateButtons();
 }
 
-// ---------- XR detection (buttons stay disabled until Phase 4) ----------
+// ---------- XR detection ----------
 
 async function detectXr() {
-  el.btnVr.title = XR_PHASE_TIP;
-  el.btnPt.title = XR_PHASE_TIP;
   if (!('xr' in navigator) || !navigator.xr) {
     el.xrStatus.textContent = window.isSecureContext
       ? 'WebXR is not available in this browser. Use the Quest browser, or "Preview on desktop".'
@@ -287,10 +289,77 @@ async function detectXr() {
     try { return await navigator.xr.isSessionSupported(mode); } catch { return false; }
   };
   const [vr, ar] = await Promise.all([check('immersive-vr'), check('immersive-ar')]);
+  state.xr = { vr, ar };
   if (!vr && !ar) {
     el.xrStatus.textContent = 'This device does not support immersive WebXR. Use "Preview on desktop".';
   } else {
-    el.xrStatus.textContent = `WebXR detected (${[vr && 'VR', ar && 'passthrough'].filter(Boolean).join(' + ')}). Entering XR comes in Phase 4; use "Preview on desktop" for now.`;
+    el.xrStatus.textContent = ar
+      ? 'Ready: "Enter VR" starts in the pit wall room, "Enter Passthrough" in your real room. Toggle with B.'
+      : 'VR only on this device (no passthrough).';
+  }
+  updateButtons();
+}
+
+// ---------- enter XR ----------
+
+/**
+ * Enter an immersive session. requestSession must run inside the click's user
+ * activation, so it is called before any await; data then loads in the headset.
+ * immersive-ar is preferred even for "Enter VR" so pit wall / passthrough can be
+ * toggled in one session; VR-only devices fall back to immersive-vr.
+ * @param {'pitwall'|'passthrough'} startMode
+ */
+function startXr(startMode) {
+  if (state.busy || !state.sessionKey || !navigator.xr) return;
+  const xrMode = state.xr.ar ? 'immersive-ar' : 'immersive-vr';
+  const sessionPromise = navigator.xr.requestSession(xrMode, {
+    requiredFeatures: ['local-floor'],
+    optionalFeatures: ['hand-tracking', 'bounded-floor'],
+  });
+  state.busy = true;
+  updateButtons();
+  showError(el.loadError, null);
+  runXr(sessionPromise, xrMode, startMode);
+}
+
+async function runXr(sessionPromise, xrMode, startMode) {
+  const sessionKey = state.sessionKey;
+  let xrSession = null;
+  let data = null;
+  try {
+    xrSession = await sessionPromise;
+    setStatus('In headset…', true);
+    el.appContainer.replaceChildren();
+    el.appContainer.hidden = false;
+    el.startPage.hidden = true;
+    const [{ SessionData }, { startApp }] = await Promise.all([import('./session-data.js'), import('./app.js')]);
+    const handle = await startApp({
+      xrSession,
+      xrMode,
+      startMode,
+      container: el.appContainer,
+      onExit: exitPreview,
+      loadData: async (onStep) => {
+        data = await SessionData.load(sessionKey, {
+          onProgress: ({ step } = {}) => onStep(`Loading ${STEP_LABELS[step] || step}…`),
+        });
+        return data;
+      },
+      onStatus: (st) => { if (st && st.error) console.warn('[f1vr] status error', st.error); },
+    });
+    state.app = { handle, data };
+    setStatus('');
+  } catch (err) {
+    if (xrSession) xrSession.end().catch(() => {});
+    el.appContainer.hidden = true;
+    el.appContainer.replaceChildren();
+    el.startPage.hidden = false;
+    try { data && data.dispose(); } catch { /* ignore */ }
+    setStatus('');
+    showError(el.loadError, err, () => startXr(startMode));
+  } finally {
+    state.busy = false;
+    updateButtons();
   }
 }
 
@@ -404,6 +473,8 @@ async function boot() {
   fillSeasons();
   el.season.addEventListener('change', () => selectSeason(Number(el.season.value)));
   el.btnPreview.addEventListener('click', startPreview);
+  el.btnVr.addEventListener('click', () => startXr('pitwall'));
+  el.btnPt.addEventListener('click', () => startXr('passthrough'));
   el.btnClear.addEventListener('click', clearCache);
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && state.app) exitPreview();

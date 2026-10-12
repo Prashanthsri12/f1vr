@@ -14,7 +14,7 @@ Update the item's status as soon as it is created or finished. Add a dated entry
 | 1 | Data layer and start page | ✅ | 14 / 14 |
 | 2 | Scene, track and cars (desktop preview) | ✅ | 13 / 13 |
 | 3 | Panels | ✅ | 14 / 14 |
-| 4 | WebXR | ⬜ | 0 / 14 |
+| 4 | WebXR | 🟡 | 4 / 14 |
 | 5 | Main screen | ⬜ | 0 / 8 |
 | 6 | Polish and performance | ⬜ | 0 / 12 |
 | 7 | Deploy | ⬜ | 0 / 7 |
@@ -91,18 +91,18 @@ Update the item's status as soon as it is created or finished. Add a dated entry
 
 | ID | Item | Files | Status | Notes |
 |---|---|---|---|---|
-| 4.1 | `immersive-ar` session with `immersive-vr` fallback; "Enter VR" and "Enter Passthrough" buttons | `js/scene/world.js`, `js/main.js` | ⬜ | |
-| 4.2 | Pit wall / passthrough toggle without restarting the session | `js/scene/world.js` | ⬜ | Hide the toggle when AR is unsupported |
-| 4.3 | Controllers with laser rays, hit dot, red hover, hover scale | `js/input/xr-input.js` | ⬜ | |
-| 4.4 | Trigger to select, plus a haptic pulse | `js/input/xr-input.js` | ⬜ | |
-| 4.5 | Button mapping: A, B, X, Y, thumbsticks, left stick press | `js/input/xr-input.js` | ⬜ | §7 table |
+| 4.1 | `immersive-ar` session with `immersive-vr` fallback; "Enter VR" and "Enter Passthrough" buttons | `js/scene/world.js`, `js/main.js` | ✅ | immersive-ar preferred, immersive-vr fallback; data loads in-headset with a 3D loading card; session end returns to the start page |
+| 4.2 | Pit wall / passthrough toggle without restarting the session | `js/scene/world.js` | ✅ | Same session; B toggles; Passthrough button hidden on VR-only devices |
+| 4.3 | Controllers with laser rays, hit dot, red hover, hover scale | `js/input/xr-input.js` | ✅ | Pinned input-profiles@1.0.20 controller models; raycast only on move |
+| 4.4 | Trigger to select, plus a haptic pulse | `js/input/xr-input.js` | 🟡 | Trigger select done; haptics pending |
+| 4.5 | Button mapping: A, B, X, Y, thumbsticks, left stick press | `js/input/xr-input.js` | 🟡 | B toggle done; A, X, Y and thumbsticks pending |
 | 4.6 | Grab the table with one grip, scale (0.5x–3x) and rotate with two, double-press to reset | `js/input/xr-input.js`, `js/scene/track.js` | ⬜ | |
 | 4.7 | Hand tracking: hand models, pinch as select (confirm Quest sends `select`) | `js/input/xr-input.js` | ⬜ | |
 | 4.8 | Pinch and hold on the table edge to grab it | `js/input/xr-input.js` | ⬜ | |
 | 4.9 | Wrist menu: shown when the palm is up or faces the user, with all §7 items | `js/panels/wrist-menu.js` | ⬜ | |
 | 4.10 | Re-centre panels to the user's position and facing | `js/scene/world.js` | ⬜ | |
 | 4.11 | Unlock AudioContext on the Enter click | `js/audio.js`, `js/main.js` | ⬜ | |
-| 4.12 | Clear message when XR is unsupported | `js/main.js` | ⬜ | |
+| 4.12 | Clear message when XR is unsupported | `js/main.js` | ✅ | Start page message for no WebXR, no HTTPS, or unsupported device (verified) |
 | 4.13 | Test with the Immersive Web Emulator | — | ⬜ | |
 | 4.14 | Test on Quest 3 (needs HTTPS, so a tunnel or an early Pages deploy) | — | ⬜ | User test |
 
@@ -180,3 +180,4 @@ _(Record anything that differs from the spec, especially from OpenF1 docs verifi
 - **2026-10-12**: Phases 1 and 2 done (5 parallel agents plus integration). `hasDrs` is now set up front from race_control `Drs` messages. Pit rule: `pit.lap_number` is the in-lap, so reference-lap selection excludes both lap N and N+1. Verified in headless Chrome against the 2024 Bahrain GP.
 - **2026-10-12**: Fixed cars surging and dragging at 1x, reported by the user on straights. The cause was OpenF1 location timestamp jitter. Added `js/retime.js`, which cut the average speed jump between samples from 62 to 14 km/h across all cars.
 - **2026-10-12**: Phase 3 done (panel base by the orchestrator plus 4 parallel panel agents). Desktop click selection verified with real mouse events. Telemetry matches raw car_data exactly. 46 draw calls, about 12 panel redraws per second.
+- **2026-10-12**: 4.1–4.3 built and verified under an emulated Quest 3 (IWER 2.5.0, injected by the test driver, not shipped). Passthrough start, trigger select, B toggle and session end all work. Fixed: XR input must be created before setSession or three.js never sends 'connected'. In XR each eye is a separate pass, so about 98 draw calls; revisit in Phase 6.
