@@ -14,7 +14,7 @@ Update the item's status as soon as it is created or finished. Add a dated entry
 | 1 | Data layer and start page | ✅ | 14 / 14 |
 | 2 | Scene, track and cars (desktop preview) | ✅ | 13 / 13 |
 | 3 | Panels | ✅ | 14 / 14 |
-| 4 | WebXR | 🟡 | 9 / 14 |
+| 4 | WebXR | 🟡 | 9 / 19 |
 | 5 | Main screen | ⬜ | 0 / 8 |
 | 6 | Polish and performance | ⬜ | 0 / 12 |
 | 7 | Deploy | 🟡 | 3 / 7 |
@@ -105,6 +105,11 @@ Update the item's status as soon as it is created or finished. Add a dated entry
 | 4.12 | Clear message when XR is unsupported | `js/main.js` | ✅ | Start page message for no WebXR, no HTTPS, or unsupported device (verified) |
 | 4.13 | Test with the Immersive Web Emulator | — | ⬜ | |
 | 4.14 | Test on Quest 3 (needs HTTPS, so a tunnel or an early Pages deploy) | — | ⬜ | User test |
+| 4.15 | **Move panels in VR (added by the user):** grip while pointing at a panel (or pinch and hold its title bar) to pick it up. It follows the ray at a fixed distance and keeps facing the user. The driver tiles move as one group | `js/input/panel-grab.js`, `js/input/xr-input.js` | ⬜ | Not in the original spec; approved by the user 2026-10-12 |
+| 4.16 | While holding a panel, right stick ↑/↓ pushes it away or pulls it closer (clamped about 0.5–4 m) | `js/input/panel-grab.js` | ⬜ | |
+| 4.17 | Save the custom panel layout on the device (localStorage, try/catch) and restore it on start | `js/panels/layout-store.js`, `js/panels/pit-wall.js` | ⬜ | Falls back to `LAYOUT` defaults |
+| 4.18 | "Reset layout" in the wrist menu; re-centre (4.10) carries the custom layout with the user | `js/panels/wrist-menu.js`, `js/panels/pit-wall.js` | ⬜ | Depends on 4.9 and 4.10 |
+| 4.19 | Desktop: Shift-drag a panel to move it (same save and restore) | `js/input/desktop-input.js` | ⬜ | |
 
 ## Phase 5: Main screen
 
@@ -184,3 +189,4 @@ _(Record anything that differs from the spec, especially from OpenF1 docs verifi
 - **2026-10-12**: 4.4–4.5 done. Full Touch controller map verified in the emulated Quest 3.
 - **2026-10-12**: 4.6–4.8 done and verified in the emulated Quest 3: grip move, 2-hand scale and twist, double-grip reset, hand pinch select, pinch-hold edge grab. Fixed: 2-hand scaling no longer changes table height.
 - **2026-10-12**: Deployed early (7.1–7.3) so the app can be tested on a Quest over HTTPS. Repo made public, Pages built by Actions (checkout v7, pages v5/v6). Only index.html, css and js are published.
+- **2026-10-12**: Added 4.15–4.19 (move panels in VR, push/pull, saved layout, reset layout, desktop Shift-drag) at the user's request. This adds to spec §3's fixed layout; the defaults stay as specified.
