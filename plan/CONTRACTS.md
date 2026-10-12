@@ -99,7 +99,7 @@ export class SessionData {
   dataStartTime    // ms: earliest location/position sample known (use first position date)
   dataEndTime      // ms: session end or last lap end, whichever is later
   hasIntervals     // boolean
-  hasDrs           // boolean | null (null until car_data seen; false if all samples are 0/1/missing)
+  hasDrs           // boolean | null: true up front if race_control has 'Drs'-category messages; else null until car_data is seen, then false if all samples are 0/1/missing
   // --- chunk loading ---
   setPlayhead(t, speed)          // schedules the location chunks + selected-driver car_data chunks; evicts old ones
   setSelectedDriver(number)      // loads that driver's car_data chunk for the current playhead at high priority
@@ -126,7 +126,7 @@ export class SessionData {
 - **Storage:** per chunk, per driver: `times` Float64Array plus `x`/`y`/`z` Float32Array (car_data: `speed`, `rpm`, `gear`, `throttle`, `brake`, `drs`). Interpolation across a chunk boundary must work: if `t` is before the first sample of its chunk, use the last sample of the previous chunk.
 - **Visibility:** a car is hidden when the bracketing samples include (0,0,0), when the gap between them is over 5 s, or when there are no samples.
 - **`getTelemetryAt`:** speed, rpm and throttle are interpolated; gear, brake and drs use the nearest earlier sample.
-- **Reference lap:** the driver with the most laps, then that driver's fastest valid lap that is not a pit-out lap and is not followed by a pit entry (lap_number+1 not in pit list for that driver). Prefer laps with no race-control flag other than GREEN/CLEAR/BLUE in their window. Fetch `/location` for that driver only (`driver_number=N`, `date>=start`, `date<start+lap_duration+0.5s`).
+- **Reference lap:** the driver with the most laps, then that driver's fastest valid lap that is not lap 1, not a pit-out lap, and where neither `lap_number` nor `lap_number+1` is in that driver's pit list (`pit.lap_number` is the in-lap). Prefer laps with no race-control flag other than GREEN/CLEAR/BLUE, and no SafetyCar message, in their window. Fetch `/location` for that driver only (`driver_number=N`, `date>=start`, `date<start+lap_duration+0.5s`).
 - No three.js imports. A live source can replace the internals later without changing these signatures.
 
 ## `js/playback.js`
