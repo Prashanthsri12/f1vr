@@ -118,7 +118,15 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
       pickPanels: (raycaster) => (pitWall ? pitWall.manager.raycast(raycaster) : null),
       onHover: (r) => { if (pitWall) pitWall.manager.setHover(r); },
       onSelect: (r) => { if (pitWall) pitWall.manager.select(r, pitWall.ctx); },
-      onTogglePassthrough: () => togglePassthrough(),
+      actions: {
+        togglePlay: () => playback && playback.toggle(),
+        togglePassthrough: () => togglePassthrough(),
+        stepDriver: (dir) => stepDriver(dir),
+        seekBy: (sec) => playback && playback.seekBy(sec),
+        speedUp: () => playback && playback.speedUp(),
+        speedDown: () => playback && playback.speedDown(),
+        // recenter: item 4.10
+      },
     });
     if (xrSession) {
       world.renderer.xr.setReferenceSpaceType('local-floor');
@@ -166,6 +174,15 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
     cars.setSelected(n);
     pitWall.setSelected(n);
     hudDirty = true;
+  }
+  /** Previous (-1) / next (+1) driver by current race position. */
+  function stepDriver(dir) {
+    if (!playback) return;
+    const order = getDriverOrder();
+    if (!order.length) return;
+    let i = order.indexOf(selected);
+    if (i < 0) i = dir > 0 ? -1 : 0;
+    selectDriver(order[(i + dir + order.length) % order.length]);
   }
   function getDriverOrder() {
     const lb = data.getLeaderboardAt(playback.time);
@@ -294,7 +311,7 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
     cars.update(data, playback.time, world.camera);
     pitWall.update(dt);
     input.update(dt);
-    xrInput.update();
+    xrInput.update(dt);
 
     fpsFrames++;
     fpsAcc += dt;
