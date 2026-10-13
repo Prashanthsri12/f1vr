@@ -1,7 +1,7 @@
 // Start page: season / weekend / session picker, desktop preview launcher, cache tools and debug panel.
 // SessionData and the 3D app are imported lazily so the picker works even if the scene fails to load.
 
-import { fetchJson } from './api.js';
+import { fetchJson, onApiHealth } from './api.js';
 import { cacheClear } from './cache.js';
 import { initDebug } from './start-debug.js';
 import { unlockAudio } from './audio.js';
@@ -81,7 +81,10 @@ function friendlyError(err) {
   if (status === 429) return 'OpenF1 is rate-limiting requests. Wait a moment and retry.';
   if (status >= 500) return `OpenF1 returned a server error (${status}). Retry in a moment.`;
   if (status) return `OpenF1 request failed (HTTP ${status}).`;
-  if (err instanceof TypeError) return 'Could not reach OpenF1. Check your connection and retry.';
+  // Network failures arrive as ApiError with status 0 after the queue's retries.
+  if (err instanceof TypeError || (err && err.name === 'ApiError')) {
+    return 'Could not reach OpenF1 (the API may be down, or you are offline). Check your connection and retry.';
+  }
   return `Something went wrong: ${err && err.message ? err.message : err}`;
 }
 
@@ -96,8 +99,39 @@ function showError(box, err, retry) {
 }
 
 function setStatus(text, busy = false) {
+  apiNote = '';
   el.loadStatus.textContent = text;
   el.loadStatus.classList.toggle('status--busy', busy && !!text);
+}
+
+// ---------- API health (6.10) ----------
+
+/** Text of the "OpenF1 is not responding" notice currently in the status line ('' if none). */
+let apiNote = '';
+/** Extra sink for the notice while data loads inside the headset (the 3D loading card). */
+let apiNoteSink = null;
+
+function apiHealthText(h) {
+  if (h.ok && !h.retrying) return '';
+  const what = h.status === 429 ? 'OpenF1 is rate-limiting requests'
+    : h.status ? `OpenF1 returned a server error (HTTP ${h.status})` : 'OpenF1 is not responding';
+  return h.retrying ? `${what}. Retrying… (attempt ${h.attempt})` : `${what}.`;
+}
+
+/** Show retries in the status line (start page) or the headset loading card; clear when back. */
+function onHealth(h) {
+  const text = apiHealthText(h);
+  if (apiNoteSink && text) { try { apiNoteSink(text); } catch { /* ignore */ } }
+  if (el.startPage.hidden) return;
+  if (text) {
+    el.loadStatus.textContent = text;
+    el.loadStatus.classList.add('status--busy');
+    apiNote = text;
+  } else if (apiNote && el.loadStatus.textContent === apiNote) {
+    el.loadStatus.textContent = '';
+    el.loadStatus.classList.remove('status--busy');
+    apiNote = '';
+  }
 }
 
 function emptyNote(container, text) {
@@ -342,9 +376,14 @@ async function runXr(sessionPromise, xrMode, startMode) {
       container: el.appContainer,
       onExit: exitPreview,
       loadData: async (onStep) => {
-        data = await SessionData.load(sessionKey, {
-          onProgress: ({ step } = {}) => onStep(`Loading ${STEP_LABELS[step] || step}…`),
-        });
+        apiNoteSink = onStep; // "OpenF1 is not responding. Retrying…" on the loading card
+        try {
+          data = await SessionData.load(sessionKey, {
+            onProgress: ({ step } = {}) => onStep(`Loading ${STEP_LABELS[step] || step}…`),
+          });
+        } finally {
+          apiNoteSink = null;
+        }
         return data;
       },
       onStatus: (st) => { if (st && st.error) console.warn('[f1vr] status error', st.error); },
@@ -367,7 +406,7 @@ async function runXr(sessionPromise, xrMode, startMode) {
 
 // ---------- desktop preview ----------
 
-const STEP_LABELS = { race_control: 'race control', team_radio: 'team radio' };
+const STEP_LABELS = { race_control: 'race control', team_radio: 'team radio', session_result: 'results' };
 
 async function startPreview() {
   if (state.busy || !state.sessionKey) return;
@@ -483,6 +522,7 @@ async function boot() {
     if (e.key === 'Escape' && state.app) exitPreview();
   });
   detectXr();
+  onApiHealth(onHealth);
   initDebug(el.debugRoot, {
     getSessionKey: () => state.sessionKey,
     getSessionLabel: () => {

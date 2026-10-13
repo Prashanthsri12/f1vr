@@ -284,7 +284,8 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
   let lastError = '';
   if (typeof data.onStatus === 'function') {
     const off = data.onStatus((st) => {
-      lastError = st && st.error ? 'Data error: ' + (st.error.message || st.error) : '';
+      // Chunk errors are retried every few seconds (session-data); playback just waits.
+      lastError = st && st.error ? 'Data unavailable, retrying (' + (st.error.status ? 'HTTP ' + st.error.status : 'no connection') + ')' : '';
       hudDirty = true;
       if (onStatus) { try { onStatus(st); } catch (_) { /* ignore */ } }
     });

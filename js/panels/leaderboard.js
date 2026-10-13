@@ -1,9 +1,12 @@
 // Leaderboard panel (spec §5): positions, gaps, tyres, pit stops, track status.
 // 0.9 × 1.2 m → 922 × 1229 px. Race/sprint shows gap + interval; practice and
 // qualifying (no intervals) show best lap + gap to the session best instead.
+// Rows slide to their new place over 0.5 s; a gained / lost place flashes green / red and
+// a new fastest lap purple (row-anim.js). Redraws stay ≤10 Hz and stop when nothing moves.
 import { Panel, THEME, TYRE_COLOURS, font, roundRect, fmtLap, fmtGap } from './panel-base.js';
 import { LAYOUT } from './layout.js';
 import { trackStatusAt } from './race-status.js';
+import { RowAnimator } from './row-anim.js';
 
 const PAD = 16;
 const HEADER_H = 112;
@@ -22,6 +25,10 @@ const X = {
 };
 
 const TYRE_LETTER = { SOFT: 'S', MEDIUM: 'M', HARD: 'H', INTERMEDIATE: 'I', WET: 'W' };
+const JUMP_MS = 15000;     // playhead moved more than this between refreshes (or back) = seek
+const FLASH_RGB = { gain: '42,211,106', loss: '255,59,48', fastest: '177,56,221' };
+
+const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
 function fmtSessionBestGap(best, sessionBest) {
   if (best == null || sessionBest == null) return '';
@@ -42,10 +49,12 @@ export class LeaderboardPanel extends Panel {
     this.fastest = null;        // driver number holding the fastest lap
     this.sessionBest = null;    // seconds
     this._sig = '';
-    this.out = new Set();       // driver numbers shown as OUT
-    // Row y per driver, from the display order. Phase 6 can animate these toward the targets.
-    this.rowTargetY = new Map();
-    this.rowY = new Map();
+    this.out = new Set();       // driver numbers shown as OUT (data.getLeaderboardAt().retired)
+    this.anim = new RowAnimator();
+    this._order = [];           // driver numbers in display order (reused)
+    this._lastT = NaN;
+    this._now = 0;
+    this._flash = { kind: null, alpha: 0 };
   }
 
   /** Row top (canvas px) for a display index. */
@@ -61,7 +70,7 @@ export class LeaderboardPanel extends Panel {
     let best = Infinity;
     this.out.clear();
     for (const r of rows) {
-      if (this._isOut(r, t, lap, status)) this.out.add(r.driverNumber);
+      if (r.retired) this.out.add(r.driverNumber);
       if (r.bestLap != null && r.bestLap < best) { best = r.bestLap; fastest = r.driverNumber; }
     }
     // Compact signature at display precision: redraw only if something visible changed.
@@ -77,33 +86,18 @@ export class LeaderboardPanel extends Panel {
     this.selected = ctx.selected;
     this.fastest = fastest;
     this.sessionBest = fastest == null ? null : best;
-    for (let i = 0; i < rows.length; i++) {
-      const n = rows[i].driverNumber;
-      const y = LeaderboardPanel.rowTop(i);
-      this.rowTargetY.set(n, y);
-      this.rowY.set(n, y); // no animation yet (Phase 6)
-    }
-    if (sig === this._sig) return false;
-    this._sig = sig;
-    return true;
-  }
-
-  /**
-   * Retired? data.retired misses cars that stopped on track (their location stays visible,
-   * e.g. LEC lap 1 and ALB lap 7 at 2023 Australia), so also treat a race car as out when it
-   * is 2+ laps behind the leader's lap count and its current lap began over 4 minutes ago.
-   * Lapped-but-running cars start a lap every ~1.5 min; a red flag stops everyone together.
-   */
-  _isOut(r, t, leaderLap, status) {
-    if (r.retired) return true;
-    if (!this.data.hasIntervals || status.status === 'CHEQUERED') return false;
-    if (leaderLap - r.lapNumber < 2 || typeof this.data.getDriverLaps !== 'function') return false;
-    const laps = this.data.getDriverLaps(r.driverNumber);
-    const cur = laps.length ? laps[laps.length - 1] : null;
-    // No usable current lap (e.g. lap-1 crash with no lap start time): out once the leader is 3+ laps in.
-    if (!r.lapNumber) return leaderLap >= 3 && (!cur || cur.lap_number <= 1);
-    const start = cur && cur.lap_number === r.lapNumber ? cur.date_start : null;
-    return start != null && t - start > 240000;
+    // Row motion: a seek (or the first fill) snaps, normal playback slides and flashes.
+    const nowMs = now();
+    const snap = !Number.isFinite(this._lastT) || t < this._lastT || t - this._lastT > JUMP_MS;
+    this._lastT = t;
+    this._now = nowMs;
+    const order = this._order;
+    order.length = rows.length;
+    for (let i = 0; i < rows.length; i++) order[i] = rows[i].driverNumber;
+    this.anim.setOrder(order, LeaderboardPanel.rowTop, nowMs, snap);
+    this.anim.setFastest(fastest, nowMs, snap);
+    if (sig !== this._sig) { this._sig = sig; return true; }
+    return this.anim.active(nowMs);
   }
 
   draw(g, w, h) {
@@ -111,11 +105,13 @@ export class LeaderboardPanel extends Panel {
     this._drawHeader(g, w);
     this._drawColumnTitles(g, w);
     const rows = this.rows;
+    const nowMs = this._now;
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
-      const y = this.rowY.get(r.driverNumber) ?? LeaderboardPanel.rowTop(i);
-      if (y + ROW_H > h) break;
-      this._drawRow(g, w, r, y);
+      let y = this.anim.yAt(r.driverNumber, nowMs);
+      if (!Number.isFinite(y)) y = LeaderboardPanel.rowTop(i);
+      if (y + ROW_H > h) continue;
+      this._drawRow(g, w, r, y, nowMs);
     }
   }
 
@@ -197,7 +193,7 @@ export class LeaderboardPanel extends Panel {
     g.fillText('PIT', X.pitR, y);
   }
 
-  _drawRow(g, w, r, y) {
+  _drawRow(g, w, r, y, nowMs) {
     const n = r.driverNumber;
     const id = `row:${n}`;
     const d = this.data.driverByNumber.get(n);
@@ -221,6 +217,13 @@ export class LeaderboardPanel extends Panel {
       g.stroke();
     }
     this.addHit(id, PAD, y, w - PAD * 2, rh, n);
+    // Gain / loss / fastest-lap flash: a fading tint over the row.
+    const fl = this._flash;
+    if (this.anim.flashAt(n, nowMs, fl)) {
+      g.fillStyle = `rgba(${FLASH_RGB[fl.kind]},${(0.45 * fl.alpha).toFixed(3)})`;
+      roundRect(g, PAD, y, w - PAD * 2, rh, 6);
+      g.fill();
+    }
 
     const out = this.out.has(n);
     g.globalAlpha = out ? 0.45 : 1;

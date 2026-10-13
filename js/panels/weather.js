@@ -48,6 +48,17 @@ export class WeatherPanel extends Panel {
     g.font = font(24, 700);
     g.fillText(s ? (rain ? 'RAIN' : 'DRY') : '–', cx + chipW / 2, 43);
 
+    // No weather records at all (6.11), or none yet before the first sample.
+    if (!s) {
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillStyle = THEME.muted;
+      g.font = font(28, 600);
+      const none = this.data.empty && this.data.empty.has('weather');
+      g.fillText(none ? 'No weather data' : 'Waiting for weather…', w / 2, (68 + h) / 2);
+      return;
+    }
+
     // Temperatures: two big columns.
     const colW = (w - 2 * PAD - 14) / 2;
     const temps = [['AIR', s?.air_temperature], ['TRACK', s?.track_temperature]];

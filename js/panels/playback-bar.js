@@ -2,6 +2,7 @@
 // elapsed race time and the real session clock. Sits just below the main screen.
 import { Panel, THEME, font, roundRect } from './panel-base.js';
 import { LAYOUT } from './layout.js';
+import { getApiHealth } from '../api.js';
 import { SPEEDS } from '../playback.js';
 
 const L = LAYOUT.playbackBar;
@@ -34,7 +35,7 @@ export class PlaybackBarPanel extends Panel {
   constructor(data) {
     super({ name: 'playbackBar', width: L.width, height: L.height });
     this.data = data;
-    this._shown = { playing: null, waiting: null, speed: null, sec: NaN };
+    this._shown = { playing: null, waiting: null, speed: null, sec: NaN, down: null };
     this._track = { x: 0, w: 1 };   // slider track in canvas px (set in draw)
   }
 
@@ -57,8 +58,10 @@ export class PlaybackBarPanel extends Panel {
     const sec = Math.floor(ctx.time / 1000);
     // Elapsed time and clock change every playhead second; the slider moves far slower,
     // so the whole-second check covers it.
-    if (s.playing === pb.playing && s.waiting === pb.waiting && s.speed === pb.speed && s.sec === sec) return false;
-    s.playing = pb.playing; s.waiting = pb.waiting; s.speed = pb.speed; s.sec = sec;
+    const down = !getApiHealth().ok;   // OpenF1 unreachable / 5xx: say so instead of looking frozen
+    if (s.playing === pb.playing && s.waiting === pb.waiting && s.speed === pb.speed && s.sec === sec
+      && s.down === down) return false;
+    s.playing = pb.playing; s.waiting = pb.waiting; s.speed = pb.speed; s.sec = sec; s.down = down;
     return true;
   }
 
@@ -162,16 +165,17 @@ export class PlaybackBarPanel extends Panel {
     const lapText = p.lap ? `LAP ${p.lap}/${total}` : `GRID · ${total} LAPS`;
     const lapW = g.measureText(lapText).width;
     g.font = font(30, 700);
-    const loadW = pb.waiting ? g.measureText('Loading data…').width : 0;
-    if (!pb.waiting || lapW + loadW + 24 <= sw - 8) {
+    const note = this._shown.down ? 'Data unavailable · retrying' : pb.waiting ? 'Loading data…' : '';
+    const loadW = note ? g.measureText(note).width : 0;
+    if (!note || lapW + loadW + 24 <= sw - 8) {
       g.font = font(36, 700);
       g.fillText(lapText, sx + 4, PAD + 30);
     }
-    if (pb.waiting) {
+    if (note) {
       g.textAlign = 'right';
-      g.fillStyle = THEME.yellow;
+      g.fillStyle = this._shown.down ? THEME.red : THEME.yellow;
       g.font = font(30, 700);
-      g.fillText('Loading data…', sx + sw - 4, PAD + 30);
+      g.fillText(note, sx + sw - 4, PAD + 30);
     }
     const trackY = 104;
     const trackH = 18;
