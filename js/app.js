@@ -15,6 +15,7 @@ import { FpsMeter } from './scene/fps-meter.js';
 import { setSetting } from './settings.js';
 import { createAudioEvents } from './audio-events.js';
 import { stopRadio, sfxStats } from './audio.js';
+import { createMainScreen } from './scene/screen.js';
 
 const HUD_INTERVAL = 0.1; // seconds (10 Hz)
 const STYLE_ID = 'f1vr-hud-style';
@@ -85,6 +86,7 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
   let cars = null;
   let input = null;
   let pitWall = null;
+  let screen = null;
   let xrInput = null;
   let fpsMeter = null;
   let audioEvents = null;
@@ -106,6 +108,7 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
     if (fpsMeter) fpsMeter.dispose();
     if (audioEvents) audioEvents.dispose();
     stopRadio();
+    if (screen) screen.dispose();
     if (pitWall) pitWall.dispose();
     if (cars) cars.dispose();
     world.dispose();
@@ -195,6 +198,8 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
       canPassthrough,
       driverTiles: !xrSession, // 4b.1: VR picks drivers from the wrist menu / leaderboard
     });
+    // Main screen (Phase 5): onboard / video / radio tabs, in the panel rig.
+    screen = createMainScreen({ manager: pitWall.manager, renderer: world.renderer, table, cars, data, playback });
   } catch (err) {
     dispose();
     throw err;
@@ -389,11 +394,13 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
       hudDirty = false;
       updateHud();
     }
+    // After the HUD read: the onboard pass is an extra render() and resets renderer.info.
+    screen.update(dt);
   }));
 
   // Dev/test hook: ?debug exposes the live objects (used by headless XR tests).
   if (new URLSearchParams(location.search).has('debug')) {
-    window.__f1vr = { world, table, data, playback, pitWall, panelGrab, recenter, sfxStats, getMode: () => mode };
+    window.__f1vr = { world, table, data, playback, pitWall, panelGrab, recenter, sfxStats, screen, getMode: () => mode };
     unsubs.push(() => { if (window.__f1vr && window.__f1vr.table === table) delete window.__f1vr; });
   }
 

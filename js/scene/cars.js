@@ -202,6 +202,7 @@ export class Cars {
     this.labels.commit();
 
     this.glow.visible = selVisible;
+    this._selVisible = selVisible;
     if (selVisible) {
       const now = performance.now();
       this.glowMaterial.opacity = 0.45 + 0.35 * Math.sin(now * 0.008);
@@ -213,6 +214,17 @@ export class Cars {
     this._data = data;
     this._t = t;
     this.labels.refresh(this._getPos, performance.now(), camera, sel);
+  }
+
+  /**
+   * Selected car pose from the last update(), in table-content space (onboard camera).
+   * @param {THREE.Vector3} outPos
+   * @returns {number} heading in radians (nose = (sin h, 0, cos h)), or NaN when hidden
+   */
+  getSelectedPose(outPos) {
+    if (this.selectedIndex < 0 || !this._selVisible) return NaN;
+    outPos.copy(this._selP);
+    return this.headings[this.selectedIndex];
   }
 
   /** Rebuilds the trail from data on each 83 ms tick (so seeks reset it); head follows the car. */
