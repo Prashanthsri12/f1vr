@@ -5,7 +5,7 @@
 //  - Left-drag on the table: rotate the table around Y.
 //  - Wheel over the table: scale the table 0.5x-3x. Wheel elsewhere: dolly the camera.
 //  - Keys: Space play/pause, Left/Right seek -/+10 s, Up/Down speed,
-//    [ / ] previous/next driver by position, P toggle passthrough look, R reset the panel layout.
+//    [ / ] previous/next driver by position, P toggle passthrough look, R reset the panel layout, T next room theme.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
@@ -31,11 +31,12 @@ const MOUSE_ID = 'mouse';
  * @param {(result: object) => void} [opts.onPanelSelect]
  * @param {ReturnType<import('./panel-grab.js').createPanelGrab>} [opts.panelGrab] Shift-drag moves panels
  * @param {() => void} [opts.onResetLayout] R key
+ * @param {() => void} [opts.onCycleTheme] T key: next room theme
  * @returns {{update: (dt: number) => void, dispose: () => void}}
  */
 export function createDesktopInput({
   renderer, camera, table, playback, getDriverOrder, onSelectDriver, onTogglePassthrough, getSelectedDriver,
-  pickPanels, onPanelHover, onPanelSelect, panelGrab, onResetLayout,
+  pickPanels, onPanelHover, onPanelSelect, panelGrab, onResetLayout, onCycleTheme,
 }) {
   const el = renderer.domElement;
   const raycaster = new THREE.Raycaster();
@@ -213,6 +214,7 @@ export function createDesktopInput({
       case 'BracketRight': stepDriver(1); return;
       case 'KeyP': if (!e.repeat && onTogglePassthrough) onTogglePassthrough(); return;
       case 'KeyR': if (!e.repeat && !e.shiftKey && onResetLayout) onResetLayout(); return;
+      case 'KeyT': if (!e.repeat && onCycleTheme) onCycleTheme(); return;
       default:
     }
     // Layout-independent fallbacks for the bracket keys.

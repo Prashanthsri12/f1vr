@@ -1,19 +1,16 @@
-// World: renderer, scene, camera, pit wall room and the frame loop.
+// World: renderer, scene, camera, the room (themes in rooms.js) and the frame loop.
 import * as THREE from 'three';
+import { buildRoom } from './rooms.js';
+import { getSettings } from '../settings.js';
 
-const ROOM_SIZE = 8;          // metres, square room centred on the user
-const WALL_HEIGHT = 1.2;
-const WALL_THICK = 0.08;
-const BG_PITWALL = 0x07090d;
 const BG_PASSTHROUGH = 0x808080;
-const ACCENT_RED = 0xe10600;
-const STRIP_BLUE = 0x8fb3d9;
 
 /**
- * Create renderer, scene, camera and the pit wall room inside `container`.
+ * Create renderer, scene, camera and the room (theme from settings) inside `container`.
  * @param {HTMLElement} container
  * @returns {{renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera,
  *   roomGroup: THREE.Group, setMode: (mode: 'pitwall'|'passthrough') => void,
+ *   setTheme: (name: string) => string, getTheme: () => string,
  *   onFrame: (cb: (dt: number, timeMs: number) => void) => () => void, dispose: () => void}}
  */
 export function createWorld(container) {
@@ -25,9 +22,9 @@ export function createWorld(container) {
   container.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
-  const bgColor = new THREE.Color(BG_PITWALL);
+  const bgColor = new THREE.Color();
   scene.background = bgColor;
-  const fog = new THREE.Fog(BG_PITWALL, 6, 16);
+  const fog = new THREE.Fog(0x000000, 6, 16);
   scene.fog = fog;
 
   const camera = new THREE.PerspectiveCamera(70, 1, 0.05, 100);
@@ -41,10 +38,25 @@ export function createWorld(container) {
   dir.position.set(1.5, 4, 1);
   scene.add(dir);
 
-  const room = buildRoom();
+  let room = buildRoom(getSettings().theme);
   scene.add(room.group);
 
   let mode = 'pitwall';
+
+  /**
+   * Swap the room theme (rooms.js THEMES); keeps the pit wall / passthrough mode.
+   * @param {string} name
+   * @returns {string} the theme now shown (unknown names fall back to 'pitwall')
+   */
+  function setTheme(name) {
+    if (name === room.theme) return room.theme;
+    scene.remove(room.group);
+    room.dispose();
+    room = buildRoom(name);
+    scene.add(room.group);
+    applyMode();
+    return room.theme;
+  }
 
   /**
    * Switch between the pit wall room and the passthrough look.
@@ -69,8 +81,12 @@ export function createWorld(container) {
       }
       scene.fog = null;
     } else {
-      bgColor.setHex(BG_PITWALL);
+      // The room is enclosed, so in immersive-ar (alpha-blend clear) nothing transparent shows.
+      bgColor.setHex(room.background);
       scene.background = bgColor;
+      fog.color.setHex(room.fog.color);
+      fog.near = room.fog.near;
+      fog.far = room.fog.far;
       scene.fog = fog;
     }
   }
@@ -129,12 +145,16 @@ export function createWorld(container) {
     if (ro) ro.disconnect();
     renderer.xr.removeEventListener('sessionstart', applyMode);
     renderer.xr.removeEventListener('sessionend', applyMode);
+    scene.remove(room.group);
     room.dispose();
     renderer.dispose();
     if (renderer.domElement.parentNode) renderer.domElement.parentNode.removeChild(renderer.domElement);
   }
 
-  return { renderer, scene, camera, roomGroup: room.group, setMode, onFrame, dispose };
+  return {
+    renderer, scene, camera, get roomGroup() { return room.group; }, setMode, setTheme,
+    getTheme: () => room.theme, onFrame, dispose,
+  };
 }
 
 /**
@@ -168,72 +188,4 @@ export function getRecenterPose(head, out) {
   // rotation.y = θ turns -Z into (-sin θ, 0, -cos θ).
   out.yaw = Math.atan2(-fx, -fz);
   return out;
-}
-
-/**
- * Pit wall room: floor, grid, four low walls, emissive strips. ~11 draw calls.
- * All geometry is static (matrixAutoUpdate off).
- */
-function buildRoom() {
-  const group = new THREE.Group();
-  group.name = 'pitwall-room';
-  const disposables = [];
-  const track = (o) => { disposables.push(o); return o; };
-
-  const half = ROOM_SIZE / 2;
-
-  // Floor
-  const floorMat = track(new THREE.MeshStandardMaterial({ color: 0x0c0e12, roughness: 0.9, metalness: 0.0 }));
-  const floorGeo = track(new THREE.PlaneGeometry(ROOM_SIZE, ROOM_SIZE));
-  const floor = new THREE.Mesh(floorGeo, floorMat);
-  floor.rotation.x = -Math.PI / 2;
-  add(floor);
-
-  // Subtle grid (one LineSegments draw call)
-  const grid = new THREE.GridHelper(ROOM_SIZE, 16, 0x2a3442, 0x1a2029);
-  grid.position.y = 0.002;
-  grid.material.transparent = true;
-  grid.material.opacity = 0.6;
-  track(grid.geometry); track(grid.material);
-  add(grid);
-
-  // Low walls (4 boxes, shared geometry/material)
-  const wallMat = track(new THREE.MeshStandardMaterial({ color: 0x161a21, roughness: 0.8, metalness: 0.1 }));
-  const wallGeo = track(new THREE.BoxGeometry(ROOM_SIZE, WALL_HEIGHT, WALL_THICK));
-  for (let i = 0; i < 4; i++) {
-    const w = new THREE.Mesh(wallGeo, wallMat);
-    const a = (i * Math.PI) / 2;
-    w.rotation.y = a;
-    w.position.set(-Math.sin(a) * half, WALL_HEIGHT / 2, -Math.cos(a) * half);
-    add(w);
-  }
-
-  // Emissive strips along the wall tops: cool blue-grey on three walls,
-  // F1 red accent sparingly on the front wall only.
-  const blueMat = track(new THREE.MeshBasicMaterial({ color: STRIP_BLUE, fog: true }));
-  const redMat = track(new THREE.MeshBasicMaterial({ color: ACCENT_RED, fog: true }));
-  const stripGeo = track(new THREE.BoxGeometry(ROOM_SIZE - 0.2, 0.025, 0.03));
-  for (let i = 0; i < 4; i++) {
-    const s = new THREE.Mesh(stripGeo, i === 0 ? redMat : blueMat);
-    const a = (i * Math.PI) / 2;
-    const r = half - WALL_THICK;
-    s.rotation.y = a;
-    s.position.set(-Math.sin(a) * r, WALL_HEIGHT - 0.05, -Math.cos(a) * r);
-    add(s);
-  }
-  // Low floor-level blue strip at the front wall for depth.
-  const low = new THREE.Mesh(stripGeo, blueMat);
-  low.position.set(0, 0.06, -(half - WALL_THICK));
-  add(low);
-
-  function add(o) {
-    o.updateMatrix();
-    o.matrixAutoUpdate = false;
-    group.add(o);
-  }
-
-  return {
-    group,
-    dispose() { for (const d of disposables) d.dispose(); },
-  };
 }

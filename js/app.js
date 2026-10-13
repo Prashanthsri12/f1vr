@@ -10,6 +10,9 @@ import { createXrInput } from './input/xr-input.js';
 import { createPanelGrab } from './input/panel-grab.js';
 import { showXrLoading } from './scene/xr-loading.js';
 import { panelStats } from './panels/panel-base.js';
+import { THEMES } from './scene/rooms.js';
+import { FpsMeter } from './scene/fps-meter.js';
+import { setSetting } from './settings.js';
 
 const HUD_INTERVAL = 0.1; // seconds (10 Hz)
 const STYLE_ID = 'f1vr-hud-style';
@@ -81,6 +84,7 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
   let input = null;
   let pitWall = null;
   let xrInput = null;
+  let fpsMeter = null;
   const unsubs = [];
   let overlay = null;
   let disposed = false;
@@ -96,6 +100,7 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
     if (xrLoading) xrLoading.dispose();
     if (xrInput) xrInput.dispose();
     if (input) input.dispose();
+    if (fpsMeter) fpsMeter.dispose();
     if (pitWall) pitWall.dispose();
     if (cars) cars.dispose();
     world.dispose();
@@ -180,12 +185,24 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
         exit: () => { dispose(); if (onExit) onExit(); },
         recenter: xrSession ? recenter : undefined,
         resetLayout: () => pitWall.resetLayout(),
+        cycleTheme: () => cycleTheme(),
       },
       canPassthrough,
     });
   } catch (err) {
     dispose();
     throw err;
+  }
+
+  // --- room theme (4b.5) and in-scene fps counter (6.7) ---
+  function cycleTheme() {
+    const next = THEMES[(THEMES.indexOf(world.getTheme()) + 1) % THEMES.length];
+    setSetting('theme', world.setTheme(next));
+  }
+  fpsMeter = new FpsMeter(world.renderer);
+  {
+    const bar = pitWall.manager.panels.find((p) => p.name === 'playbackBar');
+    if (bar) fpsMeter.attachBelow(bar.mesh, bar.height); else world.scene.add(fpsMeter.mesh);
   }
 
   // --- selection ---
@@ -245,6 +262,7 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
     onPanelSelect: (r) => pitWall.manager.select(r, pitWall.ctx),
     panelGrab,
     onResetLayout: () => pitWall.resetLayout(),
+    onCycleTheme: () => cycleTheme(),
   });
   // Desktop only: step back from the user's standing spot so the whole pit wall is in view
   // (in XR the headset pose drives the camera; the user never moves).
@@ -269,7 +287,7 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
   const hudPerf = el('div', 'perf', hud);
   const loading = el('div', 'f1vr-loading', overlay, 'Loading data…');
   el('div', 'f1vr-help', overlay,
-    'Click panels · Shift-drag panel move · R reset layout · Space play/pause · ←/→ seek 10 s · ↑/↓ speed · [ ] driver · P passthrough · drag table rotate · wheel on table scale · right-drag orbit');
+    'Click panels · Shift-drag panel move · R reset layout · T room theme · Space play/pause · ←/→ seek 10 s · ↑/↓ speed · [ ] driver · P passthrough · drag table rotate · wheel on table scale · right-drag orbit');
   const exitBtn = el('button', 'f1vr-exit', overlay, 'Exit');
   exitBtn.type = 'button';
   exitBtn.addEventListener('click', () => {
@@ -338,6 +356,7 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
     playback.update(dt);
     cars.update(data, playback.time, world.camera);
     pitWall.update(dt);
+    fpsMeter.update(dt);
     input.update(dt);
     xrInput.update(dt);
     if (world.renderer.xr.isPresenting) {
