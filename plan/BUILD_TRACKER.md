@@ -15,9 +15,9 @@ Update the item's status as soon as it is created or finished. Add a dated entry
 | 2 | Scene, track and cars (desktop preview) | ✅ | 13 / 13 |
 | 3 | Panels | ✅ | 14 / 14 |
 | 4 | WebXR | 🟡 | 18 / 19 |
-| 4b | VR feedback (user test 2026-10-13) | ⬜ | 0 / 17 |
-| 5 | Main screen | ⬜ | 0 / 8 |
-| 6 | Polish and performance | ⬜ | 0 / 10 |
+| 4b | VR feedback (user test 2026-10-13) | 🟡 | 15 / 17 |
+| 5 | Main screen | 🟡 | 0 / 8 |
+| 6 | Polish and performance | 🟡 | 1 / 10 |
 | 7 | Deploy | 🟡 | 3 / 7 |
 
 ---
@@ -118,51 +118,51 @@ From the user's first test on the Quest 3 (2026-10-13). Decisions made with the 
 
 | ID | Item | Files | Status | Notes |
 |---|---|---|---|---|
-| 4b.1 | **Driver tiles:** don't build the picker arc in XR sessions. Keep it in the desktop preview. In VR, drivers are picked from the wrist menu grid, leaderboard rows and X/Y | `js/panels/pit-wall.js`, `js/app.js` | ⬜ | Saves 20 draw calls (about 40 in stereo). Resolves the open layout question. A saved `driver-picker` layout entry is ignored in XR |
-| 4b.2 | **Desktop:** every panel, including the tile group, can be moved. Make it easy to discover: a "move" cursor while Shift is held over a panel | `js/input/desktop-input.js` | ⬜ | Shift-drag already exists (4.19); this item covers the hint and a re-check |
-| 4b.3 | **Enclosed room:** walls up to a ceiling, plus the ceiling, so nothing transparent is left in pit wall mode | `js/scene/world.js` | ⬜ | Cause: the session is always `immersive-ar`, and in `alpha-blend` three.js clears with alpha 0, so the background colour never draws. Passthrough showed above the 1.2 m walls |
-| 4b.4 | **Room themes** (procedural, no image assets, about 15 draw calls or fewer each): "Pit wall" (the current room, enclosed), "Studio" (dark, LED edge strips), "Night" (gradient sky dome over a low wall). Easiest first | `js/scene/rooms.js` (new), `js/scene/world.js` | ⬜ | The user chose "whichever is easy" |
-| 4b.5 | **Theme switch:** a room button in the wrist menu cycles the themes; the choice is saved in `settings.js`. Desktop: a key (`T`) | `js/panels/wrist-menu.js`, `js/settings.js`, `js/input/desktop-input.js` | ⬜ | The wrist menu may need another row (it is 0.30 m now) |
-| 4b.6 | **Readable car labels:** keep a constant apparent size (about 2 cm at 1 m from the head), whatever the table scale | `js/scene/labels.js` | ⬜ | Labels are 12 mm at table scale 1 and shrink with the table. Keep one draw call |
-| 4b.7 | **Label declutter:** when labels would overlap, show full names for the selected driver, the top 3 and cars near the selected one; the rest show the position number only | `js/scene/labels.js`, `js/scene/cars.js` | ⬜ | Recompute at ≤4 Hz with the atlas, never per frame |
-| 4b.8 | **Find a CC0 car model:** a generic open-wheel / F1-style car with no livery or logos, glTF/GLB, about 3k triangles or fewer, few materials. Record the source URL, author and licence here. **Ask the user to approve the specific asset before adding it** | — (notes here) | ⬜ | The user chose a CC0 model over a car built in code |
-| 4b.9 | **Load the car model:** GLTFLoader from three/addons (same pinned 0.160.0, no new library), one InstancedMesh per material, team colour on the body material, fall back to the wedge if loading fails | `js/scene/car-model.js` (new), `js/scene/cars.js`, `assets/` | ⬜ | The Pages workflow publishes only `index.html`, `css/` and `js/`, so `assets/` must be added to it (or the model kept under `js/`). Check draw calls and triangles |
-| 4b.10 | **Resize a held panel:** right stick ←/→ makes it smaller / larger (0.5×–2.5×). Text grows with the panel | `js/input/panel-grab.js`, `js/input/xr-buttons.js` | ⬜ | That axis does nothing during a grab today |
-| 4b.11 | **Two-hand stretch:** a second grip (or pinch-hold) on the held panel scales it by the distance between the hands, like the table | `js/input/panel-grab.js`, `js/input/xr-input.js` | ⬜ | |
-| 4b.12 | **Desktop resize:** Shift + wheel over a panel (not dragging) scales it | `js/input/desktop-input.js` | ⬜ | Chrome may turn Shift + wheel into `deltaX`, so handle both |
-| 4b.13 | **Save the panel scale** with the layout (`s` beside `p`/`q`); Reset layout restores scale 1 | `js/panels/layout-store.js`, `js/panels/pit-wall.js` | ⬜ | Add a contract entry first |
-| 4b.14 | **Sharp text when enlarged:** redraw the panel canvas at a higher density when its scale goes above 1 (capped, e.g. 2048 px/m) | `js/panels/panel-base.js` | ⬜ | Watch texture memory on the Quest |
-| 4b.15 | **Team radio** (was 6.6): a "Radio" badge on telemetry and autoplay of the selected driver's clips when the playhead passes them, if radio is on in the wrist menu | `js/audio.js`, `js/panels/telemetry.js` | ⬜ | Clips are already loaded (`getTeamRadioUpTo`); playback was never built. Coverage drops from 2026 |
-| 4b.16 | **Sound effects** (was 6.5): WebAudio chime on a new race control message, a soft whoosh on an overtake involving the selected driver, a beep when the fastest lap changes. Quiet, following the wrist menu toggle | `js/audio.js` | ⬜ | Uses the context unlocked in 4.11 |
+| 4b.1 | **Driver tiles:** don't build the picker arc in XR sessions. Keep it in the desktop preview. In VR, drivers are picked from the wrist menu grid, leaderboard rows and X/Y | `js/panels/pit-wall.js`, `js/app.js` | ✅ | XR builds no picker (driverTiles: !xrSession); desktop keeps 20 movable tiles; XR draw calls 98 -> 58 |
+| 4b.2 | **Desktop:** every panel, including the tile group, can be moved. Make it easy to discover: a "move" cursor while Shift is held over a panel | `js/input/desktop-input.js` | ✅ | 'move' cursor while Shift is over a movable panel; tile group Shift-drag re-verified |
+| 4b.3 | **Enclosed room:** walls up to a ceiling, plus the ceiling, so nothing transparent is left in pit wall mode | `js/scene/world.js` | ✅ | Enclosed: walls+ceiling or sky dome; ~270 head rays all hit room; no gaps in emulated immersive-ar screenshots |
+| 4b.4 | **Room themes** (procedural, no image assets, about 15 draw calls or fewer each): "Pit wall" (the current room, enclosed), "Studio" (dark, LED edge strips), "Night" (gradient sky dome over a low wall). Easiest first | `js/scene/rooms.js` (new), `js/scene/world.js` | ✅ | rooms.js: pitwall 6, studio 4, night 7 draw calls (old room 11); procedural |
+| 4b.5 | **Theme switch:** a room button in the wrist menu cycles the themes; the choice is saved in `settings.js`. Desktop: a key (`T`) | `js/panels/wrist-menu.js`, `js/settings.js`, `js/input/desktop-input.js` | ✅ | Wrist 'Room' button and desktop T cycle themes; saved in settings.theme; verified desktop + emulator |
+| 4b.6 | **Readable car labels:** keep a constant apparent size (about 2 cm at 1 m from the head), whatever the table scale | `js/scene/labels.js` | ✅ | 2.5 cm per metre of view distance (clamped 4-50 mm), independent of table scale, 1 draw call; verified 0.5x/1x/3x |
+| 4b.7 | **Label declutter:** when labels would overlap, show full names for the selected driver, the top 3 and cars near the selected one; the rest show the position number only | `js/scene/labels.js`, `js/scene/cars.js` | ✅ | label-layout.js: 4 Hz greedy declutter; selected, top 3 and neighbours stay full, the rest show position only |
+| 4b.8 | **Find a CC0 car model:** a generic open-wheel / F1-style car with no livery or logos, glTF/GLB, about 3k triangles or fewer, few materials. Record the source URL, author and licence here. **Ask the user to approve the specific asset before adding it** | — (notes here) | ⛔ | Recommended: Kenney Racing Kit raceCarWhite.glb (CC0, kenney.nl/assets/racing-kit, 1,430 tris, 3 flat materials, 106 KB). Waiting for user approval |
+| 4b.9 | **Load the car model:** GLTFLoader from three/addons (same pinned 0.160.0, no new library), one InstancedMesh per material, team colour on the body material, fall back to the wedge if loading fails | `js/scene/car-model.js` (new), `js/scene/cars.js`, `assets/` | ✅ | car-model.js: GLTFLoader, one InstancedMesh per material, body tinted per team, wedge fallback; MODEL_URL null until 4b.8 is approved; candidate tested: 47 calls, 32k tris |
+| 4b.10 | **Resize a held panel:** right stick ←/→ makes it smaller / larger (0.5×–2.5×). Text grows with the panel | `js/input/panel-grab.js`, `js/input/xr-buttons.js` | ✅ | Right stick left/right on a held panel: 1.5x/s, 0.5x-2.5x, about the grab point |
+| 4b.11 | **Two-hand stretch:** a second grip (or pinch-hold) on the held panel scales it by the distance between the hands, like the table | `js/input/panel-grab.js`, `js/input/xr-input.js` | ✅ | Second grip / pinch-hold on the held panel stretches it by distance ratio; controllers and hands (emulator) |
+| 4b.12 | **Desktop resize:** Shift + wheel over a panel (not dragging) scales it | `js/input/desktop-input.js` | ✅ | Shift+wheel over a panel scales it (deltaY or deltaX); table scale untouched |
+| 4b.13 | **Save the panel scale** with the layout (`s` beside `p`/`q`); Reset layout restores scale 1 | `js/panels/layout-store.js`, `js/panels/pit-wall.js` | ✅ | Layout entries {p,q,s}; s restored after reload; R / Reset layout set 1; XR keeps the desktop picker entry |
+| 4b.14 | **Sharp text when enlarged:** redraw the panel canvas at a higher density when its scale goes above 1 (capped, e.g. 2048 px/m) | `js/panels/panel-base.js` | ✅ | Backing canvas up to 2x (2048 px/m), logical px for draw/hits; check Quest texture memory in 6.8 |
+| 4b.15 | **Team radio** (was 6.6): a "Radio" badge on telemetry and autoplay of the selected driver's clips when the playhead passes them, if radio is on in the wrist menu | `js/audio.js`, `js/panels/telemetry.js` | ✅ | Plain <audio> (mp3s send no CORS headers), primed in the Enter click; autoplay at 2.5x or slower for clips under 3 s old; badge; verified under strict autoplay |
+| 4b.16 | **Sound effects** (was 6.5): WebAudio chime on a new race control message, a soft whoosh on an overtake involving the selected driver, a beep when the fastest lap changes. Quiet, following the wrist menu toggle | `js/audio.js` | ✅ | Generated chime/whoosh/beep, no files; seeks re-arm silently; follows the Sounds toggle; verified on 9472 |
 | 4b.17 | **Test on Quest 3:** room, themes, labels at 0.5× table scale, car model, resize, radio and sounds | — | ⬜ | User test, together with the still-open 4.14 |
 
 ## Phase 5: Main screen
 
 | ID | Item | Files | Status | Notes |
 |---|---|---|---|---|
-| 5.1 | Screen mesh (2.4 m, 16:9, at 2.8 m) and tab buttons | `js/scene/screen.js` | ⬜ | |
-| 5.2 | Onboard follow camera rendered to a 1024x576 target at 30 fps | `js/scene/onboard.js` | ⬜ | |
-| 5.3 | Onboard overlay: speed, gear, position (drawn in the scene) | `js/scene/screen.js` | ⬜ | |
-| 5.4 | Video tab: VideoTexture from an mp4/webm URL or a local file | `js/scene/screen.js` | ⬜ | |
-| 5.5 | HLS through hls.js from a CDN when there is no native HLS | `js/scene/screen.js`, `index.html` | ⬜ | Pinned version |
-| 5.6 | Video settings on the start page (collapsed section, localStorage, sync offset) and VR controls for play, mute and sync | `index.html`, `js/main.js` | ⬜ | Show the "Add a video source…" message when none is set |
-| 5.7 | Radio tab: clip list for the selected driver with play buttons | `js/scene/screen.js` | ⬜ | |
+| 5.1 | Screen mesh (2.4 m, 16:9, at 2.8 m) and tab buttons | `js/scene/screen.js` | 🟡 | |
+| 5.2 | Onboard follow camera rendered to a 1024x576 target at 30 fps | `js/scene/onboard.js` | 🟡 | |
+| 5.3 | Onboard overlay: speed, gear, position (drawn in the scene) | `js/scene/screen.js` | 🟡 | |
+| 5.4 | Video tab: VideoTexture from an mp4/webm URL or a local file | `js/scene/screen.js` | 🟡 | |
+| 5.5 | HLS through hls.js from a CDN when there is no native HLS | `js/scene/screen.js`, `index.html` | 🟡 | Pinned version |
+| 5.6 | Video settings on the start page (collapsed section, localStorage, sync offset) and VR controls for play, mute and sync | `index.html`, `js/main.js` | 🟡 | Show the "Add a video source…" message when none is set |
+| 5.7 | Radio tab: clip list for the selected driver with play buttons | `js/scene/screen.js` | 🟡 | |
 | 5.8 | Manual test: onboard follows the car; a public sample mp4 plays | — | ⬜ | |
 
 ## Phase 6: Polish and performance
 
 | ID | Item | Files | Status | Notes |
 |---|---|---|---|---|
-| 6.1 | Leaderboard rows slide over 0.5 s | `js/panels/leaderboard.js` | ⬜ | |
-| 6.2 | Green/red flash on gaining/losing a place; purple fastest-lap marker | `js/panels/leaderboard.js` | ⬜ | |
-| 6.3 | Retired drivers greyed out with "OUT" | `js/panels/leaderboard.js` | ⬜ | |
-| 6.4 | Ticker flag colours, chequered pattern, flash on a new message | `js/panels/ticker.js` | ⬜ | |
-| 6.7 | In-scene fps counter (toggled from the wrist menu) | `js/scene/world.js` | ⬜ | |
+| 6.1 | Leaderboard rows slide over 0.5 s | `js/panels/leaderboard.js` | 🟡 | |
+| 6.2 | Green/red flash on gaining/losing a place; purple fastest-lap marker | `js/panels/leaderboard.js` | 🟡 | |
+| 6.3 | Retired drivers greyed out with "OUT" | `js/panels/leaderboard.js` | 🟡 | |
+| 6.4 | Ticker flag colours, chequered pattern, flash on a new message | `js/panels/ticker.js` | 🟡 | |
+| 6.7 | In-scene fps counter (toggled from the wrist menu) | `js/scene/world.js` | ✅ | fps-meter.js under the playback bar, 2 Hz redraw, wrist FPS toggle; verified in emulator |
 | 6.8 | Performance check: under 150 draw calls, under 300k triangles, no per-frame allocation | — | ⬜ | |
 | 6.9 | Quest check: hold 72 fps | — | ⬜ | User test |
-| 6.10 | Error handling: API down | `js/api.js`, `js/main.js` | ⬜ | |
-| 6.11 | Error handling: sessions with missing data | `js/session-data.js` | ⬜ | |
-| 6.12 | Pit lane line (optional, §4) | `js/scene/track.js` | ⬜ | Optional |
+| 6.10 | Error handling: API down | `js/api.js`, `js/main.js` | 🟡 | |
+| 6.11 | Error handling: sessions with missing data | `js/session-data.js` | 🟡 | |
+| 6.12 | Pit lane line (optional, §4) | `js/scene/track.js` | 🟡 | Optional |
 
 ## Phase 7: Deploy
 

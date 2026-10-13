@@ -10,3 +10,6 @@ Thumbs.db
 # Local test media
 *.mp4
 *.webm
+
+# Claude Code agent worktrees
+.claude/worktrees/
