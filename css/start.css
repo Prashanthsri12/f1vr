@@ -76,7 +76,7 @@ html, body {
 .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
 .field label, .field__label { font-weight: 600; color: var(--text-dim); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.06em; }
 
-select, input[type="datetime-local"], input[type="text"] {
+select, input[type="datetime-local"], input[type="text"], input[type="url"], input[type="number"], input[type="file"] {
   min-height: var(--touch);
   background: var(--bg-elev-2);
   color: var(--text);
@@ -205,6 +205,11 @@ select:focus-visible, input:focus-visible, .btn:focus-visible, .choice:focus-vis
 .collapsible summary::-webkit-details-marker { display: none; }
 .collapsible summary::before { content: '\25B8'; margin-right: 10px; color: var(--accent); }
 .collapsible[open] summary::before { content: '\25BE'; }
+
+/* Video screen settings */
+.check { display: flex; align-items: center; gap: 12px; min-height: var(--touch); cursor: pointer; }
+.check input { width: 24px; height: 24px; accent-color: var(--accent); }
+#video-panel .btn { margin-top: 8px; }
 
 /* Debug panel */
 .debug { display: flex; flex-direction: column; gap: 12px; }

@@ -5,6 +5,7 @@ import { fetchJson } from './api.js';
 import { cacheClear } from './cache.js';
 import { initDebug } from './start-debug.js';
 import { unlockAudio } from './audio.js';
+import { initVideoSettings } from './video-settings.js';
 
 const FIRST_SEASON = 2023;
 const STORAGE_KEY = 'f1vr.lastChoice';
@@ -483,6 +484,7 @@ async function boot() {
     if (e.key === 'Escape' && state.app) exitPreview();
   });
   detectXr();
+  initVideoSettings();
   initDebug(el.debugRoot, {
     getSessionKey: () => state.sessionKey,
     getSessionLabel: () => {

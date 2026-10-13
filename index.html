@@ -14,7 +14,8 @@
   <script type="importmap">
   { "imports": {
       "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+      "hls.js": "https://cdn.jsdelivr.net/npm/hls.js@1.7.3/dist/hls.min.mjs" } }
   </script>
 </head>
 <body>
@@ -62,9 +63,24 @@
       </div>
     </section>
 
-    <details class="card collapsible">
+    <details class="card collapsible" id="video-panel">
       <summary>Video screen</summary>
-      <p class="hint">Coming in a later phase. You will be able to set a video URL, HLS stream or local file for the main screen here.</p>
+      <p class="hint">Plays on the main screen's Video tab. Use your own video: a direct mp4 / webm URL, an HLS stream (.m3u8) or a file on this device. A URL's server must allow cross-origin playback (CORS).</p>
+      <div class="field">
+        <label for="video-url">Video URL (mp4, webm or .m3u8)</label>
+        <input type="url" id="video-url" placeholder="https://…" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="video-file">Or a local file</label>
+        <input type="file" id="video-file" accept="video/*">
+      </div>
+      <div class="field">
+        <label for="video-offset">Video time at race start (seconds)</label>
+        <input type="number" id="video-offset" step="0.1" value="0">
+      </div>
+      <label class="check"><input type="checkbox" id="video-sync"> Keep the video in sync with the replay</label>
+      <p id="video-status" class="hint" aria-live="polite"></p>
+      <button type="button" id="video-clear" class="btn btn--small">Clear video source</button>
     </details>
 
     <details class="card collapsible" id="debug-panel">
