@@ -1,6 +1,7 @@
 // Driver picker (spec §3): an arc of small tiles at waist height, one Panel per driver.
 // Tiles show team colour, number, acronym and current position; tapping selects.
 // Tile order is fixed at construction (grid order) so tiles never reshuffle.
+import * as THREE from 'three';
 import { Panel, THEME, font, roundRect } from './panel-base.js';
 import { LAYOUT } from './layout.js';
 
@@ -118,6 +119,10 @@ export class DriverPicker {
     const pos = (n) => data.getPositionAt(n, t0) ?? 99;
     const drivers = [...data.drivers].sort((a, b) => pos(a.number) - pos(b.number) || a.number - b.number);
     this.tiles = drivers.map((d) => new DriverTile(d, this.standings));
+    // All tiles move as one unit (panel-grab): a group at the front-centre of the arc, facing +Z.
+    this.group = new THREE.Group();
+    this.group.name = 'driver-picker';
+    this.group.position.set(0, L.y, -L.radius);
   }
 
   /**
@@ -128,6 +133,7 @@ export class DriverPicker {
    * @param {{add: Function}} manager PanelManager (only add() is used)
    */
   addTo(manager) {
+    manager.group.add(this.group);
     const n = this.tiles.length;
     const perRow = Math.ceil(n / 2);
     const pitch = L.tile + L.gap;
@@ -144,12 +150,14 @@ export class DriverPicker {
       const count = i < perRow ? perRow : n - perRow;
       const az = (col - (count - 1) / 2) * stepDeg * DEG;
       const position = { x: row.r * Math.sin(az), y: row.y, z: -row.r * Math.cos(az) };
-      manager.add(this.tiles[i], position, { tiltDeg: L.tiltDeg });
+      manager.add(this.tiles[i], position, { tiltDeg: L.tiltDeg, parent: this.group });
+      this.tiles[i].mesh.position.sub(this.group.position); // rig-local -> group-local (no rotation yet)
     }
   }
 
   dispose() {
     for (const t of this.tiles) t.dispose();
     this.tiles.length = 0;
+    if (this.group.parent) this.group.parent.remove(this.group);
   }
 }

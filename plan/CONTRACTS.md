@@ -222,7 +222,9 @@ ctx = {
   mode,            // 'pitwall' | 'passthrough'
   actions: {
     selectDriver(n), togglePlay(), seekBy(sec), seekToLap(n), speedUp(), speedDown(), setSpeed(s),
+    togglePassthrough(), exit(), recenter(), resetLayout(),  // wrist menu; recenter is only set in XR
   },
+  canPassthrough,  // the session can switch to passthrough
 }
 ```
 Panels never mutate `data` or `playback` directly. They go through `ctx.actions`.
@@ -251,3 +253,25 @@ Panels never mutate `data` or `playback` directly. They go through `ctx.actions`
 | `js/panels/ticker.js` | `class TickerPanel extends Panel` (`(data)`) | Its mesh is 2.4×0.65 m, and only the top 0.15 m strip is drawn when collapsed (transparent below). A tap toggles the expanded view of the last 5 messages. Expose `onNewMessage(cb)` for the chime (Phase 6). |
 | `js/panels/driver-picker.js` | `class DriverPicker` (`(data)`) with `addTo(manager)`, `dispose()` | 20 small tiles, each its own `Panel` (0.12 m), in the `LAYOUT.driverPicker` arc. |
 | `js/panels/playback-bar.js` | `class PlaybackBarPanel extends Panel` (`(data)`) | Play/pause, speed −/+, a lap slider (click to seek to that lap), elapsed race time and the session clock. |
+
+# Phase 4: WebXR additions
+
+## Layout rig and re-centre (4.10)
+
+`PanelManager.group` is the **layout rig**. Every pit wall panel and the driver picker group are children of it, and `LAYOUT` positions are rig-local. The rig starts at the identity, so rig-local means "the user's start floor position, facing -Z". Re-centre puts the rig at the head's floor position (x, z) and yaw, and moves the table to its default placement in the same frame. It also updates `table.userData.defaultTransform` (the original stays in `table.userData.baseTransform`), so a double grip resets the table in front of the user. The camera never moves. The wrist menu is **not** in the rig: it is a direct child of the scene, placed in world space every frame.
+
+- `js/scene/world.js`: `getRecenterPose(head: THREE.Object3D, out) -> out = { x, z, yaw }`, from the head's world matrix (yaw only).
+- `pitWall.recenter({ x, z, yaw })` places the rig; `applyRecenter(table, pose)` in `track.js` places the table.
+
+## Movable panels (4.15–4.19)
+
+- Movable units: each top-level panel mesh (`leaderboard`, `telemetry`, `laps`, `weather`, `ticker`, `playback-bar`) and the `driver-picker` group (all 20 tiles move as one). The wrist menu is not movable.
+- `pitWall.movableFor(panel) -> THREE.Object3D | null`, `pitWall.saveLayout()`, `pitWall.resetLayout()`.
+- `js/input/panel-grab.js`: `createPanelGrab({ getMovable(panel), onRelease() })` returns `{ begin(id, panel, point, origin) -> boolean, update(id, origin, dir, facePos), adjust(id, metres), end(id), has(id), isGrabbing() }`. While held, the grab point stays on the ray at a fixed distance (clamped to 0.5–4 m) and the unit turns about the vertical axis so its +Z faces `facePos`. `update` is allocation-free.
+- `js/panels/layout-store.js`: `loadLayout() -> { [name]: { p: [x,y,z], q: [x,y,z,w] } }`, `saveLayout(items)`, `clearLayout()`. localStorage key `f1vr.layout.v1`, rig-local transforms, every access in try/catch. Only moved units are stored; the rest use `LAYOUT`.
+- XR: grip while the ray is on a panel picks it up (instead of the table). A hand pinch held 0.35 s on a panel's top 6 cm (its title bar) picks it up. While a panel is held, right stick up/down pushes it away / pulls it closer, and seek and speed are suppressed.
+- Desktop: Shift + left-drag on a panel moves it, facing the camera; the wheel while dragging pushes/pulls. `R` resets the layout.
+
+## `js/audio.js` (4.11)
+
+`unlockAudio()` must be called synchronously inside the Enter / Preview click. It creates (or resumes) the shared `AudioContext` and plays one silent buffer. `getAudioContext()` returns that context or null. Phase 6 sound effects and radio use it.

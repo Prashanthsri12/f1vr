@@ -1,12 +1,13 @@
 // Scene bootstrap: wires world, table, track, cars, playback, desktop input and the HTML HUD.
 import * as THREE from 'three';
-import { createWorld } from './scene/world.js';
-import { createTable, loadTrack } from './scene/track.js';
+import { createWorld, getRecenterPose } from './scene/world.js';
+import { createTable, loadTrack, applyRecenter } from './scene/track.js';
 import { Cars } from './scene/cars.js';
 import { Playback } from './playback.js';
 import { createDesktopInput } from './input/desktop-input.js';
 import { createPitWall } from './panels/pit-wall.js';
 import { createXrInput } from './input/xr-input.js';
+import { createPanelGrab } from './input/panel-grab.js';
 import { showXrLoading } from './scene/xr-loading.js';
 import { panelStats } from './panels/panel-base.js';
 
@@ -111,6 +112,19 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
   let hudDirty = true;
   let togglePassthrough = () => {};
   const canPassthrough = !xrSession || xrMode === 'immersive-ar';
+  // Moving panels (VR grip / pinch-hold, desktop Shift-drag); saved on release.
+  const panelGrab = createPanelGrab({
+    getMovable: (panel) => (pitWall ? pitWall.movableFor(panel) : null),
+    onRelease: () => { if (pitWall) pitWall.saveLayout(); },
+  });
+  // Re-centre (XR only): the panel rig and the table follow the user's floor position and facing.
+  const recenterPose = { x: 0, z: 0, yaw: 0 };
+  function recenter() {
+    if (!pitWall || !world.renderer.xr.isPresenting) return;
+    getRecenterPose(world.renderer.xr.getCamera(), recenterPose);
+    pitWall.recenter(recenterPose);
+    applyRecenter(table, recenterPose);
+  }
   try {
     // XR controllers must exist before the session starts: three.js only sends
     // 'connected' to controllers created by then. Targets appear once panels exist.
@@ -121,6 +135,7 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
       pickPanels: (raycaster) => (pitWall ? pitWall.manager.raycast(raycaster) : null),
       onHover: (r) => { if (pitWall) pitWall.manager.setHover(r); },
       onSelect: (r) => { if (pitWall) pitWall.manager.select(r, pitWall.ctx); },
+      panelGrab,
       actions: {
         togglePlay: () => playback && playback.toggle(),
         togglePassthrough: () => togglePassthrough(),
@@ -128,7 +143,7 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
         seekBy: (sec) => playback && playback.seekBy(sec),
         speedUp: () => playback && playback.speedUp(),
         speedDown: () => playback && playback.speedDown(),
-        // recenter: item 4.10
+        recenter,
       },
     });
     if (xrSession) {
@@ -163,6 +178,8 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
         setSpeed: (sp) => playback.setSpeed(sp),
         togglePassthrough: () => togglePassthrough(),
         exit: () => { dispose(); if (onExit) onExit(); },
+        recenter: xrSession ? recenter : undefined,
+        resetLayout: () => pitWall.resetLayout(),
       },
       canPassthrough,
     });
@@ -226,6 +243,8 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
     pickPanels: (raycaster) => pitWall.manager.raycast(raycaster),
     onPanelHover: (r) => pitWall.manager.setHover(r),
     onPanelSelect: (r) => pitWall.manager.select(r, pitWall.ctx),
+    panelGrab,
+    onResetLayout: () => pitWall.resetLayout(),
   });
   // Desktop only: step back from the user's standing spot so the whole pit wall is in view
   // (in XR the headset pose drives the camera; the user never moves).
@@ -250,7 +269,7 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
   const hudPerf = el('div', 'perf', hud);
   const loading = el('div', 'f1vr-loading', overlay, 'Loading data…');
   el('div', 'f1vr-help', overlay,
-    'Click panels · Space play/pause · ←/→ seek 10 s · ↑/↓ speed · [ ] driver · P passthrough · drag table rotate · wheel on table scale · right-drag orbit');
+    'Click panels · Shift-drag panel move · R reset layout · Space play/pause · ←/→ seek 10 s · ↑/↓ speed · [ ] driver · P passthrough · drag table rotate · wheel on table scale · right-drag orbit');
   const exitBtn = el('button', 'f1vr-exit', overlay, 'Exit');
   exitBtn.type = 'button';
   exitBtn.addEventListener('click', () => {
@@ -347,7 +366,7 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
 
   // Dev/test hook: ?debug exposes the live objects (used by headless XR tests).
   if (new URLSearchParams(location.search).has('debug')) {
-    window.__f1vr = { world, table, data, playback, pitWall, getMode: () => mode };
+    window.__f1vr = { world, table, data, playback, pitWall, panelGrab, recenter, getMode: () => mode };
     unsubs.push(() => { if (window.__f1vr && window.__f1vr.table === table) delete window.__f1vr; });
   }
 

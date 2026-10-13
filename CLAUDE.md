@@ -28,7 +28,7 @@ F1 Pit Wall VR is a WebXR app for the Meta Quest 3 browser that also runs in des
 - `js/playback.js` owns the playhead, a UTC session timestamp advanced by `delta * speed`. It pauses while a needed chunk is missing.
 - `js/scene/` contains the world/XR session (one `immersive-ar` session toggles between the pit wall room and passthrough), the track (built from one clean lap of `location` data, normalised to 1.4 m, with the transform reused for every car), instanced cars, the onboard render-target camera, and the main screen.
 - `js/panels/` holds `CanvasTexture` panels built on `panel-base.js`. Panels register clickable rects in canvas pixels, and one shared raycaster converts hit UVs to pixels.
-- `js/input/` contains the XR controllers and hands (`xr-input.js`) and mouse/keyboard input (`desktop-input.js`).
+- `js/input/` contains the XR controllers and hands (`xr-input.js`, button map in `xr-buttons.js`), table grab (`table-grab.js`), panel carrying (`panel-grab.js`) and mouse/keyboard input (`desktop-input.js`). Panels live in a layout rig (`PanelManager.group`) that re-centre moves. Moved panels are saved per device by `js/panels/layout-store.js`.
 - Modules expose `init` / `update(time)` / `dispose`. Keep files under about 400 lines.
 
 ## Commands

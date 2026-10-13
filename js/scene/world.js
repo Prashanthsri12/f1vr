@@ -138,6 +138,39 @@ export function createWorld(container) {
 }
 
 /**
+ * Re-centre pose (spec §7, left stick press): the head's floor position and yaw.
+ * Pitch and roll are ignored; looking straight up or down falls back to the head's up axis.
+ * @param {THREE.Object3D} head the XR camera (renderer.xr.getCamera(); its eye cameras give the position)
+ * @param {{x: number, z: number, yaw: number}} out
+ * @returns {{x: number, z: number, yaw: number}} out
+ */
+export function getRecenterPose(head, out) {
+  const e = head.matrixWorld.elements;
+  let fx = -e[8];
+  let fz = -e[10];
+  if (Math.hypot(fx, fz) < 0.1) {
+    // Looking down, the head's up axis points the way the user faces; looking up, away from it.
+    const s = e[9] >= 0 ? 1 : -1;
+    fx = e[4] * s;
+    fz = e[6] * s;
+  }
+  // three's XR ArrayCamera sits behind the eyes (union frustum); use the eyes' midpoint.
+  const eyes = head.cameras;
+  if (eyes && eyes.length === 2) {
+    const a = eyes[0].matrixWorld.elements;
+    const b = eyes[1].matrixWorld.elements;
+    out.x = (a[12] + b[12]) / 2;
+    out.z = (a[14] + b[14]) / 2;
+  } else {
+    out.x = e[12];
+    out.z = e[14];
+  }
+  // rotation.y = θ turns -Z into (-sin θ, 0, -cos θ).
+  out.yaw = Math.atan2(-fx, -fz);
+  return out;
+}
+
+/**
  * Pit wall room: floor, grid, four low walls, emissive strips. ~11 draw calls.
  * All geometry is static (matrixAutoUpdate off).
  */

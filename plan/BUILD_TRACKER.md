@@ -14,7 +14,7 @@ Update the item's status as soon as it is created or finished. Add a dated entry
 | 1 | Data layer and start page | ✅ | 14 / 14 |
 | 2 | Scene, track and cars (desktop preview) | ✅ | 13 / 13 |
 | 3 | Panels | ✅ | 14 / 14 |
-| 4 | WebXR | 🟡 | 10 / 19 |
+| 4 | WebXR | 🟡 | 18 / 19 |
 | 5 | Main screen | ⬜ | 0 / 8 |
 | 6 | Polish and performance | ⬜ | 0 / 12 |
 | 7 | Deploy | 🟡 | 3 / 7 |
@@ -100,16 +100,16 @@ Update the item's status as soon as it is created or finished. Add a dated entry
 | 4.7 | Hand tracking: hand models, pinch as select (confirm Quest sends `select`) | `js/input/xr-input.js` | ✅ | Hand meshes (pinned assets) and hand rays; pinch fires select (confirmed in emulator, recheck on device) |
 | 4.8 | Pinch and hold on the table edge to grab it | `js/input/xr-input.js` | ✅ | Pinch-hold on the outer band (r ≥ 0.6) of the tabletop; panels in front take priority |
 | 4.9 | Wrist menu: shown when the palm is up or faces the user, with all §7 items | `js/panels/wrist-menu.js` | ✅ | Palm toward head shows it (controller grip +X, hand wrist -Y); all §7 items; re-centre greyed until 4.10; verified in emulator |
-| 4.10 | Re-centre panels to the user's position and facing | `js/scene/world.js` | ⬜ | |
-| 4.11 | Unlock AudioContext on the Enter click | `js/audio.js`, `js/main.js` | ⬜ | |
+| 4.10 | Re-centre panels to the user's position and facing | `js/scene/world.js` | ✅ | Left stick / wrist menu: rig + table to head floor pose and yaw (eye midpoint); verified in emulator + unit tests |
+| 4.11 | Unlock AudioContext on the Enter click | `js/audio.js`, `js/main.js` | ✅ | js/audio.js unlockAudio() in the Enter and Preview clicks; context 'running' verified |
 | 4.12 | Clear message when XR is unsupported | `js/main.js` | ✅ | Start page message for no WebXR, no HTTPS, or unsupported device (verified) |
-| 4.13 | Test with the Immersive Web Emulator | — | ⬜ | |
+| 4.13 | Test with the Immersive Web Emulator | — | ✅ | IWER 2.5.0 emulated Quest 3: 37/37 checks for 4.10-4.19 (grip carry, stick push, re-centre, pinch-hold, wrist reset) |
 | 4.14 | Test on Quest 3 (needs HTTPS, so a tunnel or an early Pages deploy) | — | ⬜ | User test |
-| 4.15 | **Move panels in VR (added by the user):** grip while pointing at a panel (or pinch and hold its title bar) to pick it up. It follows the ray at a fixed distance and keeps facing the user. The driver tiles move as one group | `js/input/panel-grab.js`, `js/input/xr-input.js` | ⬜ | Not in the original spec; approved by the user 2026-10-12 |
-| 4.16 | While holding a panel, right stick ↑/↓ pushes it away or pulls it closer (clamped about 0.5–4 m) | `js/input/panel-grab.js` | ⬜ | |
-| 4.17 | Save the custom panel layout on the device (localStorage, try/catch) and restore it on start | `js/panels/layout-store.js`, `js/panels/pit-wall.js` | ⬜ | Falls back to `LAYOUT` defaults |
-| 4.18 | "Reset layout" in the wrist menu; re-centre (4.10) carries the custom layout with the user | `js/panels/wrist-menu.js`, `js/panels/pit-wall.js` | ⬜ | Depends on 4.9 and 4.10 |
-| 4.19 | Desktop: Shift-drag a panel to move it (same save and restore) | `js/input/desktop-input.js` | ⬜ | |
+| 4.15 | **Move panels in VR (added by the user):** grip while pointing at a panel (or pinch and hold its title bar) to pick it up. It follows the ray at a fixed distance and keeps facing the user. The driver tiles move as one group | `js/input/panel-grab.js`, `js/input/xr-input.js` | ✅ | panel-grab.js; grip on panel or 0.35 s pinch on its top 6 cm; tiles move as one group; verified in emulator |
+| 4.16 | While holding a panel, right stick ↑/↓ pushes it away or pulls it closer (clamped about 0.5–4 m) | `js/input/panel-grab.js` | ✅ | 1.5 m/s at full deflection, 0.5-4 m from the controller; seek/speed suppressed while held |
+| 4.17 | Save the custom panel layout on the device (localStorage, try/catch) and restore it on start | `js/panels/layout-store.js`, `js/panels/pit-wall.js` | ✅ | layout-store.js (f1vr.layout.v1, rig-local, only moved units); restore verified after reload |
+| 4.18 | "Reset layout" in the wrist menu; re-centre (4.10) carries the custom layout with the user | `js/panels/wrist-menu.js`, `js/panels/pit-wall.js` | ✅ | Wrist 'Reset layout' (menu now 0.30 m tall); custom layout rides the re-centred rig |
+| 4.19 | Desktop: Shift-drag a panel to move it (same save and restore) | `js/input/desktop-input.js` | ✅ | Shift-drag faces the camera, wheel pushes/pulls, R resets; verified with real mouse events |
 
 ## Phase 5: Main screen
 
@@ -191,3 +191,4 @@ _(Record anything that differs from the spec, especially from OpenF1 docs verifi
 - **2026-10-12**: Deployed early (7.1–7.3) so the app can be tested on a Quest over HTTPS. Repo made public, Pages built by Actions (checkout v7, pages v5/v6). Only index.html, css and js are published.
 - **2026-10-12**: Added 4.15–4.19 (move panels in VR, push/pull, saved layout, reset layout, desktop Shift-drag) at the user's request. This adds to spec §3's fixed layout; the defaults stay as specified.
 - **2026-10-12**: 4.9 wrist menu done and verified in the emulated Quest 3: palm-up shows it (controller and hand), turning away hides it, buttons work, Exit returns to the start page. Radio and sound toggles are saved in `js/settings.js` for Phase 6.
+- **2026-10-13**: 4.10, 4.11, 4.13 and 4.15–4.19 done. The panels now sit in a layout rig (`PanelManager.group`) that re-centre moves along with the table. The wrist menu stays outside the rig. Each panel and the driver picker group can be picked up (`js/input/panel-grab.js`), and moved units are saved rig-local in `f1vr.layout.v1`. The button map moved to `js/input/xr-buttons.js` to keep `xr-input.js` under 400 lines. Fixed: three's XR ArrayCamera sits behind the eyes (union frustum), so re-centre uses the midpoint of the two eye cameras. 37/37 IWER emulator checks and 130/130 unit tests pass. Only 4.14 (the Quest 3 test, done by the user) is left.

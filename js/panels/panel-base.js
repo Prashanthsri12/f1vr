@@ -180,7 +180,7 @@ const _target = new THREE.Vector3();
 const _px = { x: 0, y: 0 };
 
 export class PanelManager {
-  /** @param {THREE.Object3D} parent group the panel meshes are added to */
+  /** @param {THREE.Object3D} parent where the layout rig (this.group, holding the panel meshes) is added */
   constructor(parent) {
     this.group = new THREE.Group();
     this.group.name = 'panels';
@@ -194,14 +194,15 @@ export class PanelManager {
    * Add a panel and place it facing the user's start position (origin, at the panel's height).
    * @param {Panel} panel
    * @param {{x:number,y:number,z:number}} position metres
-   * @param {{tiltDeg?: number}} [opts] tiltDeg tips the top edge away (positive) e.g. for waist-height panels
+   * @param {{tiltDeg?: number, parent?: THREE.Object3D}} [opts] tiltDeg tips the top edge away (positive)
+   *   e.g. for waist-height panels; parent defaults to the layout rig (this.group)
    */
-  add(panel, position, { tiltDeg = 0 } = {}) {
+  add(panel, position, { tiltDeg = 0, parent = this.group } = {}) {
     panel.mesh.position.set(position.x, position.y, position.z);
     _target.set(0, position.y, 0);
-    panel.mesh.lookAt(_target);
+    panel.mesh.lookAt(_target); // no parent yet: position and target are rig-local
     if (tiltDeg) panel.mesh.rotateX(-THREE.MathUtils.degToRad(tiltDeg));
-    this.group.add(panel.mesh);
+    parent.add(panel.mesh);
     this.panels.push(panel);
     this._meshes.push(panel.mesh);
     return panel;

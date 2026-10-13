@@ -1,5 +1,6 @@
 // Left-wrist menu (spec §7): play/pause, speed, compact driver grid, pit wall /
-// passthrough, radio audio, sound effects, re-centre, exit to session picker.
+// passthrough, radio audio, sound effects, re-centre, exit to session picker, plus
+// "Reset layout" for panels the user has moved (4.18).
 // Shown while the left palm faces the user's head (controller grip +X, or the
 // hand's wrist joint -Y, per the WebXR specs); operated with the right hand's ray.
 import * as THREE from 'three';
@@ -7,7 +8,7 @@ import { Panel, THEME, font, roundRect } from './panel-base.js';
 import { getSettings, setSetting } from '../settings.js';
 
 const W = 0.22;              // metres
-const H = 0.27;
+const H = 0.30;
 const PX_PER_M = 2048;       // viewed at ~35 cm: twice the usual density
 const SHOW_DOT = 0.6;        // palm-toward-head cosine to show …
 const HIDE_DOT = 0.35;       // … and to hide again (hysteresis)
@@ -33,7 +34,7 @@ export class WristMenu extends Panel {
     if (lb.length) this._order = lb.map((r) => r.driverNumber);
     const s = getSettings();
     const sig = `${ctx.playback.playing}|${ctx.playback.speed}|${ctx.selected}|${ctx.mode}|${ctx.canPassthrough}|`
-      + `${s.radio}|${s.sfx}|${!!ctx.actions.recenter}|${this._order.join(',')}`;
+      + `${s.radio}|${s.sfx}|${!!ctx.actions.recenter}|${!!ctx.actions.resetLayout}|${this._order.join(',')}`;
     if (sig === this._sig) return false;
     this._sig = sig;
     return true;
@@ -120,9 +121,11 @@ export class WristMenu extends Panel {
     this._button(g, 'sfx', pad + half + gap, y, half, 50, `Sounds ${s.sfx ? 'ON' : 'OFF'}`, { on: s.sfx });
     y += 50 + gap;
 
-    // Re-centre / exit
+    // Re-centre / reset layout, then exit
     this._button(g, 'recenter', pad, y, half, 50, 'Re-centre', { disabled: !ctx.actions.recenter });
-    this._button(g, 'exit', pad + half + gap, y, half, 50, 'Exit', { danger: true });
+    this._button(g, 'layout', pad + half + gap, y, half, 50, 'Reset layout', { disabled: !ctx.actions.resetLayout });
+    y += 50 + gap;
+    this._button(g, 'exit', pad, y, w - 2 * pad, 50, 'Exit', { danger: true });
   }
 
   _button(g, id, x, y, w, h, label, { strong = false, on = null, disabled = false, danger = false } = {}) {
@@ -162,6 +165,7 @@ export class WristMenu extends Panel {
       case 'radio': setSetting('radio', !getSettings().radio); break;
       case 'sfx': setSetting('sfx', !getSettings().sfx); break;
       case 'recenter': if (a.recenter) a.recenter(); break;
+      case 'layout': if (a.resetLayout) a.resetLayout(); break;
       case 'exit': if (a.exit) a.exit(); break;
       default:
         if (hit.id.startsWith('drv:')) a.selectDriver(hit.payload);

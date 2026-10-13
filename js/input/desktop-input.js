@@ -1,10 +1,11 @@
 // Desktop mouse + keyboard input.
 //  - Right-drag: orbit camera around the table (OrbitControls). Middle-drag: dolly.
 //  - Left-click on a panel: select what's under the pointer (hover highlights it).
+//  - Shift + left-drag on a panel: move it (wheel while dragging pushes / pulls). Saved on release.
 //  - Left-drag on the table: rotate the table around Y.
 //  - Wheel over the table: scale the table 0.5x-3x. Wheel elsewhere: dolly the camera.
 //  - Keys: Space play/pause, Left/Right seek -/+10 s, Up/Down speed,
-//    [ / ] previous/next driver by position, P toggle passthrough look.
+//    [ / ] previous/next driver by position, P toggle passthrough look, R reset the panel layout.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
@@ -12,6 +13,8 @@ const MIN_SCALE = 0.5;
 const MAX_SCALE = 3;
 const ROTATE_PER_PX = 0.008;  // radians per pixel of horizontal drag
 const WHEEL_SCALE_STEP = 0.0012;
+const WHEEL_PUSH_STEP = 0.002; // metres per wheel delta unit while dragging a panel
+const MOUSE_ID = 'mouse';
 
 /**
  * @param {object} opts
@@ -26,11 +29,13 @@ const WHEEL_SCALE_STEP = 0.0012;
  * @param {(raycaster: THREE.Raycaster) => ({rect: object|null}|null)} [opts.pickPanels] raycast panels
  * @param {(result: object|null) => void} [opts.onPanelHover]
  * @param {(result: object) => void} [opts.onPanelSelect]
+ * @param {ReturnType<import('./panel-grab.js').createPanelGrab>} [opts.panelGrab] Shift-drag moves panels
+ * @param {() => void} [opts.onResetLayout] R key
  * @returns {{update: (dt: number) => void, dispose: () => void}}
  */
 export function createDesktopInput({
   renderer, camera, table, playback, getDriverOrder, onSelectDriver, onTogglePassthrough, getSelectedDriver,
-  pickPanels, onPanelHover, onPanelSelect,
+  pickPanels, onPanelHover, onPanelSelect, panelGrab, onResetLayout,
 }) {
   const el = renderer.domElement;
   const raycaster = new THREE.Raycaster();
@@ -70,8 +75,21 @@ export function createDesktopInput({
   let pressX = 0;
   let pressY = 0;
 
+  // --- Shift-drag a panel ---
+  let panelPointer = -1;
+
   function onPointerDown(e) {
     if (e.button !== 0) return;
+    if (e.shiftKey && panelGrab && pickPanels) {
+      setRay(e.clientX, e.clientY);
+      const r = pickPanels(raycaster);
+      if (r && panelGrab.begin(MOUSE_ID, r.panel, r.point, raycaster.ray.origin)) {
+        panelPointer = e.pointerId;
+        try { el.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ }
+        el.style.cursor = 'move';
+        return;
+      }
+    }
     const p = pickPanel(e.clientX, e.clientY);
     if (p) { pressPanel = p; pressX = e.clientX; pressY = e.clientY; return; }
     if (!table.visible) return;
@@ -83,6 +101,11 @@ export function createDesktopInput({
     el.style.cursor = 'grabbing';
   }
   function onPointerMove(e) {
+    if (panelPointer === e.pointerId) {
+      setRay(e.clientX, e.clientY);
+      panelGrab.update(MOUSE_ID, raycaster.ray.origin, raycaster.ray.direction, camera.position);
+      return;
+    }
     if (!dragging) {
       if (e.buttons === 0 && onPanelHover) {
         const p = pickPanel(e.clientX, e.clientY);
@@ -97,6 +120,13 @@ export function createDesktopInput({
     table.rotation.y += dx * ROTATE_PER_PX;
   }
   function onPointerUp(e) {
+    if (panelPointer === e.pointerId) {
+      panelPointer = -1;
+      panelGrab.end(MOUSE_ID);
+      try { el.releasePointerCapture(e.pointerId); } catch (_) { /* ignore */ }
+      el.style.cursor = '';
+      return;
+    }
     if (pressPanel && e.button === 0) {
       const moved = Math.abs(e.clientX - pressX) + Math.abs(e.clientY - pressY);
       const p = moved < 8 ? pickPanel(e.clientX, e.clientY) : null;
@@ -113,6 +143,14 @@ export function createDesktopInput({
 
   // --- wheel scale (registered BEFORE OrbitControls so it can stop its dolly) ---
   function onWheel(e) {
+    if (panelPointer >= 0) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      panelGrab.adjust(MOUSE_ID, -e.deltaY * WHEEL_PUSH_STEP);
+      setRay(e.clientX, e.clientY);
+      panelGrab.update(MOUSE_ID, raycaster.ray.origin, raycaster.ray.direction, camera.position);
+      return;
+    }
     if (!table.visible || !pickTable(e.clientX, e.clientY)) return; // let OrbitControls dolly
     e.preventDefault();
     e.stopImmediatePropagation();
@@ -174,6 +212,7 @@ export function createDesktopInput({
       case 'BracketLeft': stepDriver(-1); return;
       case 'BracketRight': stepDriver(1); return;
       case 'KeyP': if (!e.repeat && onTogglePassthrough) onTogglePassthrough(); return;
+      case 'KeyR': if (!e.repeat && !e.shiftKey && onResetLayout) onResetLayout(); return;
       default:
     }
     // Layout-independent fallbacks for the bracket keys.
@@ -191,6 +230,7 @@ export function createDesktopInput({
   }
 
   function dispose() {
+    if (panelPointer >= 0) panelGrab.end(MOUSE_ID);
     el.removeEventListener('pointerdown', onPointerDown);
     el.removeEventListener('pointermove', onPointerMove);
     el.removeEventListener('pointerup', onPointerUp);

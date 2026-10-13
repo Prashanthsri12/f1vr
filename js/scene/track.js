@@ -17,7 +17,8 @@ const CACHE_VERSION = 1;
  * Creates the track table: a group at (0, 0.9, -1.0) with a dark tabletop disc and a red rim.
  * Track and cars go in `table.userData.content` so moving/scaling the table moves everything.
  * `table.userData.hitMesh` is the tabletop (for raycasting); `table.userData.defaultTransform`
- * holds clones of the initial position/quaternion/scale for reset.
+ * holds clones of the initial position/quaternion/scale for reset (re-centre rewrites it;
+ * `baseTransform` keeps the original).
  * @param {THREE.Object3D} parent
  * @returns {THREE.Group}
  */
@@ -49,6 +50,11 @@ export function createTable(parent) {
 
   table.userData.hitMesh = tabletop;
   table.userData.content = content;
+  table.userData.baseTransform = {
+    position: table.position.clone(),
+    quaternion: table.quaternion.clone(),
+    scale: table.scale.clone(),
+  };
   table.userData.defaultTransform = {
     position: table.position.clone(),
     quaternion: table.quaternion.clone(),
@@ -60,6 +66,28 @@ export function createTable(parent) {
 
   if (parent) parent.add(table);
   return table;
+}
+
+const _UP = new THREE.Vector3(0, 1, 0);
+const _yawQ = new THREE.Quaternion();
+
+/**
+ * Re-centre (4.10): move the table to its default spot relative to the user's floor pose
+ * (same frame as the panel rig) and make that the double-grip reset target. Keeps the scale.
+ * @param {THREE.Group} table from createTable
+ * @param {{x: number, z: number, yaw: number}} pose
+ */
+export function applyRecenter(table, { x, z, yaw }) {
+  const base = table.userData.baseTransform;
+  const def = table.userData.defaultTransform;
+  if (!base || !def) return;
+  _yawQ.setFromAxisAngle(_UP, yaw);
+  def.position.copy(base.position).applyQuaternion(_yawQ);
+  def.position.x += x;
+  def.position.z += z;
+  def.quaternion.copy(_yawQ).multiply(base.quaternion);
+  table.position.copy(def.position);
+  table.quaternion.copy(def.quaternion);
 }
 
 /**

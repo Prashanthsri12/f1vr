@@ -4,6 +4,7 @@
 import { fetchJson } from './api.js';
 import { cacheClear } from './cache.js';
 import { initDebug } from './start-debug.js';
+import { unlockAudio } from './audio.js';
 
 const FIRST_SEASON = 2023;
 const STORAGE_KEY = 'f1vr.lastChoice';
@@ -316,6 +317,7 @@ function startXr(startMode) {
     requiredFeatures: ['local-floor'],
     optionalFeatures: ['hand-tracking', 'bounded-floor'],
   });
+  unlockAudio(); // still inside the click's user activation
   state.busy = true;
   updateButtons();
   showError(el.loadError, null);
@@ -369,6 +371,7 @@ const STEP_LABELS = { race_control: 'race control', team_radio: 'team radio' };
 
 async function startPreview() {
   if (state.busy || !state.sessionKey) return;
+  unlockAudio(); // before the first await: needs the click's user activation
   state.busy = true;
   updateButtons();
   showError(el.loadError, null);

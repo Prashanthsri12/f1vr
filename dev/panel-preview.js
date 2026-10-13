@@ -50,7 +50,7 @@ for (const name of names) {
     const Cls = (await import(path))[exp];
     const obj = new Cls(data);
     const list = [];
-    if (typeof obj.addTo === 'function') obj.addTo({ add: (p) => { list.push(p); return p; } });
+    if (typeof obj.addTo === 'function') obj.addTo({ group: { add() {} }, add: (p) => { list.push(p); return p; } });
     else list.push(obj);
     for (const p of list) {
       if (ctx.mode === 'passthrough') p.setPassthrough(true);

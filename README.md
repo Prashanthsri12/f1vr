@@ -30,15 +30,18 @@ The first load of a session downloads its data, which takes a few seconds. After
 | Trigger | Select what the ray points at (driver tile, leaderboard row, button, slider) |
 | Grip | Grab the table and move it. Use both grips to scale (0.5–3×) and rotate it |
 | Grip, double press | Reset the table |
+| Grip on a panel | Pick the panel up; it follows the ray and keeps facing you. Right stick ↑ / ↓ pushes it away / pulls it closer. The layout is saved on the headset |
 | A (right) | Play / pause |
 | B (right) | Toggle pit wall / passthrough |
 | X / Y (left) | Previous / next driver (by position) |
 | Right stick ← / → | Seek −10 s / +10 s (hold to repeat) |
 | Right stick ↑ / ↓ | Playback speed up / down (0.5×, 1×, 2×, 5×, 10×) |
+| Left stick press | Re-centre the panels and table to where you stand and face |
+| Left palm toward you | Wrist menu (play, speed, drivers, passthrough, radio, sounds, re-centre, reset layout, exit) |
 
 ### Hand tracking
 
-Put the controllers down and your hands appear. **Pinch** to select. **Pinch and hold** the outer edge of the table to grab it, and use two hands to scale and rotate it.
+Put the controllers down and your hands appear. **Pinch** to select. **Pinch and hold** the outer edge of the table to grab it, and use two hands to scale and rotate it. **Pinch and hold** a panel's top edge (its title bar) to pick the panel up.
 
 ### Desktop ("Preview on desktop")
 
@@ -48,6 +51,8 @@ Put the controllers down and your hands appear. **Pinch** to select. **Pinch and
 | Left-drag on the table | Rotate the table |
 | Wheel over the table | Scale the table |
 | Right-drag | Orbit the camera |
+| Shift + drag a panel | Move the panel (wheel while dragging pushes / pulls). Saved in this browser |
+| R | Reset the panel layout |
 | Space | Play / pause |
 | ← / → | Seek 10 s |
 | ↑ / ↓ | Playback speed |
