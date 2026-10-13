@@ -13,6 +13,8 @@ import { panelStats } from './panels/panel-base.js';
 import { THEMES } from './scene/rooms.js';
 import { FpsMeter } from './scene/fps-meter.js';
 import { setSetting } from './settings.js';
+import { createAudioEvents } from './audio-events.js';
+import { stopRadio, sfxStats } from './audio.js';
 
 const HUD_INTERVAL = 0.1; // seconds (10 Hz)
 const STYLE_ID = 'f1vr-hud-style';
@@ -85,6 +87,7 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
   let pitWall = null;
   let xrInput = null;
   let fpsMeter = null;
+  let audioEvents = null;
   const unsubs = [];
   let overlay = null;
   let disposed = false;
@@ -101,6 +104,8 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
     if (xrInput) xrInput.dispose();
     if (input) input.dispose();
     if (fpsMeter) fpsMeter.dispose();
+    if (audioEvents) audioEvents.dispose();
+    stopRadio();
     if (pitWall) pitWall.dispose();
     if (cars) cars.dispose();
     world.dispose();
@@ -194,6 +199,7 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
     dispose();
     throw err;
   }
+  audioEvents = createAudioEvents(data); // team radio autoplay + sound effects
 
   // --- room theme (4b.5) and in-scene fps counter (6.7) ---
   function cycleTheme() {
@@ -358,6 +364,7 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
     cars.update(data, playback.time, world.camera);
     pitWall.update(dt);
     fpsMeter.update(dt);
+    audioEvents.update(playback.time, selected, playback.playing && !playback.waiting);
     input.update(dt);
     xrInput.update(dt);
     if (world.renderer.xr.isPresenting) {
@@ -386,7 +393,7 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
 
   // Dev/test hook: ?debug exposes the live objects (used by headless XR tests).
   if (new URLSearchParams(location.search).has('debug')) {
-    window.__f1vr = { world, table, data, playback, pitWall, panelGrab, recenter, getMode: () => mode };
+    window.__f1vr = { world, table, data, playback, pitWall, panelGrab, recenter, sfxStats, getMode: () => mode };
     unsubs.push(() => { if (window.__f1vr && window.__f1vr.table === table) delete window.__f1vr; });
   }
 
