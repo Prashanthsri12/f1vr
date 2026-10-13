@@ -1,15 +1,17 @@
 // Cars on the track table (spec §4, CONTRACTS.md `js/scene/cars.js`).
-// Draw calls: cars InstancedMesh 1, selected-car glow 1, trail 1, labels 1 (see labels.js).
+// Draw calls: cars 1 InstancedMesh per material (wedge: 1; glTF model: one per material),
+// selected-car glow 1, trail 1, labels 1 (see labels.js).
 // No per-frame allocation: all temporaries are preallocated.
 
 import * as THREE from 'three';
 import { CarLabels } from './labels.js';
 import { headingFromDelta } from './track-math.js';
+import { resolveModelUrl, loadCarModel } from './car-model.js';
 
 const CAR_LENGTH = 0.025;
 const CAR_WIDTH = 0.011;
 const CAR_LIFT = 0.0008;          // above the ribbon surface
-const LABEL_OFFSET = 0.02;        // label centre above the car
+const WEDGE_HEIGHT = 0.006;       // label anchor = top of the car (labels sit above it in view space)
 const HEADING_DT = 250;           // ms either side of t
 const SELECTED_SCALE = 1.5;
 const TRAIL_POINTS = 60;
@@ -107,6 +109,15 @@ export class Cars {
     parent.add(this.trail);
 
     this.labels = new CarLabels(drivers, parent);
+    this.extraMeshes = [];          // glTF model: the untinted parts, sharing this.mesh's instanceMatrix
+    this.carHeight = WEDGE_HEIGHT;
+    this._disposed = false;
+    const url = resolveModelUrl();
+    if (url) {
+      loadCarModel(url, CAR_LENGTH)
+        .then((model) => { if (!this._disposed) this._useModel(model); })
+        .catch((err) => console.warn('[f1vr] car model failed to load, keeping the wedge:', err));
+    }
 
     // Preallocated temporaries
     this._out = { x: 0, y: 0, z: 0 };
@@ -146,9 +157,9 @@ export class Cars {
    * Positions every car at session time t (ms). Allocation-free.
    * @param {import('../session-data.js').SessionData} data
    * @param {number} t
-   * @param {THREE.Camera} [camera]  unused: labels billboard in the vertex shader
+   * @param {THREE.Camera} [camera]  viewing camera, for the 4 Hz label declutter
    */
-  update(data, t, camera) { // eslint-disable-line no-unused-vars
+  update(data, t, camera) {
     const toScene = this.transform.toScene;
     const out = this._out, p = this._p, q = this._q, s = this._s, m = this._m;
     const sel = this.selectedIndex;
@@ -176,7 +187,7 @@ export class Cars {
       s.set(k, k, k);
       m.compose(p, q, s);
       this.mesh.setMatrixAt(i, m);
-      this.labels.setLabel(i, true, p.x, p.y + LABEL_OFFSET * k, p.z, i === sel ? 1.15 : 1);
+      this.labels.setLabel(i, true, p.x, p.y + this.carHeight * k, p.z, i === sel ? 1.15 : 1);
 
       if (i === sel) {
         selVisible = true;
@@ -201,7 +212,7 @@ export class Cars {
 
     this._data = data;
     this._t = t;
-    this.labels.refresh(this._getPos, performance.now());
+    this.labels.refresh(this._getPos, performance.now(), camera, sel);
   }
 
   /** Rebuilds the trail from data on each 83 ms tick (so seeks reset it); head follows the car. */
@@ -249,7 +260,49 @@ export class Cars {
     this.trail.visible = true;
   }
 
+  /**
+   * Swap the wedge for a loaded model (car-model.js): one InstancedMesh per material, all
+   * sharing the first mesh's instanceMatrix, so update() still writes one matrix per car.
+   */
+  _useModel(model) {
+    const n = this.mesh.count;
+    const old = this.mesh;
+    const [first, ...rest] = model.parts;
+    const main = new THREE.InstancedMesh(first.geometry, first.material, n);
+    main.name = 'cars';
+    main.frustumCulled = false;
+    main.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    main.instanceMatrix.array.set(old.instanceMatrix.array);
+    if (first.tint) {
+      for (let i = 0; i < n; i++) main.setColorAt(i, this.teamColors[i]);
+      main.instanceColor.needsUpdate = true;
+    }
+    this.parent.add(main);
+    for (const p of rest) {
+      const m = new THREE.InstancedMesh(p.geometry, p.material, n);
+      m.name = 'cars-part';
+      m.frustumCulled = false;
+      m.instanceMatrix = main.instanceMatrix; // shared: uploaded once per frame
+      this.parent.add(m);
+      this.extraMeshes.push(m);
+    }
+    old.removeFromParent();
+    old.dispose?.();
+    this.geometry.dispose();
+    this.material.dispose();
+    this.mesh = main;
+    this.geometry = model.shell;          // the glow shell follows the model's outline
+    this.glow.geometry = model.shell;
+    this.material = first.material;
+    this._parts = model.parts;
+    this.carHeight = model.height;
+    this.modelTriangles = model.triangles;
+  }
+
   dispose() {
+    this._disposed = true;
+    for (const m of this.extraMeshes) { m.removeFromParent(); m.dispose?.(); }
+    if (this._parts) for (const p of this._parts) { p.geometry.dispose(); p.material.dispose(); }
     this.mesh.removeFromParent();
     this.glow.removeFromParent();
     this.trail.removeFromParent();
