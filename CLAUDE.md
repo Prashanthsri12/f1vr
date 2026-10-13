@@ -26,9 +26,10 @@ F1 Pit Wall VR is a WebXR app for the Meta Quest 3 browser that also runs in des
 - `js/session-data.js` loads the small datasets in full and streams `location` (all drivers) and `car_data` (selected driver only) in 60 s chunks around the playhead. It exposes a source-agnostic query interface (`getCarsAt(time)`, `getTelemetryAt(driver, time)`, `getLeaderboardAt(time)`, …) so a live source can replace it later without changes to scene code.
 - `js/interp.js` handles binary search and linear interpolation over irregular, sorted timestamps.
 - `js/playback.js` owns the playhead, a UTC session timestamp advanced by `delta * speed`. It pauses while a needed chunk is missing.
-- `js/scene/` contains the world/XR session (one `immersive-ar` session toggles between the pit wall room and passthrough), the track (built from one clean lap of `location` data, normalised to 1.4 m, with the transform reused for every car), instanced cars, the onboard render-target camera, and the main screen.
+- `js/scene/` contains the world/XR session (one `immersive-ar` session toggles between the pit wall room and passthrough), the track (built from one clean lap of `location` data, normalised to 1.4 m, with the transform reused for every car), instanced cars and car labels, and the main screen (Video / Radio tabs).
 - `js/panels/` holds `CanvasTexture` panels built on `panel-base.js`. Panels register clickable rects in canvas pixels, and one shared raycaster converts hit UVs to pixels.
-- `js/input/` contains the XR controllers and hands (`xr-input.js`, button map in `xr-buttons.js`), table grab (`table-grab.js`), panel carrying (`panel-grab.js`) and mouse/keyboard input (`desktop-input.js`). Panels live in a layout rig (`PanelManager.group`) that re-centre moves. Moved panels are saved per device by `js/panels/layout-store.js`.
+- `js/input/` contains the XR controllers and hands (`xr-input.js`, button map in `xr-buttons.js`), table grab (`table-grab.js`), panel carrying (`panel-grab.js`) and mouse/keyboard input for the room preview (`desktop-input.js`). Panels live in a layout rig (`PanelManager.group`) that re-centre moves. Moved panels are saved per device by `js/panels/layout-store.js`.
+- `js/screen/` is Screen mode (Phase 8): the desktop's flat dashboard. `screen-layout.js` (pure) places the tiles for landscape, portrait or narrow windows; `panel-host.js` shows the same panel canvases in the page; `track-view.js` draws the track in 2D or 3D in its own canvas; `main-tile.js` has the Video / Radio tabs. The 3D room on desktop is only behind `?debug` ("Room preview").
 - Modules expose `init` / `update(time)` / `dispose`. Keep files under about 400 lines.
 
 ## Commands
@@ -40,6 +41,6 @@ node --test tests/interp.test.js   # run a single test file
 THREE_DIR=<three@0.160.0 package dir> node --import ./tests/support/three-register.mjs --test   # also run tests of three-importing modules (skipped otherwise)
 ```
 
-Panel dev preview: `/dev/panel-preview?panels=leaderboard,telemetry&t=2024-03-02T15:40:00Z&driver=1&passthrough=1` draws panels against real cached data. The desktop HUD shows fps, draw calls, triangles and panel redraws per second.
+Panel dev preview: `/dev/panel-preview?panels=leaderboard,telemetry&t=2024-03-02T15:40:00Z&driver=1&passthrough=1` draws panels against real cached data. With `?debug`, the desktop dashboard (and the room preview HUD) shows fps, draw calls, triangles and panel redraws per second.
 
-WebXR needs HTTPS on the Quest. On desktop, use the Immersive Web Emulator Chrome extension, or "Preview on desktop" on the start page. Deployment: every push to `master` deploys to https://prashanthsri12.github.io/f1vr/ through `.github/workflows/pages.yml`. Only `index.html`, `css/` and `js/` are published. **The repo is public**, so commit with the GitHub no-reply email (already set in this repo's git config).
+WebXR needs HTTPS on the Quest. On desktop, use the Immersive Web Emulator Chrome extension; "Open on desktop" opens Screen mode, and with `?debug` "Room preview (debug)" shows the VR room. Deployment: every push to `master` deploys to https://prashanthsri12.github.io/f1vr/ through `.github/workflows/pages.yml`. Only `index.html`, `css/` and `js/` are published. **The repo is public**, so commit with the GitHub no-reply email (already set in this repo's git config).

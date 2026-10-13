@@ -2,7 +2,7 @@
 //  - ScreenContent: covers the screen; shows the Radio tab (the selected driver's team radio
 //    clips up to the playhead, newest first, with play / stop buttons) or a message
 //    (e.g. "Add a video source on the start page.").
-//  - ScreenTabs: Onboard / Video / Radio buttons under the screen's left edge.
+//  - ScreenTabs: Video / Radio buttons under the screen's right edge.
 import { Panel, THEME, font, roundRect } from '../panels/panel-base.js';
 import { currentLap } from '../session-index.js';
 import { playRadio, stopRadio, getRadioState, onRadioChange } from '../audio.js';
@@ -33,10 +33,12 @@ export class ScreenContent extends Panel {
    * @param {import('../session-data.js').SessionData} data
    * @param {number} width metres
    * @param {number} height metres
+   * @param {{rows?: number}} [o] clips per page (default 9; the small desktop tile uses fewer)
    */
-  constructor(data, width, height) {
+  constructor(data, width, height, { rows = ROWS } = {}) {
     super({ name: 'screen-content', width, height, pxPerM: PX_PER_M });
     this.data = data;
+    this.rows = rows;
     this.mode = 'radio';       // 'radio' | 'message'
     this.message = '';
     this.page = 0;
@@ -123,14 +125,15 @@ export class ScreenContent extends Panel {
       return;
     }
 
-    const pages = Math.ceil(clips.length / ROWS);
+    const rows = this.rows;
+    const pages = Math.ceil(clips.length / rows);
     if (this.page >= pages) this.page = pages - 1;
     const st = getRadioState();
     const laps = this.data.getDriverLaps(n);
     const top = 104;
-    const rowH = (h - top - BOTTOM - 10) / ROWS;
-    const start = clips.length - 1 - this.page * ROWS; // newest first
-    for (let r = 0; r < ROWS; r++) {
+    const rowH = (h - top - BOTTOM - 10) / rows;
+    const start = clips.length - 1 - this.page * rows; // newest first
+    for (let r = 0; r < rows; r++) {
       const i = start - r;
       if (i < 0) break;
       const c = clips[i];
@@ -204,14 +207,14 @@ export class ScreenContent extends Panel {
   }
 }
 
-const TABS = [['onboard', 'Onboard'], ['video', 'Video'], ['radio', 'Radio']];
+const TABS = [['video', 'Video'], ['radio', 'Radio']];
 
 export class ScreenTabs extends Panel {
   /** @param {(tab: string) => void} onTab */
   constructor(onTab) {
     super({ name: 'screen-tabs', width: 0.54, height: 0.1 });
     this.onTab = onTab;
-    this.tab = 'onboard';
+    this.tab = 'video';
   }
 
   setTab(tab) {
@@ -221,7 +224,7 @@ export class ScreenTabs extends Panel {
   draw(g, w, h) {
     this.clear(g, w, h, 14);
     const gap = 8;
-    const bw = (w - 4 * gap) / 3;
+    const bw = (w - (TABS.length + 1) * gap) / TABS.length;
     TABS.forEach(([id, label], i) => {
       const x = gap + i * (bw + gap);
       const y = gap;

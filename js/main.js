@@ -1,4 +1,4 @@
-// Start page: season / weekend / session picker, desktop preview launcher, cache tools and debug panel.
+// Start page: season / weekend / session picker, desktop (Screen mode) launcher, cache tools and debug panel.
 // SessionData and the 3D app are imported lazily so the picker works even if the scene fails to load.
 
 import { fetchJson, onApiHealth } from './api.js';
@@ -21,6 +21,7 @@ const el = {
   btnVr: $('btn-enter-vr'),
   btnPt: $('btn-enter-pt'),
   btnPreview: $('btn-preview'),
+  btnRoom: $('btn-room'),
   xrStatus: $('xr-status'),
   loadStatus: $('load-status'),
   loadError: $('load-error'),
@@ -187,6 +188,7 @@ function makeChoice({ name, meta, flagUrl, flagText, selected, onSelect }) {
 function updateButtons() {
   const off = state.busy || !state.sessionKey;
   el.btnPreview.disabled = off;
+  el.btnRoom.disabled = off;
   el.btnVr.disabled = off || !(state.xr.vr || state.xr.ar);
   el.btnPt.disabled = off || !state.xr.ar;
   el.btnPt.hidden = !state.xr.ar && state.xr.vr; // VR-only device: no passthrough toggle
@@ -317,8 +319,8 @@ function selectSession(sessionKey) {
 async function detectXr() {
   if (!('xr' in navigator) || !navigator.xr) {
     el.xrStatus.textContent = window.isSecureContext
-      ? 'WebXR is not available in this browser. Use the Quest browser, or "Preview on desktop".'
-      : 'WebXR needs HTTPS. Open this page over https:// (or localhost), or use "Preview on desktop".';
+      ? 'WebXR is not available in this browser. Use the Quest browser, or "Open on desktop".'
+      : 'WebXR needs HTTPS. Open this page over https:// (or localhost), or use "Open on desktop".';
     return;
   }
   const check = async (mode) => {
@@ -327,7 +329,7 @@ async function detectXr() {
   const [vr, ar] = await Promise.all([check('immersive-vr'), check('immersive-ar')]);
   state.xr = { vr, ar };
   if (!vr && !ar) {
-    el.xrStatus.textContent = 'This device does not support immersive WebXR. Use "Preview on desktop".';
+    el.xrStatus.textContent = 'This device does not support immersive WebXR. Use "Open on desktop".';
   } else {
     el.xrStatus.textContent = ar
       ? 'Ready: "Enter VR" starts in the pit wall room, "Enter Passthrough" in your real room. Toggle with B.'
@@ -409,7 +411,12 @@ async function runXr(sessionPromise, xrMode, startMode) {
 
 const STEP_LABELS = { race_control: 'race control', team_radio: 'team radio', session_result: 'results' };
 
-async function startPreview() {
+/**
+ * Desktop: Screen mode (the flat dashboard, Phase 8), or with room = true the 3D room preview
+ * (debug only: checks the VR layout on desktop).
+ * @param {boolean} [room]
+ */
+async function startPreview(room = false) {
   if (state.busy || !state.sessionKey) return;
   unlockAudio(); // before the first await: needs the click's user activation
   state.busy = true;
@@ -430,7 +437,9 @@ async function startPreview() {
       },
     });
     setStatus(`Loading ${[...steps.slice(-3), 'track'].join('… ')}…`, true);
-    const { startApp } = await import('./app.js');
+    const start = room
+      ? (await import('./app.js')).startApp
+      : (await import('./screen/dashboard.js')).startDashboard;
 
     el.appContainer.replaceChildren();
     overlay = document.createElement('div');
@@ -440,7 +449,7 @@ async function startPreview() {
     el.appContainer.hidden = false;
     el.startPage.hidden = true;
 
-    const handle = await startApp({
+    const handle = await start({
       data,
       container: el.appContainer,
       onExit: exitPreview,
@@ -460,7 +469,7 @@ async function startPreview() {
     el.startPage.hidden = false;
     try { data && data.dispose(); } catch { /* ignore */ }
     setStatus('');
-    showError(el.loadError, err, startPreview);
+    showError(el.loadError, err, () => startPreview(room));
   } finally {
     state.busy = false;
     updateButtons();
@@ -515,7 +524,9 @@ async function pickDefaultSeason() {
 async function boot() {
   fillSeasons();
   el.season.addEventListener('change', () => selectSeason(Number(el.season.value)));
-  el.btnPreview.addEventListener('click', startPreview);
+  el.btnPreview.addEventListener('click', () => startPreview(false));
+  el.btnRoom.addEventListener('click', () => startPreview(true));
+  el.btnRoom.hidden = !new URLSearchParams(location.search).has('debug');
   el.btnVr.addEventListener('click', () => startXr('pitwall'));
   el.btnPt.addEventListener('click', () => startXr('passthrough'));
   el.btnClear.addEventListener('click', clearCache);

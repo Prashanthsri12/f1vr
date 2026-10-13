@@ -11,6 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@400;600;700&display=swap">
   <link rel="stylesheet" href="css/start.css">
+  <link rel="stylesheet" href="css/dashboard.css">
   <script type="importmap">
   { "imports": {
       "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
@@ -22,7 +23,7 @@
   <main id="start-page" class="start">
     <header class="start__header">
       <h1 class="start__title"><span class="accent-bar" aria-hidden="true"></span>F1 Pit Wall VR</h1>
-      <p class="start__subtitle">Replay a historical session around a 3D track table.</p>
+      <p class="start__subtitle">Replay a historical session as a dashboard on your screen, or around a 3D track table in VR.</p>
     </header>
 
     <section class="card" aria-labelledby="pick-heading">
@@ -53,7 +54,8 @@
       <div class="actions__buttons">
         <button type="button" id="btn-enter-vr" class="btn btn--primary" disabled>Enter VR</button>
         <button type="button" id="btn-enter-pt" class="btn" disabled>Enter Passthrough</button>
-        <button type="button" id="btn-preview" class="btn btn--accent-outline" disabled>Preview on desktop</button>
+        <button type="button" id="btn-preview" class="btn btn--accent-outline" disabled>Open on desktop</button>
+        <button type="button" id="btn-room" class="btn" disabled hidden>Room preview (debug)</button>
       </div>
       <p id="xr-status" class="hint"></p>
       <p id="load-status" class="status" aria-live="polite"></p>

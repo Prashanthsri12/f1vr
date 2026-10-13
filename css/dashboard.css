@@ -1,0 +1,99 @@
+/* Screen mode dashboard (Phase 8). Tiles are absolutely placed by js/screen/screen-layout.js;
+   panel canvases are sized inside them by js/screen/panel-host.js. */
+.f1-dash {
+  position: absolute;
+  inset: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: #07090c;
+  color: #e8ecf2;
+  font-family: var(--font);
+}
+.f1-dash__content { position: relative; width: 100%; }
+
+.f1-dash__tile { position: absolute; }
+.f1-dash__canvas { position: absolute; display: block; image-rendering: auto; touch-action: manipulation; }
+
+/* Track and main screen: cards with their own toolbar */
+.f1-dash__tile--track,
+.f1-dash__tile--main {
+  overflow: hidden;
+  border-radius: 12px;
+  background: #0b0e13;
+  border: 1px solid #1c222d;
+}
+.f1-dash__gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+
+/* Race control strip: only the top strip shows until it is expanded (it then overlays the track) */
+.f1-dash__tile--ticker { overflow: hidden; z-index: 2; }
+.f1-dash__tile--ticker.is-open { overflow: visible; z-index: 5; }
+
+.f1-dash__tools,
+.f1-dash__tabs {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 3;
+  pointer-events: none;
+}
+.f1-dash__tools > *, .f1-dash__tabs > * { pointer-events: auto; }
+.f1-dash__spacer { flex: 1; pointer-events: none !important; }
+
+.f1-dash__btn {
+  font: 700 14px/1 var(--font);
+  color: #e8ecf2;
+  background: rgba(22, 27, 36, 0.85);
+  border: 1px solid #2a3240;
+  border-radius: 6px;
+  padding: 7px 12px;
+  min-height: 32px;
+  cursor: pointer;
+}
+.f1-dash__btn:hover:not(:disabled) { background: #202735; border-color: #e10600; }
+.f1-dash__btn:disabled { opacity: 0.45; cursor: default; }
+.f1-dash__btn:focus-visible { outline: 2px solid #e10600; outline-offset: 1px; }
+.f1-dash__btn.is-active { background: #202735; box-shadow: inset 0 -3px 0 #e10600; }
+.f1-dash__btn.is-on { background: #e10600; border-color: #e10600; }
+.f1-dash__btn--icon { font-size: 18px; padding: 4px 10px; }
+.f1-dash__btn--exit:hover { background: #e10600; }
+
+.f1-dash__help {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(22, 27, 36, 0.85);
+  border: 1px solid #2a3240;
+  font: 700 15px/1 var(--font);
+  cursor: help;
+  white-space: pre-line;
+}
+.f1-dash__perf {
+  font: 12px/1.2 var(--mono);
+  color: #8a94a6;
+  background: rgba(10, 12, 16, 0.7);
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+/* Main screen tile */
+.f1-dash__tile--main { background: #0d1016; }
+.f1-dash__body { position: absolute; inset: 48px 0 0 0; }
+.f1-dash__video { position: absolute; inset: 0 0 52px 0; background: #05070a; display: grid; place-items: center; }
+.f1-dash__videoel { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; }
+.f1-dash__msg { position: relative; max-width: 80%; text-align: center; color: #8a94a6; font-size: 15px; line-height: 1.4; }
+.f1-dash__vctl {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+.f1-dash__radio { position: absolute; inset: 0; }

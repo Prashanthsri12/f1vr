@@ -198,8 +198,8 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
       canPassthrough,
       driverTiles: !xrSession, // 4b.1: VR picks drivers from the wrist menu / leaderboard
     });
-    // Main screen (Phase 5): onboard / video / radio tabs, in the panel rig.
-    screen = createMainScreen({ manager: pitWall.manager, renderer: world.renderer, table, cars, data, playback });
+    // Main screen (Phase 5): video / radio tabs, in the panel rig.
+    screen = createMainScreen({ manager: pitWall.manager, data, playback });
   } catch (err) {
     dispose();
     throw err;
@@ -395,7 +395,6 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
       hudDirty = false;
       updateHud();
     }
-    // After the HUD read: the onboard pass is an extra render() and resets renderer.info.
     screen.update(dt);
   }));
 

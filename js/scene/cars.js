@@ -111,6 +111,7 @@ export class Cars {
     this.labels = new CarLabels(drivers, parent);
     this.extraMeshes = [];          // glTF model: the untinted parts, sharing this.mesh's instanceMatrix
     this.carHeight = WEDGE_HEIGHT;
+    this.carScale = 1;             // every car drawn this much bigger (the desktop map view enlarges them)
     this._disposed = false;
     const url = resolveModelUrl();
     if (url) {
@@ -183,7 +184,7 @@ export class Cars {
         if (h === h) this.headings[i] = h; // not NaN
       }
       q.setFromAxisAngle(this._yAxis, this.headings[i]);
-      const k = i === sel ? SELECTED_SCALE : 1;
+      const k = (i === sel ? SELECTED_SCALE : 1) * this.carScale;
       s.set(k, k, k);
       m.compose(p, q, s);
       this.mesh.setMatrixAt(i, m);
@@ -217,7 +218,7 @@ export class Cars {
   }
 
   /**
-   * Selected car pose from the last update(), in table-content space (onboard camera).
+   * Selected car pose from the last update(), in table-content space.
    * @param {THREE.Vector3} outPos
    * @returns {number} heading in radians (nose = (sin h, 0, cos h)), or NaN when hidden
    */

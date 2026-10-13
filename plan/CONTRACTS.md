@@ -288,7 +288,7 @@ Panels never mutate `data` or `playback` directly. They go through `ctx.actions`
   - `onRadioChange(cb) -> unsubscribe`;
   - `playSfx('chime' | 'whoosh' | 'beep')` is a quiet WebAudio effect, a no-op when `sfx` is off or audio is locked.
 - **Audio events** (`js/audio-events.js`): `createAudioEvents(data) -> { update(time, selected, playing), dispose() }`. It autoplays the selected driver's radio when the playhead passes a clip (if `radio` is on and playback is playing, not while seeking), plus the chime, whoosh and beep. Call it at ≤10 Hz or make it cheap per frame.
-- **Main screen** (`js/scene/screen.js`, `js/scene/onboard.js`): created by `app.js` in the layout rig, at `MAIN_SCREEN` from `layout.js`. Clickable parts are `Panel`s added through `pitWall.manager.add(panel, pos, { parent })`, so the shared raycaster and selection work.
+- **Main screen** (`js/scene/screen.js`): created by `app.js` in the layout rig, at `MAIN_SCREEN` from `layout.js`. Clickable parts are `Panel`s added through `pitWall.manager.add(panel, pos, { parent })`, so the shared raycaster and selection work.
 - **Video source settings** (`js/video-settings.js`): `loadVideoSettings() -> { kind: 'none' | 'url' | 'hls' | 'file', url, offsetSec, sync }`, plus the start page section. A local file is kept as an object URL in memory only (it can't be stored).
 
 ## As built (4b, 5, 6): interface notes from the parallel agents
@@ -303,18 +303,32 @@ Panels never mutate `data` or `playback` directly. They go through `ctx.actions`
   - `begin()` on a unit another pointer holds starts a two-pointer stretch;
   - `has(id)` covers stretchers, while `isGrabbing()` counts carriers only.
 - **`Panel`:** `lw`/`lh` are the logical canvas px that `draw()`, hit rects and `uvToPx` use. `canvas.width/height` is the backing size (`density` × logical, up to `MAX_PX_PER_M` 2048 px/m), set with `setDensity(scale)` in 0.25 steps. `pit-wall` reapplies density 300 ms after a save or reset.
-- **Labels:** `CarLabels.refresh(getPosition, nowMs, camera?, selectedIndex?)`. `setLabel(i, visible, x, y, z, scale)` takes the car-top anchor. The apparent size is `ANGULAR_SIZE` 0.025 (2.5 cm at 1 m), clamped to 4–50 mm. Declutter is in `js/scene/label-layout.js` (pure, 4 Hz).
-- **Car model:** `js/scene/car-model.js` exports `MODEL_URL` (`js/assets/cars/raceCarWhite.glb`, Kenney Racing Kit, CC0; null = wedge), `MODEL_YAW`, `resolveModelUrl()` (`?carModel=` accepts only same-origin `.glb`/`.gltf`), `loadCarModel()` and `buildCarParts()`. Cars get one InstancedMesh per material sharing one instance matrix; the body is picked by material name, or else the largest light-coloured part, and tinted per team. `cars.getSelectedPose(outPos)` returns the heading, or NaN when the car is hidden.
+- **Labels:** `CarLabels.refresh(getPosition, nowMs, camera?, selectedIndex?)`. `setLabel(i, visible, x, y, z, scale)` takes the car-top anchor. The apparent size is `ANGULAR_SIZE` 0.025 (2.5 cm at 1 m), clamped to 4–50 mm. Declutter is in `js/scene/label-layout.js` (pure, 4 Hz). `labels.setSize(angularSize, minHeight, maxHeight)` overrides the size (the desktop track view sets it for a fixed pixel height).
+- **Car model:** `js/scene/car-model.js` exports `MODEL_URL` (`js/assets/cars/raceCarWhite.glb`, Kenney Racing Kit, CC0; null = wedge), `MODEL_YAW`, `resolveModelUrl()` (`?carModel=` accepts only same-origin `.glb`/`.gltf`), `loadCarModel()` and `buildCarParts()`. Cars get one InstancedMesh per material sharing one instance matrix; the body is picked by material name, or else the largest light-coloured part, and tinted per team. `cars.getSelectedPose(outPos)` returns the heading, or NaN when the car is hidden. `cars.carScale` (default 1) draws every car bigger (the desktop map view).
 - **Audio:**
   - `createAudioEvents(data, { playRadio, playSfx, getSettings, now })`; the second argument is optional, for tests.
   - Radio autoplays at ≤2.5× for clips under 3 s old. A seek (going back, or jumping more than 10.5× real time + 1.5 s) or a driver change re-arms silently.
   - `unlockAudio()` also primes the radio `<audio>` element with a silent WAV. `getRadioState()` is one live object, so don't mutate it.
   - Exports `sfxStats` (debug counters).
-- **Main screen:** `createMainScreen({ manager, renderer, table, cars, data, playback })` returns `{ group, setTab, getTab, update(dt), onboard, video, dispose }`.
-  - It is in the layout rig at `MAIN_SCREEN` and is not movable. The tabs, onboard card and video controls sit on the screen face within x ±0.5 m, because the side panels cover the outer edges.
-  - The onboard pass renders the `table` subtree at 30 Hz into 1024×576 with XR disabled, then restores state. Its lights are on layer 5.
+- **Main screen:** `createMainScreen({ manager, data, playback })` returns `{ group, setTab, getTab, update(dt), video, dispose }`. Tabs are `video` and `radio` (the Onboard camera tab was removed in Phase 8 at the user's request); it opens on Video when a source is set, otherwise on Radio.
+  - It is in the layout rig at `MAIN_SCREEN` and is not movable. The tabs and video controls sit on the screen face within x ±0.5 m, because the side panels cover the outer edges.
 - **Video settings:** the localStorage key is `f1vr.video` (`{url, offsetSec, sync}`); `loadVideoSettings()` also returns `name`. hls.js 1.7.3 is in the import map and imported lazily for `.m3u8` only when the browser has no native HLS.
 - **Data layer (Phase 6):**
   - `SessionData` gains `unavailable`, `empty`, `isTelemetryLoaded(n, t)`, `getPitStops()` and `fetchLocation(n, start, end)`. `load()` also fetches `session_result` for race and sprint sessions; retirements are in `js/retirement.js`.
   - `api.js` exports `getApiHealth()` / `onApiHealth(cb)` (`{ok, retrying, status, attempt, since}`; a 429 keeps ok).
   - `loadTrack()` can return `{missing: true, …}`, and track cache entries gain `pitLane` (a flat xyz array or null).
+
+## Screen mode (Phase 8)
+
+The desktop opens a flat dashboard (`js/screen/`) instead of the 3D room; the room preview stays behind `?debug` ("Room preview (debug)" button on the start page).
+
+- **Settings** (`js/settings.js`): new keys `trackView` (`'2d'` | `'3d'`, default 2D), `screenShape` (`'flat'` | `'curved'`, for Screen in VR, 8.11) and `vrMode` (`'screen'` | `'immersive'`, default Screen; wired up with 8.11). Choice settings are validated on load and save.
+- **Layout** (`js/screen/screen-layout.js`, pure): `computeScreenLayout(width, height, { focus = 'track', gap = 8 }) -> { orientation, scale, width, height, tiles }`.
+  - `orientation` is `landscape` (width / height ≥ 1.15), `portrait`, or `stack` (one scrolling column for narrow windows).
+  - `tiles` has CSS-pixel rects for `ticker, track, leaderboard, telemetry, laps, weather, main, playbackBar`. Panel tiles follow the panels' fixed aspect ratios from `LAYOUT`; `scale` (CSS px per logical canvas px) never drops below `MIN_SCALE` 0.42, so `height` exceeds the viewport (and the page scrolls) when the window is too small.
+  - `focus: 'main'` swaps the track and main rects ("Video focus"). `containRect(rect, aspect)` fits a rect of height / width `aspect`.
+  - Screen in VR (8.11) will reuse it with the virtual screen's size.
+- **Panel host** (`js/screen/panel-host.js`): `new PanelHost(ctx)`, `add(panel, tileEl, { anchor: 'center' | 'top' })`, `layout(dpr)`, `update(dt)`, `dispose()`. Puts `panel.canvas` in the page, fitted to the tile, with `setDensity(displayed scale × dpr)`; pointer events map to logical px and use `hitTestPx` / `onHit` like a VR ray. The ticker uses `anchor: 'top'`: its tile is the collapsed strip and the expanded list overlays the track.
+- **Track view** (`js/screen/track-view.js`): `await createTrackView({ data, tile, view })` returns `{ cars, renderer, camera, setView, getView, resetView, resize, update(time), dispose }`. Own WebGL canvas and scene (table at the origin, the same track, cars and labels), three's OrbitControls. 2D is a 10° lens straight down (pan / zoom); 3D a 40° tilted orbit. Labels are 16 CSS px tall; cars are drawn 1.8× (2D) / 1.3× (3D).
+- **Main tile** (`js/screen/main-tile.js`): `createMainTile({ tile, data, playback, host, onToggleFocus })` returns `{ setTab, getTab, setFocused, video, update(dt), dispose }`. Video uses the `ScreenVideo` element directly in the page (with DOM Play / Mute / Sync buttons); Radio is a `ScreenContent` canvas of 1.7 × 0.85 m with 5 clips per page (`new ScreenContent(data, w, h, { rows })`).
+- **Dashboard** (`js/screen/dashboard.js`): `await startDashboard({ data, container, onExit, onStatus })` returns `{ playback, dispose }`, like `startApp`. Keys: Space, ←/→, ↑/↓, [ ], V (2D/3D), F (swap); Esc is handled by the start page. `?debug` exposes `window.__f1vr = { data, playback, host, trackView, mainTile, layout(), toggleFocus, setView, getFocus }` and an fps / draw call line.

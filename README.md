@@ -43,29 +43,28 @@ The first load of a session downloads its data, which takes a few seconds. After
 
 Put the controllers down and your hands appear. **Pinch** to select. **Pinch and hold** the outer edge of the table to grab it, and use two hands to scale and rotate it. **Pinch and hold** a panel's top edge (its title bar) to pick the panel up; pinch-hold it with the other hand too and stretch to resize it.
 
-### Desktop ("Preview on desktop")
+### Desktop ("Open on desktop")
+
+The desktop shows a flat dashboard that fills the window: the track in the middle, the leaderboard and laps on the left, telemetry, the main screen and weather on the right, race control on top and the playback bar below. It rearranges itself for vertical monitors and narrow windows (scrolling when the window is too small for readable text).
 
 | Input | Action |
 |---|---|
-| Click | Select a driver tile, leaderboard row, button or screen tab |
-| Left-drag on the table | Rotate the table |
-| Wheel over the table | Scale the table |
-| Right-drag | Orbit the camera |
-| Shift + drag a panel | Move the panel (wheel while dragging pushes / pulls). Saved in this browser |
-| Shift + wheel over a panel | Resize the panel |
-| T | Next room theme (pit wall, studio, night) |
-| R | Reset the panel layout |
+| Click | Select a leaderboard row, button or tab |
+| 2D / 3D (or V) | Track view: flat top-down map (default) or tilted 3D. Remembered |
+| Drag on the track | Pan (2D) or rotate (3D); right-drag pans |
+| Wheel on the track | Zoom |
+| Double-click the track | Reset the view |
+| ⤢ (or F) | Swap the track and the main screen, e.g. to watch your video big |
 | Space | Play / pause |
 | ← / → | Seek 10 s |
 | ↑ / ↓ | Playback speed |
 | `[` / `]` | Previous / next driver |
-| P | Passthrough look |
+| Esc or Exit | Back to the start page |
 
 ## Main screen, video and sound
 
-The big screen ahead of you has three tabs:
+The main screen (the big screen ahead of you in VR, a tile on the desktop) has two tabs:
 
-- **Onboard:** a camera following the selected car, with speed, gear and position.
 - **Video:** your own video source. Open **Video screen** on the start page to set a direct mp4/webm URL, an HLS `.m3u8` URL, or a local file, plus the video time at the race start if you want it synced to the replay. The app never ships or links broadcast streams.
 - **Radio:** the selected driver's team radio clips, with play buttons.
 
@@ -97,7 +96,7 @@ Every push to `master` deploys to GitHub Pages through `.github/workflows/pages.
 - Historical sessions only (2023 onwards). Live timing needs a paid OpenF1 subscription.
 - The free OpenF1 tier allows about 30 requests a minute. Playing at 10× or jumping around a lot can briefly show "Loading data…".
 - Team radio coverage drops sharply from 2026.
-- The driver tiles appear in the desktop preview only; in VR, pick drivers from the wrist menu, the leaderboard or X / Y.
+- In VR, pick drivers from the wrist menu, the leaderboard or X / Y; on the desktop, click a leaderboard row or press [ / ].
 - Some 2023 sessions lack driver headshots. A coloured number tile is shown instead.
 
 ## Credits

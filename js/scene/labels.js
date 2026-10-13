@@ -154,6 +154,20 @@ export class CarLabels {
    * @param {number} x @param {number} y @param {number} z
    * @param {number} scale  1 normally (the selected car's label is a little larger)
    */
+  /**
+   * Label size: height = angularSize × view distance, clamped to [minHeight, maxHeight] metres.
+   * Defaults suit VR; the desktop track view sets a size per camera for a fixed pixel height.
+   * @param {number} [angularSize]
+   * @param {number} [minHeight]
+   * @param {number} [maxHeight]
+   */
+  setSize(angularSize = ANGULAR_SIZE, minHeight = MIN_HEIGHT, maxHeight = MAX_HEIGHT) {
+    const u = this.material.uniforms;
+    u.angularSize.value = angularSize;
+    u.heightRange.value.set(minHeight, maxHeight);
+    this._lastDraw = -Infinity; // re-run the declutter at the new size
+  }
+
   setLabel(i, visible, x, y, z, scale = 1) {
     const s = visible ? scale : 0;
     const m = this._m;
@@ -210,7 +224,8 @@ export class CarLabels {
       const depth = -v.z;
       if (depth <= 0.01) continue;
       // Label height in the tangent plane (same clamp as the shader).
-      const h = Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, ANGULAR_SIZE * depth)) * this._scale[i] / depth;
+      const u = this.material.uniforms;
+      const h = Math.min(u.heightRange.value.y, Math.max(u.heightRange.value.x, u.angularSize.value * depth)) * this._scale[i] / depth;
       this._onScreen[i] = 1;
       this._cx[i] = v.x / depth;
       this._cy[i] = v.y / depth + h * (0.5 + GAP);
