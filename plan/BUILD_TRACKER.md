@@ -15,8 +15,9 @@ Update the item's status as soon as it is created or finished. Add a dated entry
 | 2 | Scene, track and cars (desktop preview) | ✅ | 13 / 13 |
 | 3 | Panels | ✅ | 14 / 14 |
 | 4 | WebXR | 🟡 | 18 / 19 |
+| 4b | VR feedback (user test 2026-10-13) | ⬜ | 0 / 17 |
 | 5 | Main screen | ⬜ | 0 / 8 |
-| 6 | Polish and performance | ⬜ | 0 / 12 |
+| 6 | Polish and performance | ⬜ | 0 / 10 |
 | 7 | Deploy | 🟡 | 3 / 7 |
 
 ---
@@ -111,6 +112,30 @@ Update the item's status as soon as it is created or finished. Add a dated entry
 | 4.18 | "Reset layout" in the wrist menu; re-centre (4.10) carries the custom layout with the user | `js/panels/wrist-menu.js`, `js/panels/pit-wall.js` | ✅ | Wrist 'Reset layout' (menu now 0.30 m tall); custom layout rides the re-centred rig |
 | 4.19 | Desktop: Shift-drag a panel to move it (same save and restore) | `js/input/desktop-input.js` | ✅ | Shift-drag faces the camera, wheel pushes/pulls, R resets; verified with real mouse events |
 
+## Phase 4b: VR feedback
+
+From the user's first test on the Quest 3 (2026-10-13). Decisions made with the user: remove the driver tiles in VR but keep them on desktop; build the easiest room themes; use a CC0 car model; resize panels now and decide on a text-size setting later. Team radio and sound effects are moved here from Phase 6 (they were 6.6 and 6.5).
+
+| ID | Item | Files | Status | Notes |
+|---|---|---|---|---|
+| 4b.1 | **Driver tiles:** don't build the picker arc in XR sessions. Keep it in the desktop preview. In VR, drivers are picked from the wrist menu grid, leaderboard rows and X/Y | `js/panels/pit-wall.js`, `js/app.js` | ⬜ | Saves 20 draw calls (about 40 in stereo). Resolves the open layout question. A saved `driver-picker` layout entry is ignored in XR |
+| 4b.2 | **Desktop:** every panel, including the tile group, can be moved. Make it easy to discover: a "move" cursor while Shift is held over a panel | `js/input/desktop-input.js` | ⬜ | Shift-drag already exists (4.19); this item covers the hint and a re-check |
+| 4b.3 | **Enclosed room:** walls up to a ceiling, plus the ceiling, so nothing transparent is left in pit wall mode | `js/scene/world.js` | ⬜ | Cause: the session is always `immersive-ar`, and in `alpha-blend` three.js clears with alpha 0, so the background colour never draws. Passthrough showed above the 1.2 m walls |
+| 4b.4 | **Room themes** (procedural, no image assets, about 15 draw calls or fewer each): "Pit wall" (the current room, enclosed), "Studio" (dark, LED edge strips), "Night" (gradient sky dome over a low wall). Easiest first | `js/scene/rooms.js` (new), `js/scene/world.js` | ⬜ | The user chose "whichever is easy" |
+| 4b.5 | **Theme switch:** a room button in the wrist menu cycles the themes; the choice is saved in `settings.js`. Desktop: a key (`T`) | `js/panels/wrist-menu.js`, `js/settings.js`, `js/input/desktop-input.js` | ⬜ | The wrist menu may need another row (it is 0.30 m now) |
+| 4b.6 | **Readable car labels:** keep a constant apparent size (about 2 cm at 1 m from the head), whatever the table scale | `js/scene/labels.js` | ⬜ | Labels are 12 mm at table scale 1 and shrink with the table. Keep one draw call |
+| 4b.7 | **Label declutter:** when labels would overlap, show full names for the selected driver, the top 3 and cars near the selected one; the rest show the position number only | `js/scene/labels.js`, `js/scene/cars.js` | ⬜ | Recompute at ≤4 Hz with the atlas, never per frame |
+| 4b.8 | **Find a CC0 car model:** a generic open-wheel / F1-style car with no livery or logos, glTF/GLB, about 3k triangles or fewer, few materials. Record the source URL, author and licence here. **Ask the user to approve the specific asset before adding it** | — (notes here) | ⬜ | The user chose a CC0 model over a car built in code |
+| 4b.9 | **Load the car model:** GLTFLoader from three/addons (same pinned 0.160.0, no new library), one InstancedMesh per material, team colour on the body material, fall back to the wedge if loading fails | `js/scene/car-model.js` (new), `js/scene/cars.js`, `assets/` | ⬜ | The Pages workflow publishes only `index.html`, `css/` and `js/`, so `assets/` must be added to it (or the model kept under `js/`). Check draw calls and triangles |
+| 4b.10 | **Resize a held panel:** right stick ←/→ makes it smaller / larger (0.5×–2.5×). Text grows with the panel | `js/input/panel-grab.js`, `js/input/xr-buttons.js` | ⬜ | That axis does nothing during a grab today |
+| 4b.11 | **Two-hand stretch:** a second grip (or pinch-hold) on the held panel scales it by the distance between the hands, like the table | `js/input/panel-grab.js`, `js/input/xr-input.js` | ⬜ | |
+| 4b.12 | **Desktop resize:** Shift + wheel over a panel (not dragging) scales it | `js/input/desktop-input.js` | ⬜ | Chrome may turn Shift + wheel into `deltaX`, so handle both |
+| 4b.13 | **Save the panel scale** with the layout (`s` beside `p`/`q`); Reset layout restores scale 1 | `js/panels/layout-store.js`, `js/panels/pit-wall.js` | ⬜ | Add a contract entry first |
+| 4b.14 | **Sharp text when enlarged:** redraw the panel canvas at a higher density when its scale goes above 1 (capped, e.g. 2048 px/m) | `js/panels/panel-base.js` | ⬜ | Watch texture memory on the Quest |
+| 4b.15 | **Team radio** (was 6.6): a "Radio" badge on telemetry and autoplay of the selected driver's clips when the playhead passes them, if radio is on in the wrist menu | `js/audio.js`, `js/panels/telemetry.js` | ⬜ | Clips are already loaded (`getTeamRadioUpTo`); playback was never built. Coverage drops from 2026 |
+| 4b.16 | **Sound effects** (was 6.5): WebAudio chime on a new race control message, a soft whoosh on an overtake involving the selected driver, a beep when the fastest lap changes. Quiet, following the wrist menu toggle | `js/audio.js` | ⬜ | Uses the context unlocked in 4.11 |
+| 4b.17 | **Test on Quest 3:** room, themes, labels at 0.5× table scale, car model, resize, radio and sounds | — | ⬜ | User test, together with the still-open 4.14 |
+
 ## Phase 5: Main screen
 
 | ID | Item | Files | Status | Notes |
@@ -132,8 +157,6 @@ Update the item's status as soon as it is created or finished. Add a dated entry
 | 6.2 | Green/red flash on gaining/losing a place; purple fastest-lap marker | `js/panels/leaderboard.js` | ⬜ | |
 | 6.3 | Retired drivers greyed out with "OUT" | `js/panels/leaderboard.js` | ⬜ | |
 | 6.4 | Ticker flag colours, chequered pattern, flash on a new message | `js/panels/ticker.js` | ⬜ | |
-| 6.5 | WebAudio effects: chime, overtake whoosh, fastest-lap beep | `js/audio.js` | ⬜ | Quiet; on/off toggle |
-| 6.6 | Team radio: badge and autoplay for the selected driver | `js/audio.js`, `js/panels/telemetry.js` | ⬜ | |
 | 6.7 | In-scene fps counter (toggled from the wrist menu) | `js/scene/world.js` | ⬜ | |
 | 6.8 | Performance check: under 150 draw calls, under 300k triangles, no per-frame allocation | — | ⬜ | |
 | 6.9 | Quest check: hold 72 fps | — | ⬜ | User test |
@@ -174,7 +197,9 @@ _(Record anything that differs from the spec, especially from OpenF1 docs verifi
 - **SC/VSC/red flag end** with a `Flag CLEAR` scoped to Track ("TRACK CLEAR"), not with a SafetyCar message. A RED and a DOUBLE YELLOW can appear after the chequered flag (`race-status.js` handles this).
 - **TODO (data layer):** `getLeaderboardAt().retired` misses cars that stop on track while still visible (2023 Australia: LEC, ALB). `leaderboard.js` has a local `_isOut` workaround; move it into session-data. Could use the `session_result` endpoint (dnf).
 - **TODO (data layer):** `totalLaps` = max `lap_number` is 59 for 2023 Australia (a 58-lap race, red-flag restarts). Prefer `session_result.number_of_laps` for the winner.
-- **Open layout question:** the driver picker tiles (waist height at 0.62 m) hover over the near part of the track table. Waiting on the user's decision.
+- **Layout question (resolved 2026-10-13):** the driver picker tiles hovered over the near part of the track table. The user decided to remove them in VR and keep them on desktop (4b.1).
+- **No commentary:** OpenF1 has no commentary audio, and broadcast commentary is copyrighted (ruled out by the spec). The only sound sources are team radio clips, WebAudio effects and the user's own video source (Phase 5).
+- **Passthrough above the walls in pit wall mode:** the session is always `immersive-ar`, so three.js clears with alpha 0 and `scene.background` never draws. Only real geometry hides passthrough (4b.3).
 - Location data begins about an hour before the session `date_start`. The race starts at the min lap-1 `date_start` (15:03:42Z for 2024 Bahrain).
 
 **Structure addition:** `js/app.js` is a scene bootstrap, so `main.js` stays focused on the start page. Reference-lap selection (2.3) lives in `session-data.js`. Module interfaces are in `plan/CONTRACTS.md`. `plan/tracker.mjs` updates this file.
@@ -192,3 +217,4 @@ _(Record anything that differs from the spec, especially from OpenF1 docs verifi
 - **2026-10-12**: Added 4.15–4.19 (move panels in VR, push/pull, saved layout, reset layout, desktop Shift-drag) at the user's request. This adds to spec §3's fixed layout; the defaults stay as specified.
 - **2026-10-12**: 4.9 wrist menu done and verified in the emulated Quest 3: palm-up shows it (controller and hand), turning away hides it, buttons work, Exit returns to the start page. Radio and sound toggles are saved in `js/settings.js` for Phase 6.
 - **2026-10-13**: 4.10, 4.11, 4.13 and 4.15–4.19 done. The panels now sit in a layout rig (`PanelManager.group`) that re-centre moves along with the table. The wrist menu stays outside the rig. Each panel and the driver picker group can be picked up (`js/input/panel-grab.js`), and moved units are saved rig-local in `f1vr.layout.v1`. The button map moved to `js/input/xr-buttons.js` to keep `xr-input.js` under 400 lines. Fixed: three's XR ArrayCamera sits behind the eyes (union frustum), so re-centre uses the midpoint of the two eye cameras. 37/37 IWER emulator checks and 130/130 unit tests pass. Only 4.14 (the Quest 3 test, done by the user) is left.
+- **2026-10-13**: Added Phase 4b (17 items) from the user's first Quest 3 test: remove driver tiles in VR (keep them on desktop), enclose the room plus easy themes, readable car labels, a CC0 car model (the user approves the asset first), panel resize, team radio and sound effects. 6.5 and 6.6 moved here as 4b.16 and 4b.15, so Phase 6 now has 10 items.
