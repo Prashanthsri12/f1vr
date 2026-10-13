@@ -23,11 +23,37 @@ test('empty storage loads {}', () => {
 test('save then load round-trips', () => {
   stubStorage();
   const items = {
-    leaderboard: { p: [1, 2, 3], q: [0, 0, 0, 1] },
-    'driver-picker': { p: [0, 1, -0.6], q: [0, 0.7071, 0, 0.7071] },
+    leaderboard: { p: [1, 2, 3], q: [0, 0, 0, 1], s: 1.75 },
+    'driver-picker': { p: [0, 1, -0.6], q: [0, 0.7071, 0, 0.7071], s: 0.5 },
   };
   saveLayout(items);
   assert.deepEqual(loadLayout(), items);
+});
+
+test('scale: missing (older saves) loads as 1, out of range is clamped, junk becomes 1', () => {
+  const m = stubStorage();
+  const pq = { p: [0, 0, 0], q: [0, 0, 0, 1] };
+  m.set(KEY, JSON.stringify({
+    items: {
+      old: pq,
+      big: { ...pq, s: 9 },
+      small: { ...pq, s: 0.1 },
+      zero: { ...pq, s: 0 },
+      neg: { ...pq, s: -2 },
+      str: { ...pq, s: '2' },
+      nan: { ...pq, s: null },
+      ok: { ...pq, s: 1.25 },
+    },
+  }));
+  const l = loadLayout();
+  assert.equal(l.old.s, 1);
+  assert.equal(l.big.s, 2.5);
+  assert.equal(l.small.s, 0.5);
+  assert.equal(l.zero.s, 1);
+  assert.equal(l.neg.s, 1);
+  assert.equal(l.str.s, 1);
+  assert.equal(l.nan.s, 1);
+  assert.equal(l.ok.s, 1.25);
 });
 
 test('clear removes the saved layout', () => {
@@ -53,7 +79,7 @@ test('invalid entries are rejected, valid ones kept', () => {
       nul: null,
     },
   }));
-  assert.deepEqual(loadLayout(), { ok: { p: [1, 2, 3], q: [0, 0, 0, 1] } });
+  assert.deepEqual(loadLayout(), { ok: { p: [1, 2, 3], q: [0, 0, 0, 1], s: 1 } });
 });
 
 test('bad JSON and wrong shapes load {}', () => {
