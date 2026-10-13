@@ -188,6 +188,7 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
         cycleTheme: () => cycleTheme(),
       },
       canPassthrough,
+      driverTiles: !xrSession, // 4b.1: VR picks drivers from the wrist menu / leaderboard
     });
   } catch (err) {
     dispose();
@@ -287,7 +288,7 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
   const hudPerf = el('div', 'perf', hud);
   const loading = el('div', 'f1vr-loading', overlay, 'Loading data…');
   el('div', 'f1vr-help', overlay,
-    'Click panels · Shift-drag panel move · R reset layout · T room theme · Space play/pause · ←/→ seek 10 s · ↑/↓ speed · [ ] driver · P passthrough · drag table rotate · wheel on table scale · right-drag orbit');
+    'Click panels · Shift-drag panel move · Shift-wheel panel size · R reset layout · T room theme · Space play/pause · ←/→ seek 10 s · ↑/↓ speed · [ ] driver · P passthrough · drag table rotate · wheel on table scale · right-drag orbit');
   const exitBtn = el('button', 'f1vr-exit', overlay, 'Exit');
   exitBtn.type = 'button';
   exitBtn.addEventListener('click', () => {

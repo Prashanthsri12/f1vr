@@ -3,7 +3,8 @@
 //   Left X: previous driver  Left Y: next driver (by position)
 //   Right stick ←/→: seek ∓10 s (repeats while held)   Right stick ↑/↓: speed up/down
 //   Left stick press: re-centre
-//   While a panel is carried, right stick ↑/↓ pushes / pulls it instead (no seek / speed).
+//   While a panel is carried, right stick ↑/↓ pushes / pulls it and ←/→ shrinks / grows it
+//   instead (no seek / speed).
 
 const BTN_STICK = 3;
 const BTN_AX = 4;              // A on the right controller, X on the left
@@ -16,6 +17,7 @@ const SEEK_REPEAT_DELAY = 0.5; // s before a held seek repeats
 const SEEK_REPEAT_EVERY = 0.25;
 const PUSH_SPEED = 1.5;        // m/s at full right-stick deflection while carrying a panel
 const PUSH_DEAD = 0.2;
+const SCALE_RATE = 1.5;        // × per second at full right-stick deflection while carrying a panel
 
 /**
  * @param {(name: string, ...args: any[]) => void} act runs a named action
@@ -50,10 +52,18 @@ export function createButtonHandler(act, panelGrab, hands) {
 
     const x = pad.axes[AXIS_X] || 0;
     const y = pad.axes[AXIS_Y] || 0;
-    // Carrying a panel: stick up pushes it away, down pulls it closer; no seek / speed.
+    // Carrying a panel: stick up/down pushes it away / pulls it closer, stick left/right
+    // shrinks / grows it (dominant axis only); no seek / speed.
     if (panelGrab && panelGrab.isGrabbing()) {
       h.stickX = 0; h.stickY = 0; h.seekHeld = 0;
-      if (Math.abs(y) > PUSH_DEAD) for (const o of hands) panelGrab.adjust(o.id, -y * PUSH_SPEED * dt);
+      const ax = Math.abs(x);
+      const ay = Math.abs(y);
+      if (ay > PUSH_DEAD && ay >= ax) {
+        for (const o of hands) panelGrab.adjust(o.id, -y * PUSH_SPEED * dt);
+      } else if (ax > PUSH_DEAD) {
+        const f = Math.pow(SCALE_RATE, x * dt);
+        for (const o of hands) panelGrab.scaleBy(o.id, f);
+      }
       return;
     }
 

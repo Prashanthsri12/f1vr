@@ -5,10 +5,12 @@
 //   Right stick ←/→: seek ∓10 s (repeats while held)   Right stick ↑/↓: speed up/down
 //   Left stick press: re-centre
 //   Grip: grab the table (one hand moves it, two hands scale + rotate); double grip resets
-//   Grip on a panel: carry it (panel-grab.js); right stick ↑/↓ then pushes / pulls it
+//   Grip on a panel: carry it (panel-grab.js); right stick ↑/↓ then pushes / pulls it and
+//   ←/→ resizes it; the other hand's grip on the carried panel stretches it
 // Hand tracking: hand meshes, a ray from each hand, pinch = select (Quest emits the
 // standard select events for pinches), pinch-and-hold on the table edge grabs it,
-// pinch-and-hold on a panel's title bar (top 6 cm) carries the panel.
+// pinch-and-hold on a panel's title bar (top 6 cm) carries the panel, and the other
+// hand's pinch-and-hold anywhere on it stretches it.
 // Rays turn red over anything selectable; small hovered panels (driver tiles)
 // scale up slightly. Raycasts run only when a controller moves (or on select).
 import * as THREE from 'three';
@@ -173,7 +175,9 @@ export function createXrInput({ renderer, scene, table, pickPanels, onHover, onS
     h.onSelectStart = () => {
       if (!h.connected || !h.isHand) return;
       raycastFrom(h);
-      if (h.result && inTitleBand(h.result)) {         // maybe a panel pick-up: wait for the hold
+      // A held pinch on a title bar picks the panel up; anywhere on a panel the other hand
+      // carries, it stretches it. Wait for the hold (a short pinch stays a select).
+      if (h.result && (inTitleBand(h.result) || (panelGrab && panelGrab.isHeld(h.result.panel)))) {
         h.pendingPanel = h.result.panel;
         h.pendingPoint.copy(h.result.point);
         h.pendingT = 0;
@@ -244,8 +248,8 @@ export function createXrInput({ renderer, scene, table, pickPanels, onHover, onS
   /** A hit in the top TITLE_BAND of a movable panel. */
   function inTitleBand(result) {
     const p = result.panel;
-    if (!panelGrab || !p || !p.canvas) return false;
-    return result.px.y < TITLE_BAND * (p.canvas.height / p.height);
+    if (!panelGrab || !p || !p.lh) return false;
+    return result.px.y < TITLE_BAND * (p.lh / p.height);
   }
 
   function setRay(h) {

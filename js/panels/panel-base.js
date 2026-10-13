@@ -10,10 +10,15 @@
 //                             (sliders use px.x relative to hit.x / hit.w)
 // PanelManager owns placement, the ≤10 Hz refresh/redraw cycle, passthrough
 // opacity and a single raycast for all panels.
+//
+// Canvas pixels are *logical*: lw × lh = size × pxPerM. When a panel is enlarged (4b.14)
+// setDensity(scale) grows the backing canvas and draws through a k× transform, so draw(),
+// hit rects and uvToPx keep working in the same logical pixels.
 import * as THREE from 'three';
 
 export const PX_PER_M = 1024;
 export const MAX_HZ = 10;
+export const MAX_PX_PER_M = 2048; // backing density cap for enlarged panels (texture memory)
 
 export const THEME = {
   font: "'Titillium Web', system-ui, sans-serif",
@@ -89,9 +94,13 @@ export class Panel {
     this.width = width;
     this.height = height;
     this.maxHz = Math.min(maxHz, MAX_HZ);
+    this.pxPerM = pxPerM;
+    this.lw = Math.round(width * pxPerM);   // logical canvas px (draw / hit-test space)
+    this.lh = Math.round(height * pxPerM);
+    this.density = 1;                       // backing px per logical px
     this.canvas = document.createElement('canvas');
-    this.canvas.width = Math.round(width * pxPerM);
-    this.canvas.height = Math.round(height * pxPerM);
+    this.canvas.width = this.lw;
+    this.canvas.height = this.lh;
     this.g = this.canvas.getContext('2d');
     this.texture = new THREE.CanvasTexture(this.canvas);
     this.texture.colorSpace = THREE.SRGBColorSpace;
@@ -133,11 +142,30 @@ export class Panel {
     return null;
   }
 
-  /** UV (from a raycast) to canvas px. */
+  /** UV (from a raycast) to logical canvas px. */
   uvToPx(uv, out) {
-    out.x = uv.x * this.canvas.width;
-    out.y = (1 - uv.y) * this.canvas.height;
+    out.x = uv.x * this.lw;
+    out.y = (1 - uv.y) * this.lh;
     return out;
+  }
+
+  /**
+   * Backing-canvas density for a panel shown at `scale` × its size (4b.14):
+   * k = clamp(scale, 1, MAX_PX_PER_M / pxPerM) in 0.25 steps, so small changes don't reallocate.
+   * Re-allocates the canvas and GPU texture only when k changes; the next tick redraws.
+   * @returns {boolean} true if the density changed
+   */
+  setDensity(scale) {
+    const cap = Math.max(1, MAX_PX_PER_M / this.pxPerM);
+    const k = Math.min(cap, Math.max(1, Math.ceil(scale * 4 - 1e-6) / 4));
+    if (k === this.density) return false;
+    this.density = k;
+    this.canvas.width = Math.round(this.lw * k);
+    this.canvas.height = Math.round(this.lh * k);
+    this.texture.dispose(); // new size: three re-creates the GPU texture on the next upload
+    this._dirty = true;
+    this._since = Infinity;
+    return true;
   }
 
   setPassthrough(on) {
@@ -164,7 +192,9 @@ export class Panel {
     this._dirty = false;
     this._hits.length = 0;
     panelStats.redraws++;
-    this.draw(this.g, this.canvas.width, this.canvas.height, ctx);
+    const k = this.density;
+    this.g.setTransform(k, 0, 0, k, 0, 0);
+    this.draw(this.g, this.lw, this.lh, ctx);
     this.texture.needsUpdate = true;
   }
 

@@ -2,6 +2,8 @@
 //  - Right-drag: orbit camera around the table (OrbitControls). Middle-drag: dolly.
 //  - Left-click on a panel: select what's under the pointer (hover highlights it).
 //  - Shift + left-drag on a panel: move it (wheel while dragging pushes / pulls). Saved on release.
+//    Shift + wheel over a panel resizes it (0.5x-2.5x). The cursor shows 'move' while Shift is
+//    held over a movable panel.
 //  - Left-drag on the table: rotate the table around Y.
 //  - Wheel over the table: scale the table 0.5x-3x. Wheel elsewhere: dolly the camera.
 //  - Keys: Space play/pause, Left/Right seek -/+10 s, Up/Down speed,
@@ -14,6 +16,7 @@ const MAX_SCALE = 3;
 const ROTATE_PER_PX = 0.008;  // radians per pixel of horizontal drag
 const WHEEL_SCALE_STEP = 0.0012;
 const WHEEL_PUSH_STEP = 0.002; // metres per wheel delta unit while dragging a panel
+const WHEEL_PANEL_SCALE_STEP = 0.0015; // Shift + wheel over a panel: log-scale per delta unit
 const MOUSE_ID = 'mouse';
 
 /**
@@ -101,6 +104,24 @@ export function createDesktopInput({
     try { el.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ }
     el.style.cursor = 'grabbing';
   }
+  /** The movable panel under the pointer (any part of it, not only hit rects), or null. */
+  function movablePanelAt(clientX, clientY) {
+    if (!panelGrab || !pickPanels) return null;
+    setRay(clientX, clientY);
+    const r = pickPanels(raycaster);
+    return r && panelGrab.canMove(r.panel) ? r.panel : null;
+  }
+
+  // --- hover cursor: 'move' while Shift is held over a movable panel (4b.2) ---
+  let pointerX = -1;
+  let pointerY = -1;
+  let shiftDown = false;
+  function refreshCursor() {
+    if (dragging || panelPointer >= 0 || pointerX < 0) return;
+    if (shiftDown && movablePanelAt(pointerX, pointerY)) { el.style.cursor = 'move'; return; }
+    el.style.cursor = pickPanel(pointerX, pointerY) ? 'pointer' : '';
+  }
+
   function onPointerMove(e) {
     if (panelPointer === e.pointerId) {
       setRay(e.clientX, e.clientY);
@@ -109,9 +130,11 @@ export function createDesktopInput({
     }
     if (!dragging) {
       if (e.buttons === 0 && onPanelHover) {
-        const p = pickPanel(e.clientX, e.clientY);
-        onPanelHover(p);
-        el.style.cursor = p ? 'pointer' : '';
+        pointerX = e.clientX;
+        pointerY = e.clientY;
+        shiftDown = e.shiftKey;
+        onPanelHover(pickPanel(e.clientX, e.clientY));
+        refreshCursor();
       }
       return;
     }
@@ -151,6 +174,17 @@ export function createDesktopInput({
       setRay(e.clientX, e.clientY);
       panelGrab.update(MOUSE_ID, raycaster.ray.origin, raycaster.ray.direction, camera.position);
       return;
+    }
+    if (e.shiftKey) {
+      // Shift + wheel over a panel resizes it (4b.12). Chrome may report Shift + wheel as deltaX.
+      const panel = movablePanelAt(e.clientX, e.clientY);
+      const d = e.deltaY !== 0 ? e.deltaY : e.deltaX;
+      if (panel && d !== 0) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        panelGrab.scaleUnit(panel, Math.exp(-d * WHEEL_PANEL_SCALE_STEP));
+        return;
+      }
     }
     if (!table.visible || !pickTable(e.clientX, e.clientY)) return; // let OrbitControls dolly
     e.preventDefault();
@@ -223,6 +257,15 @@ export function createDesktopInput({
   }
   window.addEventListener('keydown', onKeyDown);
 
+  /** Shift pressed / released: update the 'move' cursor without waiting for a mouse move. */
+  function onShiftKey(e) {
+    if (e.key !== 'Shift' || e.repeat) return;
+    shiftDown = e.type === 'keydown';
+    refreshCursor();
+  }
+  window.addEventListener('keydown', onShiftKey);
+  window.addEventListener('keyup', onShiftKey);
+
   /** Per-frame update: keep the orbit target on the table. Allocation-free. */
   function update() {
     if (renderer.xr.isPresenting) return; // never move the camera in XR
@@ -239,6 +282,8 @@ export function createDesktopInput({
     el.removeEventListener('pointercancel', onPointerUp);
     el.removeEventListener('wheel', onWheel);
     window.removeEventListener('keydown', onKeyDown);
+    window.removeEventListener('keydown', onShiftKey);
+    window.removeEventListener('keyup', onShiftKey);
     controls.dispose();
     el.style.cursor = '';
   }
