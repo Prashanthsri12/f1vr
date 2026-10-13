@@ -1,6 +1,7 @@
 // Screen mode main screen tile (8.6, 8.7): Video and Radio tabs.
 //   Video: the start page's video source in a native <video> element (sharper and smoother
-//          than a texture), with Play / Mute / Sync buttons. Same ScreenVideo logic as VR.
+//          than a texture), with Play / Mute / Sync / Sync here buttons. Same ScreenVideo logic as
+//          VR: with Sync on, the video drives the replay's timing (8.8).
 //   Radio: the selected driver's team radio list (the ScreenContent canvas).
 // The ⤢ button swaps this tile with the track ("Video focus"): the dashboard decides where
 // the tile goes; this module only reports the click.
@@ -51,6 +52,8 @@ export function createMainTile({ tile, data, playback, host, onToggleFocus }) {
   const playBtn = button(controls, '▶ Play', () => { video.togglePlay(); changed(); });
   const muteBtn = button(controls, 'Mute', () => { video.toggleMute(); changed(); });
   const syncBtn = button(controls, 'Sync OFF', () => { video.toggleSync(); changed(); });
+  const hereBtn = button(controls, 'Sync here', () => { video.setSyncHere(); changed(); });
+  hereBtn.title = 'Line up the video and the replay (e.g. both at lights out), then press: the video then drives the replay';
 
   const radioBox = el('div', 'f1-dash__radio', body);
   // A smaller canvas than the VR screen (1.7 x 0.85 m at 512 px/m) with 5 clips per page, so the
@@ -91,7 +94,8 @@ export function createMainTile({ tile, data, playback, host, onToggleFocus }) {
     playBtn.disabled = !v.hasVideo;
     muteBtn.textContent = v.muted ? 'Unmute' : 'Mute';
     muteBtn.disabled = !v.hasVideo;
-    syncBtn.textContent = v.sync ? 'Sync ON' : 'Sync OFF';
+    syncBtn.textContent = v.leading ? 'Sync ON · video leads' : v.sync ? 'Sync ON' : 'Sync OFF';
+    hereBtn.disabled = !ready;
     syncBtn.classList.toggle('is-on', v.sync);
   }
 
@@ -110,7 +114,7 @@ export function createMainTile({ tile, data, playback, host, onToggleFocus }) {
     update(dt) {
       if (tab !== 'video') return;
       video.update(dt);
-      const key = video.version * 2 + (playback.playing ? 1 : 0);
+      const key = video.version * 4 + (playback.playing ? 1 : 0) + (video.leading ? 2 : 0);
       if (key !== shown || lastPlaying !== video.playing) {
         shown = key;
         lastPlaying = video.playing;

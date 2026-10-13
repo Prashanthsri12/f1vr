@@ -28,6 +28,7 @@ export const LAYOUT = {
     width: 2.4, height: 0.65, stripHeight: 0.15,
     position: { x: 0, y: SCREEN_TOP + 0.03 + 0.15 - 0.65 / 2, z: -2.79 },
   },
-  // Just below the main screen.
-  playbackBar: { width: 1.2, height: 0.16, position: { x: 0, y: SCREEN_BOTTOM - 0.13, z: -2.75 } },
+  // Just below the main screen (top edge 5 cm under it). Two rows: transport + slider + clock
+  // (row1Height), then the sync row (8.9: lights out, lap steps, ± nudge).
+  playbackBar: { width: 1.2, height: 0.24, row1Height: 0.16, position: { x: 0, y: SCREEN_BOTTOM - 0.05 - 0.12, z: -2.75 } },
 };

@@ -344,3 +344,29 @@ The desktop opens a flat dashboard (`js/screen/`) instead of the 3D room; the ro
   - Track tile: `TrackTile` is a `Panel` (`grabAnywhere = true`) whose material shows a render target (≤1024 px, 4× MSAA). The table is taken out of the scene (identity transform, its own hemisphere and directional lights) and rendered as the root with `vrScreen.camera` at ≤36 Hz, XR off for the pass. `app.js` passes `vrScreen.camera` to `cars.update` while the screen is up; the screen sets the label size (18 virtual px) and `cars.carScale`.
   - Input: `panelGrab`'s `getMovable` returns `group` for anything on the screen, so grip / pinch-hold carries, the stick pushes and resizes, and a second hand stretches the whole screen. Saved in localStorage `f1vr.vrscreen.v1` (`{p, q, s}`, rig-local). Wrist "Reset layout" calls `resetTransform()`.
   - `createXrInput` option `canGrabTable()` (false while the screen is up). A panel with `grabAnywhere` is picked up by a pinch-hold anywhere on it, not only its title band. Re-centre moves the rig (and the screen) and leaves the table alone while the screen is up.
+
+### Video drives the timing and manual sync (8.8, 8.9)
+
+- **Playback external clock** (`js/playback.js`):
+  - `setClock(clock | null)`; `clockActive` is true while a clock is attached and `speed <= clock.maxRate`.
+  - The clock looks like `{ maxRate, playing, now() -> ms|NaN, play(), pause(), seek(t), setRate(r), shift?(sec) }`.
+  - While the clock is active, `update()` sets `time = clamp(clock.now())` (no advance). It pauses ("holds") the clock while that time's data isn't loaded and resumes it when it is. `playing` mirrors the clock.
+  - While active, `play` / `pause` / `seek` / `setSpeed` act on the clock too.
+  - At a speed above `maxRate` the clock is paused and the replay runs on its own. Coming back hands over again: same rate and time, and the clock plays if the replay is playing.
+  - Attaching hands over the same way. Detaching keeps `time` and `playing`.
+- **ScreenVideo** (`js/scene/screen-video.js`):
+  - `video.clock` is that clock (created once). `maxRate` is `CLOCK_MAX_RATE` 2, and `playhead = raceStartTime + (currentTime − offsetSec) × 1000` (`replayTimeFor` / `videoTimeFor`).
+  - `update()` attaches the clock while the tab is open, Sync is on and the video is ready, and detaches it otherwise. `close()` detaches, so the replay carries on by itself.
+  - `setSyncHere()` sets `offsetSec` from the current frame and playhead and turns Sync on. `shiftSync(sec)` lowers `offsetSec` by `sec`, which moves the replay `sec` later. `leading` is true while it drives the replay.
+  - The old drift-correcting follow mode is gone. `VideoControls` (VR) is 0.62 × 0.10 m with Play / Mute / Sync / Sync here. The desktop tile has the same four buttons.
+- **Sync control** (`js/sync-control.js`, pure):
+  - `createSyncControl({ data, playback }) -> { offsetMs, videoLeads, lightsOut(), stepLap(dir), nudge(sec) }`.
+  - `offsetMs` is per session (`data.session.key`), saved in localStorage `f1vr.sync.v1` as `{ [sessionKey]: ms }`, clamped to ±10 min. Helpers: `loadSyncOffset` / `saveSyncOffset` / `lapStepTarget`.
+  - `lightsOut()` seeks to `raceStartTime + offsetMs`; while a video leads it goes to `raceStartTime` and the video's offset applies.
+  - `nudge(sec)`: when a video leads it calls `clock.shift(sec)`. Otherwise it changes `offsetMs` and calls `seekBy(sec)`.
+  - `stepLap(-1)` goes to the start of the current lap, or the previous lap if it's within 3 s of the start. `stepLap(1)` goes to the next lap.
+- **PanelContext actions** (both `app.js` and `dashboard.js`): `goLightsOut()`, `stepLap(dir)`, `nudge(sec)`, `getSync() -> syncControl`.
+- **Playback bar:**
+  - `LAYOUT.playbackBar` is now 1.2 × 0.24 m with `row1Height: 0.16`. Its top edge stays 5 cm under the main screen; the centre is at `SCREEN_BOTTOM − 0.17`.
+  - Row 2 holds Lights out, ◀ Lap / Lap ▶, and −5 / −1 [offset or VIDEO SYNC] +1 / +5. Hit ids are `lights`, `lapPrev`, `lapNext` and `n-5` … `n+5` (payload = seconds). `fmtOffset(ms)` formats the offset.
+- **Desktop keys:** L lights out, PgUp / PgDn lap, `,` / `.` ∓1 s, Shift for ∓5 s. `?debug` adds `__f1vr.sync`.

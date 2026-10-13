@@ -74,6 +74,9 @@ The desktop shows a flat dashboard that fills the window: the track in the middl
 | ← / → | Seek 10 s |
 | ↑ / ↓ | Playback speed |
 | `[` / `]` | Previous / next driver |
+| L | Go to lights out (plus this race's sync offset) |
+| PgUp / PgDn | Previous / next lap |
+| `,` / `.` | Nudge the replay 1 s earlier / later (Shift: 5 s) |
 | Esc or Exit | Back to the start page |
 
 ## Main screen, video and sound
@@ -82,6 +85,10 @@ The main screen (the big screen ahead of you in VR, a tile on the desktop) has t
 
 - **Video:** your own video source. Open **Video screen** on the start page to set a direct mp4/webm URL, an HLS `.m3u8` URL, or a local file, plus the video time at the race start if you want it synced to the replay. The app never ships or links broadcast streams.
 - **Radio:** the selected driver's team radio clips, with play buttons.
+
+**Video sync:** with **Sync** on, the video drives the replay: pause, seek or scrub the video and every panel, car and radio clip follows, with no drift. The replay's play, seek and speed buttons control the video (up to 2×; at 5× or 10× the video waits and picks up again when you slow down). To line them up, put both at the same moment (say lights out) and press **Sync here**.
+
+**Watching a broadcast in another window** (e.g. F1 TV, which can't play inside the app): the playback bar's second row has **Lights out**, **◀ Lap / Lap ▶** and a **±1 s / ±5 s** nudge. Start both at lights out, then nudge until they match. The nudge is saved for each race on this device, so Lights out lands on the same moment next time. While a synced video leads, the nudge moves the video's sync point instead.
 
 Team radio for the selected driver also plays automatically as the replay passes each clip (up to 2.5× speed), and quiet sound effects mark race control messages, the selected driver's overtakes and new fastest laps. Turn either off in the wrist menu. There is no commentary: OpenF1 has none, and broadcast commentary is copyrighted.
 

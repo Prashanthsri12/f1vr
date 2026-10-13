@@ -1,16 +1,27 @@
 // Video tab of the main screen (spec §6, tab 2): a VideoTexture from the source set on the
 // start page (mp4 / webm URL, HLS via native support or hls.js, or a local file), with
-// play/pause, mute and sync. Sync keeps video time = offset + (playhead - race start),
-// follows the playback speed and pauses with the replay.
+// play/pause, mute and sync.
+// Sync (8.8): the video drives the timing. With Sync on, the tab open and the video ready,
+// this.clock is attached to Playback (setClock), so playhead = race start + (video time -
+// offsetSec): pausing, seeking or scrubbing the video moves the whole replay, with no drift.
+// Above 2x the replay runs on its own and the video waits (playback.js). Closing the tab
+// detaches the clock and the replay carries on from the same time.
+// "Set sync here" makes the current video frame match the current replay time.
 // Plus VideoControls: the play / mute / sync strip under the screen's right edge.
 import * as THREE from 'three';
 import { Panel, THEME, font, roundRect } from '../panels/panel-base.js';
 import { loadVideoSettings, saveVideoSettings } from '../video-settings.js';
 
-const SYNC_EVERY = 0.25;       // s between sync checks
-const DRIFT = 0.5;             // s of drift (x speed) before a sync seek
-const MIN_RATE = 0.25;
-const MAX_RATE = 16;
+/** Fastest replay speed the video follows (it plays at that rate); faster runs data-only. */
+export const CLOCK_MAX_RATE = 2;
+
+/** Video time (s) for a replay time, and back. offsetSec = video time at the race start. */
+export function videoTimeFor(t, raceStartTime, offsetSec) {
+  return offsetSec + (t - raceStartTime) / 1000;
+}
+export function replayTimeFor(videoSec, raceStartTime, offsetSec) {
+  return raceStartTime + (videoSec - offsetSec) * 1000;
+}
 
 export const NO_SOURCE = 'Add a video source on the start page.';
 
@@ -31,9 +42,27 @@ export class ScreenVideo {
     this.sync = false;
     this.offsetSec = 0;
     this.version = 0;          // bumps when anything the UI shows changes
-    this._acc = 0;
-    this._resync = false;      // seek to the replay time at the next sync check
     this._open = false;
+    const self = this;
+    /** Playback clock (8.8); created once, no per-frame allocation. */
+    this.clock = {
+      maxRate: CLOCK_MAX_RATE,
+      get playing() { const v = self.video; return !!(v && !v.paused && !v.ended); },
+      now() {
+        const v = self.video;
+        return v ? replayTimeFor(v.currentTime, self.data.raceStartTime, self.offsetSec) : NaN;
+      },
+      play() { self._play(); },
+      pause() { if (self.video) self.video.pause(); },
+      seek(t) {
+        const v = self.video;
+        if (!v) return;
+        const dur = Number.isFinite(v.duration) ? v.duration : Infinity;
+        v.currentTime = Math.max(0, Math.min(dur, videoTimeFor(t, self.data.raceStartTime, self.offsetSec)));
+      },
+      setRate(r) { if (self.video) self.video.playbackRate = r; },
+      shift(sec) { self.shiftSync(sec); },
+    };
     this._onEvent = () => { this.version++; };
     this._onReady = () => { if (this.state === 'loading') this._setState('ready', ''); };
     this._onError = () => this._setState('error', 'The video could not be played. Check the URL, and that its server allows cross-origin (CORS) playback.');
@@ -51,17 +80,21 @@ export class ScreenVideo {
     const s = loadVideoSettings();
     this.sync = s.sync;
     this.offsetSec = s.offsetSec;
-    this._resync = s.sync;
-    this._acc = SYNC_EVERY;
     if (!this.source || this.source.url !== s.url || this.source.kind !== s.kind) this._load(s);
     else if (this.state === 'ready' && !this.sync) this._play();
     this.version++;
   }
 
-  /** The tab was closed: pause (the texture stops updating). */
+  /** The tab was closed: the replay carries on by itself; the video pauses. */
   close() {
     this._open = false;
+    this._detach();
     if (this.video) this.video.pause();
+  }
+
+  /** @private */
+  _detach() {
+    if (this.playback.clock === this.clock) this.playback.setClock(null);
   }
 
   async _load(s) {
@@ -146,38 +179,51 @@ export class ScreenVideo {
     this.video.muted = !this.video.muted;
   }
 
+  /** Sync on: the video jumps to the replay time and then drives it. Off: both run freely. */
   toggleSync() {
     this.sync = !this.sync;
     saveVideoSettings({ sync: this.sync });
-    if (this.video) this.video.playbackRate = 1;
-    this._resync = this.sync;   // jump straight to the replay time
-    this._acc = SYNC_EVERY;
+    if (!this.sync) {
+      this._detach();
+      if (this.video) this.video.playbackRate = 1;
+    }
     this.version++;
   }
 
-  /** Per frame while the Video tab is open. Allocation-free. */
-  update(dt) {
-    if (!this._open || !this.sync || this.state !== 'ready') return;
-    this._acc += dt;
-    if (this._acc < SYNC_EVERY) return;
-    this._acc = 0;
+  /**
+   * "Set sync here": the frame showing now matches the replay time now (sets offsetSec),
+   * then Sync turns on. Line both up first (e.g. both paused at lights out).
+   */
+  setSyncHere() {
     const v = this.video;
-    const pb = this.playback;
-    const target = this.offsetSec + (pb.time - this.data.raceStartTime) / 1000;
-    const dur = Number.isFinite(v.duration) ? v.duration : Infinity;
-    const run = pb.playing && !pb.waiting && target >= 0 && target < dur;
-    const rate = Math.min(MAX_RATE, Math.max(MIN_RATE, pb.speed));
-    if (v.playbackRate !== rate) v.playbackRate = rate;
-    const clamped = Math.max(0, Math.min(target, dur));
-    const drift = Math.abs(v.currentTime - clamped);
-    // An ended video must seek back too, or play() would restart it from 0.
-    if (!v.seeking && (this._resync || drift > DRIFT * Math.max(1, pb.speed) || (v.ended && run))) v.currentTime = clamped;
-    this._resync = false;
-    if (run && v.paused) this._play();
-    else if (!run && !v.paused) v.pause();
+    if (!v || this.state !== 'ready') return;
+    this.offsetSec = v.currentTime - (this.playback.time - this.data.raceStartTime) / 1000;
+    this.sync = true;
+    saveVideoSettings({ offsetSec: this.offsetSec, sync: true });
+    this.version++;
+  }
+
+  /** Nudge (8.9) while the video leads: the replay moves sec seconds later against the picture. */
+  shiftSync(sec) {
+    this.offsetSec -= sec;
+    saveVideoSettings({ offsetSec: this.offsetSec });
+    this.version++;
+  }
+
+  /** True while this video drives the replay's timing. */
+  get leading() {
+    return this.playback.clock === this.clock && this.playback.clockActive;
+  }
+
+  /** Per frame while the Video tab is open: attach / detach the clock. Allocation-free. */
+  update() {
+    const want = this._open && this.sync && this.state === 'ready';
+    if (want && this.playback.clock !== this.clock) this.playback.setClock(this.clock);
+    else if (!want) this._detach();
   }
 
   dispose() {
+    this._detach();
     this._teardownSource();
     if (this.video) {
       for (const ev of ['playing', 'pause', 'volumechange', 'ended']) this.video.removeEventListener(ev, this._onEvent);
@@ -189,11 +235,11 @@ export class ScreenVideo {
   }
 }
 
-/** Play / mute / sync buttons under the screen's right edge (shown on the Video tab). */
+/** Play / mute / sync / sync-here buttons under the screen's left half (shown on the Video tab). */
 export class VideoControls extends Panel {
   /** @param {ScreenVideo} video */
   constructor(video) {
-    super({ name: 'video-controls', width: 0.54, height: 0.1 });
+    super({ name: 'video-controls', width: 0.62, height: 0.1 });
     this.video = video;
     this._sig = '';
   }
@@ -201,7 +247,7 @@ export class VideoControls extends Panel {
   refresh() {
     if (!this.mesh.visible) return false;
     const v = this.video;
-    const sig = `${v.version}|${v.playing}|${v.muted}|${v.sync}|${v.hasVideo}|${v.playback.playing}`;
+    const sig = `${v.version}|${v.playing}|${v.muted}|${v.sync}|${v.hasVideo}|${v.playback.playing}|${v.leading}`;
     if (sig === this._sig) return false;
     this._sig = sig;
     return true;
@@ -211,11 +257,12 @@ export class VideoControls extends Panel {
     this.clear(g, w, h, 14);
     const v = this.video;
     const gap = 8;
-    const bw = (w - 4 * gap) / 3;
+    const bw = (w - 5 * gap) / 4;
     const items = [
       ['vplay', v.sync ? (this._pbPlaying() ? '❚❚ Replay' : '▶ Replay') : v.playing ? '❚❚ Pause' : '▶ Play', !v.hasVideo],
       ['vmute', v.muted ? 'Unmute' : 'Mute', !v.hasVideo],
       ['vsync', v.sync ? 'Sync ON' : 'Sync OFF', false],
+      ['vhere', 'Sync here', v.state !== 'ready'],
     ];
     items.forEach(([id, label, disabled], i) => {
       const x = gap + i * (bw + gap);
@@ -227,7 +274,7 @@ export class VideoControls extends Panel {
       g.fill();
       g.globalAlpha = disabled ? 0.45 : 1;
       g.fillStyle = THEME.text;
-      g.font = font(30, 700);
+      g.font = font(27, 700);
       g.textAlign = 'center';
       g.textBaseline = 'middle';
       g.fillText(label, x + bw / 2, y + bh / 2 + 1);
@@ -244,6 +291,7 @@ export class VideoControls extends Panel {
     if (hit.id === 'vplay') v.togglePlay();
     else if (hit.id === 'vmute') v.toggleMute();
     else if (hit.id === 'vsync') v.toggleSync();
+    else if (hit.id === 'vhere') v.setSyncHere();
     this._sig = '';
   }
 }
