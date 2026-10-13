@@ -20,6 +20,7 @@ Update the item's status as soon as it is created or finished. Add a dated entry
 | 6 | Polish and performance | 🟡 | 9 / 10 |
 | 7 | Deploy | 🟡 | 3 / 7 |
 | 8 | Screen mode | 🟡 | 12 / 17 |
+| 9 | Style pass and analytics | 🟡 | 1 / 30 |
 
 ---
 
@@ -220,6 +221,49 @@ Phase 7 items 7.4–7.7 are finished after this phase.
 
 ---
 
+## Phase 9: Style pass
+
+Planned with the user on 2026-10-13 after they dropped live video and live data ("the current UI feels boring and dull"). Replays only, on the free OpenF1 tier. Make the panels, the track and race moments feel modern and alive without breaking the Quest budget (72 fps, <150 draw calls, <300k tris, no per-frame allocation, canvas panels ≤10 Hz). Smooth motion comes from shaders/meshes in VR and CSS on desktop, never from redrawing canvases faster. No F1 or team logos or official fonts.
+
+Order (agreed with the user): the mockup first (9.1), then the new interface (9a look, 9b track and race moments, 9c new features), then 9d (analytics). The user approved the display font and kept every item on the list. Still to approve: where the new 9c panels go (9.18) and the Analytics mode layout (9.28).
+
+Analytics decisions: all four groups (race story, pace and tyres, strategy tools, driver comparison); both a main-screen tab and a full Analytics mode; spoiler-free by default with a "Show full session" switch.
+
+| ID | Item | Files | Status | Notes |
+|---|---|---|---|---|
+| 9.1 | **Style mockup:** one static page showing the new look for the leaderboard, telemetry, a race banner, the track and the playback bar, for the user to approve before any real code changes | `plan/mockups/style-pass.html` (new) | ✅ | plan/mockups/style-pass.html (also a private claude.ai artifact): dashboard + Analytics view, approved by the user |
+| 9.2 | **Theme refresh:** new `THEME` tokens (deeper neutrals, glass-style panel fill, team-colour rims, glow accents), a subtle background texture, matching `dashboard.css` and `start.css` | `js/panels/panel-base.js`, `css/` | ⬜ | 9a |
+| 9.3 | **Display font** for big numbers (free Google Font, e.g. Chakra Petch), Titillium kept for body text | `index.html`, `js/panels/panel-base.js` | ⬜ | 9a. Chakra Petch approved by the user |
+| 9.4 | **Leaderboard redesign:** team-colour gradient rows, flashing ▲▼ position change, smoother swaps, tyre ring with compound and age, fastest-lap purple badge, DRS / PIT chips | `js/panels/leaderboard.js`, `js/panels/row-anim.js` | ⬜ | 9a |
+| 9.5 | **Telemetry redesign:** round speed/RPM gauge with an arc, big gear digit, glowing throttle and brake bars, DRS light | `js/panels/telemetry.js` | ⬜ | 9a |
+| 9.6 | **Laps and tyres:** purple / green / yellow sector fills, stint bars in compound colours | `js/panels/laps.js`, `js/panels/lap-stats.js` | ⬜ | 9a |
+| 9.7 | **Weather:** livelier drawn icons, and rain particles in the VR room when `rainfall` is set | `js/panels/weather.js`, `js/scene/rooms.js` | ⬜ | 9a |
+| 9.8 | **Neon track:** glowing track ribbon with the three sectors coloured and a chequered start/finish line | `js/scene/track.js` | ⬜ | 9b |
+| 9.9 | **Car trails and halo:** short fading trails (fixed-size buffers, no per-frame allocation) and a pulsing halo on the selected car | `js/scene/cars.js` | ⬜ | 9b |
+| 9.10 | **Mini-sectors:** track segments coloured by who is fastest through them | `js/scene/track.js`, `js/session-data.js` | ⬜ | 9b. Check what OpenF1 `laps.segments_sector_*` gives first |
+| 9.11 | **Race moment banners:** full-width animated banners for SC, VSC, red flag, fastest lap, overtakes, pit stops (with `pit_duration`), retirements and the chequered flag | `js/panels/`, `js/screen/` | ⬜ | 9b |
+| 9.12 | **Flag ambience:** VR room lighting and the dashboard edge tinted yellow / orange / red by the track status | `js/scene/rooms.js`, `css/dashboard.css` | ⬜ | 9b. Never moves the camera; keep it subtle for comfort |
+| 9.13 | **Sounds:** UI clicks and an optional engine hum pitched by the selected driver's RPM | `js/audio.js` | ⬜ | 9b. Synthesised (WebAudio), no recorded media |
+| 9.14 | **Battle tracker:** picks out pairs within 1 s and shows both drivers with the gap trend | `js/panels/` (new) | ⬜ | 9c |
+| 9.15 | **Race timeline:** markers on the playback bar for SC periods, pit stops and incidents; click to jump | `js/panels/playback-bar.js` | ⬜ | 9c. Keeps the 8.9 sync row: Go to lights out, lap steps, ± nudge |
+| 9.16 | **Head-to-head:** compare two drivers' laps and speed traces | `js/panels/` (new) | ⬜ | 9c |
+| 9.17 | **Driver card:** headshot (coloured tile fallback), team colour, stint history | `js/panels/` (new) | ⬜ | 9c |
+| 9.18 | **Layout for new panels:** agree with the user where 9.14–9.17 go on the dashboard, Screen in VR and Immersive | `js/screen/screen-layout.js`, `js/panels/layout.js` | ⬜ | 9c. Scene layout change: user approval needed |
+| 9.19 | **Performance check:** desktop and emulated Quest stay under 150 draw calls and 300k triangles, panels ≤10 Hz, no per-frame allocation | — | ⬜ | |
+| 9.20 | **Docs and user test:** CONTRACTS.md / README updates, then the user tests desktop and Quest | `plan/CONTRACTS.md`, `README.md` | ⬜ | User test |
+| 9.21 | **Analytics engine:** pure functions in `js/analytics/`: clean-lap filter (no lap 1, in/out laps, SC/VSC laps, >107% of stint median), SC/VSC periods from `race_control`, stint fits, pit loss, rejoin projection, undercut/overcut detection. Every function takes an "up to" time for the spoiler switch. Unit tests | `js/analytics/` (new), `tests/` | ⬜ | 9d. Check first: `position` detail per lap, how SC periods appear in `race_control`, `stints.tyre_age_at_start` |
+| 9.22 | **Chart kit:** axes, lines, bars, tooltips and click areas on the canvas panel base. Redraw only when a lap completes or the selection changes | `js/panels/chart-kit.js` (new) | ⬜ | 9d |
+| 9.23 | **Race story:** gap to leader over the race, lap chart (positions per lap), strategy chart (all stints and pit stops) | `js/panels/analytics/` (new) | ⬜ | 9d. Race and sprint only |
+| 9.24 | **Pace and tyres:** stint pace, tyre degradation per compound (s per lap of tyre age), consistency, theoretical best vs actual best | `js/panels/analytics/` | ⬜ | 9d. Raw by default plus a "Fuel-corrected (estimate)" switch (user approved) |
+| 9.25 | **Strategy tools:** pit loss for this race, "if they pitted now" rejoin position (plus a ghost marker on the track), undercut / overcut log | `js/panels/analytics/`, `js/scene/cars.js` | ⬜ | 9d. Uses `pit.lane_duration` / `stop_duration` |
+| 9.26 | **Driver comparison:** pick a second driver and a lap; speed traces against distance, running time delta, sector deltas, speed traps | `js/panels/analytics/`, `js/session-data.js` | ⬜ | 9d. Extra `car_data` for the second driver (about 2–4 low-priority requests, cached) |
+| 9.27 | **Analytics tab** in the main screen (beside Video and Radio): one chart at a time with a chart picker. Selected and comparison drivers highlighted, hover/point for values, click a lap to jump there | `js/scene/screen.js`, `js/screen/main-tile.js` | ⬜ | 9d. All modes |
+| 9.28 | **Analytics mode:** a full dashboard of about six charts with a small track and leaderboard, on desktop and in Screen in VR | `js/screen/screen-layout.js`, `js/screen/` | ⬜ | 9d. New layout: mock up and get the user's approval first |
+| 9.29 | **Spoiler switch:** spoiler-free by default (charts grow with the replay), "Show full session" in the analytics header, remembered | `js/settings.js`, `js/panels/analytics/` | ⬜ | 9d |
+| 9.30 | **Qualifying and practice:** lap comparison, theoretical best and long-run pace replace the race story charts | `js/panels/analytics/` | ⬜ | 9d |
+
+---
+
 ## Open questions and API differences
 
 _(Record anything that differs from the spec, especially from OpenF1 docs verification in 1.1.)_
@@ -280,3 +324,5 @@ _(Record anything that differs from the spec, especially from OpenF1 docs verifi
   - 202/202 unit tests pass on the merged code.
   - Before the merge: Screen in VR (15 headless checks), the immersive VR regression (21) and the agent's sync run (23) all passed.
   - The headless runs on the merged build were skipped at the user's request; the user checks are in `plan/USER_CHECKS.md`.
+- **2026-10-13**: Added Phase 9 (Style pass, 20 items) at the user's request: they dropped live video (DRM) and live data and want a more fun, modern UI for replays. Mockup first (9.1), then the look (9a), track and race moments (9b) and new features (9c). The display font and the placement of new panels need the user's approval.
+- **2026-10-13**: Phase 9 extended with 9d Analytics (9.21–9.30), planned with the user: race story, pace and tyres, strategy tools and driver comparison, as a main-screen tab and a full Analytics mode, spoiler-free by default. Order: interface (9a–9c) first, then analytics. Chakra Petch approved; Go to lights out stays on the new playback bar.

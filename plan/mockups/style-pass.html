@@ -1,0 +1,1162 @@
+<title>Pit Wall Style Pass</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Titillium+Web:wght@400;600;700&display=swap">
+<style>
+/* Layout: the landscape Screen-mode grid (track big, data row under it, timing column on the right,
+   playback bar along the bottom), restyled. Single committed dark look: it is a pit wall at night. */
+:root {
+  color-scheme: dark;
+  --ink: #05070c;          /* page ground */
+  --panel: rgba(17, 22, 33, 0.72);
+  --panel-solid: #111621;
+  --raise: #1a2131;
+  --line: rgba(140, 160, 200, 0.14);
+  --text: #eef2f8;
+  --muted: #8692a8;
+  --accent: #ff2d3d;       /* pit wall red, slightly warmer than before */
+  --purple: #b84dff;
+  --green: #2ee67a;
+  --yellow: #ffd21f;
+  --orange: #ff8a1f;
+  --blue: #3d8bff;
+  --flag: #2ee67a;         /* current track status, drives the edge glow */
+  --display: 'Chakra Petch', 'Titillium Web', system-ui, sans-serif;
+  --body: 'Titillium Web', system-ui, sans-serif;
+  --r: 14px;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background:
+    radial-gradient(1200px 600px at 20% -10%, rgba(61, 139, 255, 0.10), transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, rgba(255, 45, 61, 0.08), transparent 60%),
+    repeating-linear-gradient(45deg, rgba(255,255,255,0.012) 0 2px, transparent 2px 6px),
+    var(--ink);
+  color: var(--text);
+  font: 15px/1.4 var(--body);
+  padding-inline: 16px;
+  padding-block: 16px 32px;
+  min-height: 100%;
+}
+.wrap { max-width: 1480px; margin: 0 auto; display: grid; gap: 14px; }
+
+/* Header: what this page is, plus the controls to try the moments */
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
+.brand { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+.brand h1 { margin: 0; font: 700 22px/1 var(--display); letter-spacing: 0.04em; text-transform: uppercase; }
+.brand h1 span { color: var(--accent); }
+.brand p { margin: 0; color: var(--muted); font-size: 13px; }
+.try { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; align-items: center; }
+.try label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; margin-right: 4px; }
+.btn {
+  font: 600 13px/1 var(--body); color: var(--text);
+  background: var(--raise); border: 1px solid var(--line); border-radius: 999px;
+  padding: 8px 13px; cursor: pointer; transition: border-color .15s, background .15s, transform .1s;
+}
+.btn:hover { border-color: var(--accent); background: #222a3c; }
+.btn:active { transform: scale(0.97); }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn.is-on { background: var(--accent); border-color: var(--accent); }
+.btn i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 0; }
+
+/* Dashboard frame: the edge glows in the track status colour */
+.dash {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  grid-template-areas: "track board" "row board" "bar bar";
+  gap: 12px;
+  padding: 12px;
+  border-radius: 20px;
+  background: rgba(8, 11, 18, 0.6);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--flag) 55%, transparent),
+              0 0 60px -10px color-mix(in srgb, var(--flag) 45%, transparent);
+  transition: box-shadow .6s ease;
+}
+.card {
+  position: relative; min-width: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.035), transparent 40%), var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  backdrop-filter: blur(10px);
+  overflow: hidden;
+}
+.card h2 {
+  margin: 0; padding: 12px 14px 8px;
+  font: 600 11px/1 var(--display); letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted);
+  display: flex; align-items: center; gap: 8px;
+}
+.card h2 b { color: var(--text); font-weight: 600; }
+.card h2 .sp { flex: 1; }
+.num { font-family: var(--display); font-variant-numeric: tabular-nums; }
+
+/* Track tile */
+.track { grid-area: track; aspect-ratio: 16 / 9; min-height: 300px; }
+.track canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.track .tools { position: absolute; top: 10px; left: 12px; right: 12px; display: flex; gap: 6px; flex-wrap: wrap; z-index: 2; align-items: center; }
+.seg { display: inline-flex; background: rgba(10,13,20,0.75); border: 1px solid var(--line); border-radius: 999px; padding: 3px; }
+.seg button { font: 600 12px/1 var(--body); color: var(--muted); background: none; border: 0; border-radius: 999px; padding: 6px 10px; cursor: pointer; }
+.seg button.is-on { background: var(--raise); color: var(--text); box-shadow: inset 0 -2px 0 var(--accent); }
+.seg button:focus-visible { outline: 2px solid var(--accent); }
+.lapchip { margin-left: auto; background: rgba(10,13,20,0.75); border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; font: 600 14px/1 var(--display); }
+.lapchip small { color: var(--muted); font: 600 11px var(--body); letter-spacing: .12em; margin-right: 6px; }
+.status { display: inline-flex; align-items: center; gap: 6px; background: rgba(10,13,20,0.75); border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px 5px 9px; font: 700 12px/1 var(--display); letter-spacing: .1em; }
+.status i { width: 9px; height: 9px; border-radius: 50%; background: var(--flag); box-shadow: 0 0 10px var(--flag); }
+
+/* Race moment banner (over the track tile) */
+.banner {
+  position: absolute; left: 0; right: 0; top: 50%; z-index: 3;
+  transform: translateY(-50%); pointer-events: none;
+  display: grid; place-items: center; overflow: hidden; height: 120px;
+}
+.banner .slab {
+  --c: var(--orange);
+  position: relative; width: 112%; padding: 16px 0 14px;
+  background:
+    repeating-linear-gradient(-55deg, rgba(0,0,0,0.18) 0 14px, transparent 14px 28px),
+    linear-gradient(90deg, transparent, var(--c) 14%, var(--c) 86%, transparent);
+  transform: skewY(-3deg);
+  text-align: center;
+  animation: slab 3.4s cubic-bezier(.2,.8,.2,1) both;
+}
+.banner .slab.purple { --c: #8f2bd9; }
+.banner .slab.green { --c: #17a956; }
+.banner .slab.red { --c: #d9152a; }
+.banner .slab.blue { --c: #2563d9; }
+.banner .slab.check {
+  background:
+    conic-gradient(#fff 25%, #0b0b0b 0 50%, #fff 0 75%, #0b0b0b 0) 0 0 / 28px 28px;
+}
+.banner .slab.check .t, .banner .slab.check .s { background: #0b0b0b; padding: 0 14px; display: inline-block; }
+.banner .t { font: 700 clamp(26px, 4.4vw, 52px)/1 var(--display); letter-spacing: 0.06em; text-transform: uppercase; color: #fff; text-shadow: 0 2px 0 rgba(0,0,0,.25); }
+.banner .s { margin-top: 6px; font: 600 clamp(13px, 1.5vw, 17px)/1.2 var(--body); letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,.92); }
+@keyframes slab {
+  0% { transform: skewY(-3deg) translateX(-110%); }
+  14% { transform: skewY(-3deg) translateX(0); }
+  84% { transform: skewY(-3deg) translateX(0); opacity: 1; }
+  100% { transform: skewY(-3deg) translateX(110%); opacity: 0; }
+}
+
+/* Row under the track: telemetry, laps, battle + weather */
+.row { grid-area: row; display: grid; grid-template-columns: 1.15fr 1fr 0.95fr; gap: 12px; min-width: 0; }
+
+/* Telemetry */
+.tele .body { display: grid; grid-template-columns: 1fr auto; gap: 10px 14px; padding: 0 14px 14px; align-items: center; }
+.leds { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(15, 1fr); gap: 4px; }
+.leds i { height: 9px; border-radius: 3px; background: #1d2433; transition: background .08s, box-shadow .08s; }
+.leds i.on.g { background: var(--green); box-shadow: 0 0 8px var(--green); }
+.leds i.on.r { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+.leds i.on.b { background: var(--blue); box-shadow: 0 0 8px var(--blue); }
+.gauge { position: relative; width: 100%; max-width: 230px; aspect-ratio: 1 / 0.78; justify-self: center; }
+.gauge svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.gauge .trackarc { stroke: #1d2433; }
+.gauge .valarc { transition: stroke-dashoffset .1s linear; filter: drop-shadow(0 0 6px rgba(61,139,255,.6)); }
+.gauge .read { position: absolute; inset: 22% 0 auto; text-align: center; }
+.gauge .spd { font: 700 52px/1 var(--display); font-variant-numeric: tabular-nums; }
+.gauge .unit { color: var(--muted); font: 600 11px var(--body); letter-spacing: .2em; }
+.gauge .rpm { color: var(--muted); font: 600 13px var(--display); margin-top: 4px; }
+.side { display: grid; grid-template-columns: auto auto; gap: 10px; align-items: end; }
+.gear { grid-column: 1 / -1; text-align: center; }
+.gear .g { font: 700 64px/0.9 var(--display); }
+.gear small { display: block; color: var(--muted); font: 600 10px var(--body); letter-spacing: .2em; }
+.pedal { width: 22px; height: 96px; border-radius: 6px; background: #1d2433; position: relative; overflow: hidden; }
+.pedal b { position: absolute; left: 0; right: 0; bottom: 0; height: 0%; border-radius: 6px; transition: height .1s linear; }
+.pedal.thr b { background: linear-gradient(0deg, #13a34f, var(--green)); box-shadow: 0 0 12px var(--green); }
+.pedal.brk b { background: linear-gradient(0deg, #a3121f, var(--accent)); box-shadow: 0 0 12px var(--accent); }
+.pedal + small, .pl { color: var(--muted); font: 600 10px var(--body); letter-spacing: .1em; text-align: center; }
+.drs { grid-column: 1 / -1; justify-self: center; font: 700 12px/1 var(--display); letter-spacing: .2em; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--line); color: var(--muted); transition: all .15s; }
+.drs.on { color: #04140a; background: var(--green); border-color: var(--green); box-shadow: 0 0 16px var(--green); }
+
+/* Laps */
+.laps .body { padding: 0 14px 14px; display: grid; gap: 12px; }
+.lastlap { display: flex; align-items: baseline; gap: 10px; }
+.lastlap .num { font-size: 34px; font-weight: 700; }
+.pill { font: 700 11px/1 var(--display); letter-spacing: .12em; padding: 5px 8px; border-radius: 5px; }
+.pill.purple { background: color-mix(in srgb, var(--purple) 22%, transparent); color: #d9a6ff; box-shadow: inset 0 0 0 1px var(--purple); }
+.sectors { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.sector { border-radius: 8px; padding: 8px 10px; background: var(--raise); position: relative; overflow: hidden; }
+.sector::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--c); box-shadow: 0 0 12px var(--c); }
+.sector small { color: var(--muted); font: 600 10px var(--body); letter-spacing: .14em; }
+.sector .num { display: block; font-size: 18px; font-weight: 600; }
+.minis { display: grid; grid-template-columns: repeat(24, 1fr); gap: 2px; }
+.minis i { height: 7px; border-radius: 2px; }
+.stint { display: flex; height: 22px; border-radius: 6px; overflow: hidden; gap: 2px; }
+.stint div { display: grid; place-items: center; font: 700 11px var(--display); color: #0b0d12; }
+.lbl { color: var(--muted); font: 600 10px var(--body); letter-spacing: .14em; text-transform: uppercase; margin-bottom: 5px; display: flex; justify-content: space-between; }
+
+/* Battle + weather */
+.stack { display: grid; gap: 12px; grid-template-rows: auto 1fr; min-width: 0; }
+.battle .body { padding: 0 14px 14px; }
+.duo { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; }
+.duo .d { display: flex; align-items: center; gap: 8px; font: 700 20px var(--display); }
+.duo .d:last-child { justify-content: flex-end; }
+.duo .d i { width: 4px; height: 26px; border-radius: 2px; }
+.duo .gap { text-align: center; }
+.duo .gap .num { font-size: 26px; font-weight: 700; color: var(--yellow); }
+.duo .gap small { display: block; color: var(--muted); font-size: 10px; letter-spacing: .14em; }
+.spark { width: 100%; height: 38px; display: block; margin-top: 8px; }
+.inrange { display: inline-block; margin-top: 6px; }
+.weather .body { padding: 0 14px 14px; display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; align-items: center; }
+.wx { width: 54px; height: 54px; position: relative; grid-row: span 2; }
+.wx .sun { position: absolute; inset: 6px; border-radius: 50%; background: radial-gradient(circle, #ffe37a, #ffb21f); box-shadow: 0 0 24px rgba(255,190,40,.6); animation: pulse 4s ease-in-out infinite; }
+.wx .cloud { position: absolute; left: 14px; top: 26px; width: 40px; height: 18px; border-radius: 10px; background: #cfd8e6; animation: drift 6s ease-in-out infinite alternate; }
+.wx .cloud::before { content: ""; position: absolute; left: 8px; top: -10px; width: 20px; height: 20px; border-radius: 50%; background: #cfd8e6; }
+@keyframes pulse { 50% { transform: scale(1.06); box-shadow: 0 0 34px rgba(255,190,40,.8); } }
+@keyframes drift { to { transform: translateX(-6px); } }
+.wxg { display: grid; grid-template-columns: repeat(2, auto); gap: 4px 16px; font-size: 13px; color: var(--muted); }
+.wxg b { color: var(--text); font: 600 15px var(--display); }
+
+/* Leaderboard */
+.board { grid-area: board; display: grid; grid-template-rows: auto auto 1fr; }
+.lb { position: relative; margin: 0 8px 8px; }
+.lbr {
+  position: absolute; left: 0; right: 0; height: 40px;
+  display: grid; grid-template-columns: 30px 6px 1fr auto 34px 30px; gap: 8px; align-items: center;
+  padding: 0 8px 0 4px; border-radius: 9px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--tc) 26%, transparent), rgba(26,33,49,.55) 46%);
+  transition: transform .7s cubic-bezier(.3,1.3,.5,1), background .3s;
+  cursor: pointer;
+}
+.lbr:hover { background: linear-gradient(90deg, color-mix(in srgb, var(--tc) 40%, transparent), rgba(34,42,60,.8) 55%); }
+.lbr.sel { box-shadow: inset 0 0 0 1px var(--tc), 0 0 18px -4px var(--tc); }
+.lbr .p { font: 700 17px var(--display); text-align: center; }
+.lbr .rim { height: 24px; border-radius: 3px; background: var(--tc); box-shadow: 0 0 10px var(--tc); }
+.lbr .n { font: 700 16px var(--display); letter-spacing: .04em; display: flex; align-items: center; gap: 6px; min-width: 0; }
+.lbr .n small { color: var(--muted); font: 600 11px var(--body); letter-spacing: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lbr .gp { font: 600 14px var(--display); font-variant-numeric: tabular-nums; color: var(--muted); text-align: right; }
+.lbr .gp.lead { color: var(--text); }
+.ty { width: 30px; height: 30px; position: relative; }
+.ty svg { width: 100%; height: 100%; display: block; }
+.ty b { position: absolute; inset: 0; display: grid; place-items: center; font: 700 11px var(--display); }
+.lbr .chg { font: 700 11px var(--display); text-align: center; }
+.chg.up { color: var(--green); }
+.chg.dn { color: var(--accent); }
+.lbr.flash { animation: flash 1.2s ease-out; }
+@keyframes flash { 0%, 30% { background: color-mix(in srgb, var(--green) 35%, transparent); } }
+.lbr.flash-dn { animation: flashdn 1.2s ease-out; }
+@keyframes flashdn { 0%, 30% { background: color-mix(in srgb, var(--accent) 30%, transparent); } }
+.chip { font: 700 9px/1 var(--display); letter-spacing: .12em; padding: 3px 5px; border-radius: 4px; }
+.chip.drs { background: var(--green); color: #04140a; }
+.chip.pit { background: var(--blue); color: #fff; }
+.chip.fl { background: var(--purple); color: #fff; box-shadow: 0 0 10px var(--purple); animation: pulse2 1.6s ease-in-out infinite; }
+@keyframes pulse2 { 50% { box-shadow: 0 0 2px var(--purple); } }
+
+/* Race control under the leaderboard */
+.rc { list-style: none; margin: 0; padding: 0 12px 12px; display: grid; gap: 6px; align-content: start; overflow: hidden; }
+.rc li { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: start; font-size: 13px; padding: 7px 9px; border-radius: 8px; background: rgba(26,33,49,.6); animation: rcin .45s ease-out; }
+.rc li .f { width: 6px; align-self: stretch; border-radius: 3px; background: var(--c, var(--muted)); }
+.rc li time { color: var(--muted); font: 600 11px var(--display); margin-right: 6px; }
+@keyframes rcin { from { transform: translateX(20px); opacity: 0; } }
+
+/* Playback bar with the race timeline */
+.bar { grid-area: bar; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 12px 14px; }
+.play { width: 44px; height: 44px; border-radius: 50%; border: 0; background: var(--accent); color: #fff; cursor: pointer; display: grid; place-items: center; box-shadow: 0 0 20px -2px var(--accent); }
+.play:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.play svg { width: 18px; height: 18px; fill: currentColor; }
+.tl { position: relative; height: 44px; cursor: pointer; }
+.tl .rail { position: absolute; left: 0; right: 0; top: 20px; height: 6px; border-radius: 3px; background: #1d2433; }
+.tl .done { position: absolute; left: 0; top: 20px; height: 6px; border-radius: 3px; background: linear-gradient(90deg, #8a1520, var(--accent)); }
+.tl .sc { position: absolute; top: 16px; height: 14px; border-radius: 3px; background: repeating-linear-gradient(-45deg, var(--orange) 0 4px, #b35a0a 4px 8px); opacity: .9; }
+.tl .mk { position: absolute; top: 4px; transform: translateX(-50%); font: 700 9px var(--display); color: var(--muted); display: grid; justify-items: center; gap: 1px; }
+.tl .mk i { width: 2px; height: 8px; background: currentColor; border-radius: 1px; }
+.tl .mk.pit { color: var(--blue); }
+.tl .mk.fl { color: var(--purple); }
+.tl .head { position: absolute; top: 13px; width: 20px; height: 20px; border-radius: 50%; transform: translateX(-50%); background: #fff; box-shadow: 0 0 0 4px rgba(255,45,61,.35), 0 0 16px var(--accent); }
+.tl .laps { position: absolute; left: 0; right: 0; bottom: -2px; display: flex; justify-content: space-between; color: var(--muted); font: 600 10px var(--display); }
+.speeds { display: flex; gap: 4px; }
+.speeds button { font: 700 12px var(--display); color: var(--muted); background: var(--raise); border: 1px solid var(--line); border-radius: 7px; padding: 7px 9px; cursor: pointer; }
+.speeds button.is-on { color: #fff; border-color: var(--accent); box-shadow: inset 0 -2px 0 var(--accent); }
+.speeds button:focus-visible { outline: 2px solid var(--accent); }
+
+/* Sync row on the playback bar (8.9): Go to lights out, lap steps, nudge */
+.sync { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; border-top: 1px solid var(--line); padding-top: 10px; }
+.sync .btn { border-radius: 8px; padding: 7px 11px; }
+.sync .lo { background: linear-gradient(180deg, #3a0d12, #25090c); border-color: #6b1720; }
+.sync .lo:hover { border-color: var(--accent); }
+.sync .lo i { width: 7px; height: 7px; margin-right: 3px; background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+.sync .gapx { width: 1px; height: 22px; background: var(--line); margin: 0 4px; }
+.sync .off { margin-left: auto; color: var(--muted); font-size: 12px; }
+.sync .off b { color: var(--text); font: 600 14px var(--display); }
+.lapchip.bump { animation: bump .5s ease-out; }
+@keyframes bump { 30% { transform: scale(1.12); border-color: var(--accent); } }
+
+/* View switch in the header */
+.views { display: inline-flex; background: var(--panel-solid); border: 1px solid var(--line); border-radius: 999px; padding: 3px; }
+.views button { font: 700 12px/1 var(--display); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); background: none; border: 0; border-radius: 999px; padding: 8px 14px; cursor: pointer; }
+.views button.is-on { background: var(--accent); color: #fff; }
+.views button:focus-visible { outline: 2px solid var(--accent); }
+
+/* Analytics mode: charts take the big area, track and timing shrink to a side column */
+.charts { grid-area: charts; display: none; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; min-width: 0; align-content: start; }
+.dash.ana { grid-template-columns: minmax(0, 1fr) 340px; grid-template-areas: "charts track" "charts board" "bar bar"; grid-template-rows: auto 1fr auto; }
+.dash.ana .charts { display: grid; }
+.dash.ana .row, .dash.ana .rcwrap, .dash.ana .tools .seg { display: none; }
+.dash.ana .track { aspect-ratio: 4 / 3; min-height: 0; }
+.dash.ana .lbr .n small { display: none; }
+.chbar { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 2px 2px 0; }
+.chbar h3 { margin: 0; font: 700 15px var(--display); letter-spacing: .14em; text-transform: uppercase; }
+.chbar .sp { flex: 1; }
+.tog { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); cursor: pointer; user-select: none; }
+.tog input { appearance: none; width: 34px; height: 20px; border-radius: 999px; background: #1d2433; border: 1px solid var(--line); position: relative; cursor: pointer; transition: background .2s; margin: 0; }
+.tog input::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--muted); transition: transform .2s, background .2s; }
+.tog input:checked { background: color-mix(in srgb, var(--accent) 50%, transparent); }
+.tog input:checked::after { transform: translateX(14px); background: #fff; }
+.tog input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.spoil { font: 700 10px var(--display); letter-spacing: .14em; padding: 4px 8px; border-radius: 5px; background: var(--raise); color: var(--muted); }
+.spoil.full { background: color-mix(in srgb, var(--yellow) 25%, transparent); color: var(--yellow); }
+.ch .body { padding: 0 12px 12px; }
+.ch .host { position: relative; width: 100%; }
+.ch svg { display: block; width: 100%; overflow: visible; }
+.ch svg text { fill: var(--muted); font: 600 10px var(--display); }
+.ch .note { color: var(--muted); font-size: 12px; margin-top: 6px; }
+.ch .note b { color: var(--text); font-weight: 600; }
+.ch select { font: 600 12px var(--body); color: var(--text); background: var(--raise); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; }
+.ch.wide { grid-column: 1 / -1; }
+.kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.kpi { background: var(--raise); border-radius: 9px; padding: 8px 10px; min-width: 0; }
+.kpi small { display: block; color: var(--muted); font: 600 10px var(--body); letter-spacing: .12em; text-transform: uppercase; }
+.kpi b { font: 700 20px var(--display); font-variant-numeric: tabular-nums; }
+.kpi span { display: block; color: var(--muted); font-size: 12px; }
+.ulog { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; font-size: 13px; }
+.ulog li { display: flex; gap: 8px; align-items: baseline; padding: 5px 8px; border-radius: 7px; background: rgba(26,33,49,.6); }
+.ulog li time { color: var(--muted); font: 600 11px var(--display); min-width: 44px; }
+.ulog li .ok { color: var(--green); font-weight: 700; margin-left: auto; white-space: nowrap; }
+.ulog li .no { color: var(--accent); font-weight: 700; margin-left: auto; white-space: nowrap; }
+.tip { position: fixed; z-index: 20; pointer-events: none; background: rgba(9,12,19,.95); border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; font-size: 12px; min-width: 120px; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+.tip b { font: 700 12px var(--display); letter-spacing: .1em; display: block; margin-bottom: 3px; }
+.tip div { display: flex; gap: 10px; justify-content: space-between; }
+.tip i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; }
+
+.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.foot b { color: var(--text); font-weight: 600; }
+
+@media (max-width: 1100px) {
+  .dash { grid-template-columns: minmax(0, 1fr); grid-template-areas: "track" "board" "row" "bar"; }
+  .board { grid-template-rows: auto auto auto; }
+  .rc { max-height: 220px; }
+  .dash.ana { grid-template-columns: minmax(0, 1fr); grid-template-areas: "charts" "track" "board" "bar"; grid-template-rows: none; }
+  .dash.ana .track { aspect-ratio: 16 / 9; }
+}
+@media (max-width: 760px) {
+  .row, .charts { grid-template-columns: minmax(0, 1fr); }
+  .kpis { grid-template-columns: minmax(0, 1fr); }
+  .sync .off { margin-left: 0; }
+  .track { aspect-ratio: 4 / 3; min-height: 0; }
+  .bar { grid-template-columns: auto minmax(0, 1fr); }
+  .speeds { grid-column: 1 / -1; justify-content: center; }
+  .lbr { grid-template-columns: 26px 5px 1fr auto 30px 24px; gap: 6px; }
+  .lbr .n small { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>Pit Wall <span>VR</span></h1>
+      <p>Style pass mockup (9.1). Example data styled on the 2024 Bahrain GP.</p>
+    </div>
+    <div class="views" role="group" aria-label="View">
+      <button class="is-on" data-view="dash">Dashboard</button>
+      <button data-view="ana">Analytics</button>
+    </div>
+    <div class="try" aria-label="Try race moments">
+      <label>Try</label>
+      <button class="btn" data-moment="sc"><i style="background:var(--orange)"></i>Safety car</button>
+      <button class="btn" data-moment="vsc"><i style="background:var(--yellow)"></i>VSC</button>
+      <button class="btn" data-moment="fl"><i style="background:var(--purple)"></i>Fastest lap</button>
+      <button class="btn" data-moment="ot"><i style="background:var(--green)"></i>Overtake</button>
+      <button class="btn" data-moment="pit"><i style="background:var(--blue)"></i>Pit stop</button>
+      <button class="btn" data-moment="red"><i style="background:var(--accent)"></i>Red flag</button>
+      <button class="btn" data-moment="flag"><i style="background:#fff"></i>Chequered</button>
+      <button class="btn" data-moment="clear"><i style="background:var(--green)"></i>Track clear</button>
+    </div>
+  </header>
+
+  <main class="dash" id="dash">
+    <section class="card track" aria-label="Track map">
+      <canvas id="trackCv"></canvas>
+      <div class="tools">
+        <div class="seg" role="group" aria-label="Track colours">
+          <button class="is-on" data-tc="sectors">Sectors</button>
+          <button data-tc="minis">Mini-sectors</button>
+          <button data-tc="plain">Plain</button>
+        </div>
+        <span class="status" id="status"><i></i><span id="statusTxt">GREEN</span></span>
+        <span class="lapchip"><small>LAP</small><span class="num" id="lapNow">24</span><span style="color:var(--muted)"> / 57</span></span>
+      </div>
+      <div class="banner" id="banner"></div>
+    </section>
+
+    <aside class="card board" aria-label="Leaderboard and race control">
+      <h2><b>Timing</b><span class="sp"></span>Interval</h2>
+      <div class="lb" id="lb"></div>
+      <div class="rcwrap">
+        <h2><b>Race control</b></h2>
+        <ul class="rc" id="rc"></ul>
+      </div>
+    </aside>
+
+    <div class="charts" id="charts">
+      <div class="chbar">
+        <h3>Analytics</h3>
+        <span class="spoil" id="spoilTag">UP TO LAP 24</span>
+        <span class="sp"></span>
+        <label class="tog"><input type="checkbox" id="fullSession"> Show full session</label>
+      </div>
+      <section class="card ch" aria-label="Gap to leader">
+        <h2><b>Gap to leader</b><span class="sp"></span>click a lap to jump</h2>
+        <div class="body"><div class="host" id="chGap"></div></div>
+      </section>
+      <section class="card ch" aria-label="Lap chart">
+        <h2><b>Lap chart</b><span class="sp"></span>positions</h2>
+        <div class="body"><div class="host" id="chPos"></div></div>
+      </section>
+      <section class="card ch" aria-label="Strategy">
+        <h2><b>Strategy</b><span class="sp"></span>stints and stops</h2>
+        <div class="body"><div class="host" id="chStrat"></div></div>
+      </section>
+      <section class="card ch" aria-label="Tyre degradation">
+        <h2><b>Tyre degradation</b><span class="sp"></span><label class="tog" style="font-size:11px"><input type="checkbox" id="fuelCorr"> Fuel-corrected</label></h2>
+        <div class="body"><div class="host" id="chDeg"></div><div class="note" id="degNote"></div></div>
+      </section>
+      <section class="card ch" aria-label="Driver comparison">
+        <h2><b>Comparison</b> <span id="cmpA">VER</span> vs <select id="cmpSel" aria-label="Compare with"></select><span class="sp"></span>lap 23</h2>
+        <div class="body"><div class="host" id="chCmp"></div><div class="note" id="cmpNote"></div></div>
+      </section>
+      <section class="card ch" aria-label="Strategy tools">
+        <h2><b>Strategy tools</b><span class="sp"></span><span id="stDrv">VER</span></h2>
+        <div class="body">
+          <div class="kpis" id="stKpis"></div>
+          <ul class="ulog" id="ulog"></ul>
+        </div>
+      </section>
+    </div>
+
+    <div class="row">
+      <section class="card tele" aria-label="Telemetry">
+        <h2><b id="teleName">VER</b> Telemetry<span class="sp"></span>Red Bull Racing</h2>
+        <div class="body">
+          <div class="leds" id="leds"></div>
+          <div class="gauge">
+            <svg viewBox="0 0 200 156" aria-hidden="true">
+              <defs>
+                <linearGradient id="gg" x1="0" x2="1">
+                  <stop offset="0" stop-color="#2ee67a"/><stop offset=".6" stop-color="#3d8bff"/><stop offset="1" stop-color="#ff2d3d"/>
+                </linearGradient>
+              </defs>
+              <path class="trackarc" d="M 26 140 A 86 86 0 1 1 174 140" fill="none" stroke-width="12" stroke-linecap="round"/>
+              <path class="valarc" id="arc" d="M 26 140 A 86 86 0 1 1 174 140" fill="none" stroke="url(#gg)" stroke-width="12" stroke-linecap="round"/>
+            </svg>
+            <div class="read">
+              <div class="spd" id="spd">0</div>
+              <div class="unit">KM/H</div>
+              <div class="rpm"><span id="rpm">0</span> rpm</div>
+            </div>
+          </div>
+          <div class="side">
+            <div class="gear"><span class="g" id="gear">1</span><small>GEAR</small></div>
+            <div><div class="pedal thr"><b id="thr"></b></div><div class="pl">THR</div></div>
+            <div><div class="pedal brk"><b id="brk"></b></div><div class="pl">BRK</div></div>
+            <div class="drs" id="drs">DRS</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card laps" aria-label="Laps and tyres">
+        <h2><b>Laps</b> &amp; tyres<span class="sp"></span>VER</h2>
+        <div class="body">
+          <div class="lastlap"><span class="num">1:36.236</span><span class="pill purple">FASTEST</span></div>
+          <div class="sectors">
+            <div class="sector" style="--c:var(--purple)"><small>S1</small><span class="num">30.902</span></div>
+            <div class="sector" style="--c:var(--green)"><small>S2</small><span class="num">41.317</span></div>
+            <div class="sector" style="--c:var(--yellow)"><small>S3</small><span class="num">24.017</span></div>
+          </div>
+          <div>
+            <div class="lbl"><span>Mini-sectors</span><span>Lap 23</span></div>
+            <div class="minis" id="minis"></div>
+          </div>
+          <div>
+            <div class="lbl"><span>Stints</span><span>Medium · 7 laps</span></div>
+            <div class="stint">
+              <div style="flex:17;background:#ff3b3b">S 17</div>
+              <div style="flex:7;background:#ffd21f">M 7</div>
+              <div style="flex:33;background:#1d2433;color:var(--muted)">…</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="stack">
+        <section class="card battle" aria-label="Battle tracker">
+          <h2><b>Battle</b> for P3<span class="sp"></span>new</h2>
+          <div class="body">
+            <div class="duo">
+              <div class="d"><i style="background:#e8002d"></i><span id="bA">SAI</span></div>
+              <div class="gap"><span class="num" id="bGap">0.84</span><small>SEC</small></div>
+              <div class="d"><span id="bB">LEC</span><i style="background:#e8002d"></i></div>
+            </div>
+            <svg class="spark" id="spark" viewBox="0 0 200 38" preserveAspectRatio="none" aria-hidden="true">
+              <polyline id="sparkLine" fill="none" stroke="var(--yellow)" stroke-width="2"/>
+              <circle id="sparkDot" r="3.5" fill="var(--yellow)"/>
+            </svg>
+            <span class="chip drs inrange" id="inrange">IN DRS RANGE</span>
+          </div>
+        </section>
+        <section class="card weather" aria-label="Weather">
+          <h2><b>Weather</b><span class="sp"></span>Sakhir</h2>
+          <div class="body">
+            <div class="wx"><div class="sun"></div><div class="cloud"></div></div>
+            <div class="wxg">
+              <span>Air <b>18.6°</b></span><span>Track <b>27.1°</b></span>
+              <span>Humidity <b>46%</b></span><span>Wind <b>2.3 m/s</b></span>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <section class="card bar" aria-label="Playback">
+      <button class="play" id="play" aria-label="Pause">
+        <svg viewBox="0 0 24 24" id="playIco"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>
+      </button>
+      <div class="tl" id="tl" aria-label="Race timeline">
+        <div class="rail"></div>
+        <div class="done" id="tlDone"></div>
+        <div class="laps"><span>1</span><span>10</span><span>20</span><span>30</span><span>40</span><span>50</span><span>57</span></div>
+        <div class="head" id="tlHead"></div>
+      </div>
+      <div class="speeds" role="group" aria-label="Replay speed">
+        <button data-sp="1" class="is-on">1×</button><button data-sp="2">2×</button><button data-sp="5">5×</button><button data-sp="10">10×</button>
+      </div>
+      <div class="sync" role="group" aria-label="Sync with a broadcast">
+        <button class="btn lo" id="lightsOut"><i></i><i></i><i></i> Go to lights out</button>
+        <button class="btn" data-lap="-1">◀ Lap</button>
+        <button class="btn" data-lap="1">Lap ▶</button>
+        <span class="gapx"></span>
+        <button class="btn" data-nudge="-5">−5 s</button>
+        <button class="btn" data-nudge="-1">−1 s</button>
+        <button class="btn" data-nudge="1">+1 s</button>
+        <button class="btn" data-nudge="5">+5 s</button>
+        <span class="off">Sync offset <b id="offset">+0 s</b></span>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <span><b>What moves smoothly where:</b> the track glow, trails and halo become GPU effects in VR; banners, swaps and glows are CSS on desktop.</span>
+    <span>Numbers update at 10 Hz like the real panels. No logos or official fonts, only team colours.</span>
+  </footer>
+</div>
+
+<script>
+(() => {
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const TEAM = { RBR: '#3671c6', FER: '#e8002d', MER: '#27f4d2', MCL: '#ff8000', AMR: '#229971', ALP: '#ff87bc', HAA: '#b6babd', SAU: '#52e252', RB: '#6692ff', WIL: '#64c4ff' };
+  const TYRE = { S: '#ff3b3b', M: '#ffd21f', H: '#f2f2f2' };
+
+  // ---- Example field (P1..P10) ----
+  const field = [
+    { a: 'VER', n: 'Verstappen', t: 'RBR', gap: 0,    ty: 'M', age: 7,  ch: 0, drs: false },
+    { a: 'PER', n: 'Pérez',      t: 'RBR', gap: 4.92, ty: 'M', age: 6,  ch: 1 },
+    { a: 'SAI', n: 'Sainz',      t: 'FER', gap: 3.71, ty: 'H', age: 9,  ch: 0 },
+    { a: 'LEC', n: 'Leclerc',    t: 'FER', gap: 0.84, ty: 'H', age: 10, ch: -1, drs: true },
+    { a: 'RUS', n: 'Russell',    t: 'MER', gap: 2.15, ty: 'M', age: 8,  ch: 0 },
+    { a: 'NOR', n: 'Norris',     t: 'MCL', gap: 1.36, ty: 'M', age: 8,  ch: 2 },
+    { a: 'HAM', n: 'Hamilton',   t: 'MER', gap: 3.08, ty: 'H', age: 12, ch: 0 },
+    { a: 'PIA', n: 'Piastri',    t: 'MCL', gap: 0.61, ty: 'H', age: 12, ch: -1, drs: true },
+    { a: 'ALO', n: 'Alonso',     t: 'AMR', gap: 5.40, ty: 'H', age: 11, ch: 0 },
+    { a: 'STR', n: 'Stroll',     t: 'AMR', gap: 7.88, ty: 'M', age: 5,  ch: 1 },
+  ];
+  let selected = 'VER', fastest = 'VER';
+
+  // ---- Leaderboard ----
+  const lb = document.getElementById('lb');
+  const ROW = 44;
+  lb.style.height = field.length * ROW + 'px';
+  const ring = (ty, age) => {
+    const c = 2 * Math.PI * 12, wear = Math.min(age / 30, 1);
+    return `<svg viewBox="0 0 30 30"><circle cx="15" cy="15" r="12" fill="none" stroke="#1d2433" stroke-width="4"/>` +
+      `<circle cx="15" cy="15" r="12" fill="none" stroke="${TYRE[ty]}" stroke-width="4" stroke-dasharray="${c}" stroke-dashoffset="${c * wear}" transform="rotate(-90 15 15)" stroke-linecap="round"/></svg><b style="color:${TYRE[ty]}">${ty}</b>`;
+  };
+  const rows = new Map();
+  for (const d of field) {
+    const el = document.createElement('div');
+    el.className = 'lbr';
+    el.style.setProperty('--tc', TEAM[d.t]);
+    el.innerHTML = `<span class="p"></span><span class="rim"></span><span class="n"></span><span class="gp num"></span><span class="ty"></span><span class="chg"></span>`;
+    el.addEventListener('click', () => { selected = d.a; drawBoard(); document.getElementById('teleName').textContent = d.a; renderCharts(); });
+    lb.appendChild(el);
+    rows.set(d.a, el);
+  }
+  function drawBoard(flashA, flashB) {
+    field.forEach((d, i) => {
+      const el = rows.get(d.a);
+      el.style.transform = `translateY(${i * ROW}px)`;
+      el.classList.toggle('sel', d.a === selected);
+      el.querySelector('.p').textContent = i + 1;
+      const chips = (d.drs ? '<span class="chip drs">DRS</span>' : '') + (d.pit ? '<span class="chip pit">PIT</span>' : '') + (d.a === fastest ? '<span class="chip fl">FL</span>' : '');
+      el.querySelector('.n').innerHTML = `${d.a}${chips}<small>${d.n}</small>`;
+      const gp = el.querySelector('.gp');
+      gp.textContent = i === 0 ? 'LEADER' : `+${d.gap.toFixed(3)}`;
+      gp.classList.toggle('lead', i === 0);
+      el.querySelector('.ty').innerHTML = ring(d.ty, d.age);
+      const chg = el.querySelector('.chg');
+      chg.className = 'chg ' + (d.ch > 0 ? 'up' : d.ch < 0 ? 'dn' : '');
+      chg.textContent = d.ch > 0 ? `▲${d.ch}` : d.ch < 0 ? `▼${-d.ch}` : '–';
+    });
+    for (const [a, cls] of [[flashA, 'flash'], [flashB, 'flash-dn']]) {
+      if (!a) continue;
+      const el = rows.get(a);
+      el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls);
+    }
+  }
+  drawBoard();
+
+  // ---- Race control ----
+  const rc = document.getElementById('rc');
+  const clock = () => { const m = 15 + Math.floor(lapF * 1.6 / 60) ; const s = Math.floor((lapF * 96) % 60); return `${m}:${String(s).padStart(2, '0')}`; };
+  function rcPush(text, c) {
+    const li = document.createElement('li');
+    li.style.setProperty('--c', c);
+    li.innerHTML = `<span class="f"></span><span><time>${clock()}</time>${text}</span>`;
+    rc.prepend(li);
+    while (rc.children.length > 5) rc.lastChild.remove();
+  }
+
+  // ---- Track geometry: a closed Catmull-Rom loop, resampled evenly ----
+  const CP = [[0.08,0.70],[0.34,0.74],[0.64,0.76],[0.88,0.74],[0.94,0.62],[0.86,0.52],[0.70,0.50],[0.60,0.40],[0.70,0.27],[0.80,0.17],[0.66,0.09],[0.46,0.17],[0.40,0.32],[0.29,0.44],[0.17,0.33],[0.07,0.42],[0.03,0.57]];
+  const raw = [];
+  for (let i = 0; i < CP.length; i++) {
+    const p0 = CP[(i - 1 + CP.length) % CP.length], p1 = CP[i], p2 = CP[(i + 1) % CP.length], p3 = CP[(i + 2) % CP.length];
+    for (let k = 0; k < 40; k++) {
+      const t = k / 40, t2 = t * t, t3 = t2 * t;
+      raw.push([0, 1].map(j => 0.5 * (2 * p1[j] + (-p0[j] + p2[j]) * t + (2 * p0[j] - 5 * p1[j] + 4 * p2[j] - p3[j]) * t2 + (-p0[j] + 3 * p1[j] - 3 * p2[j] + p3[j]) * t3)));
+    }
+  }
+  const cum = [0];
+  for (let i = 1; i <= raw.length; i++) { const a = raw[i - 1], b = raw[i % raw.length]; cum.push(cum[i - 1] + Math.hypot(b[0] - a[0], b[1] - a[1])); }
+  const L = cum[cum.length - 1], N = 900, P = [];
+  for (let i = 0, j = 0; i < N; i++) {
+    const d = (i / N) * L;
+    while (cum[j + 1] < d) j++;
+    const f = (d - cum[j]) / (cum[j + 1] - cum[j]), a = raw[j], b = raw[(j + 1) % raw.length];
+    P.push([a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f]);
+  }
+  // Speed profile from curvature, then braking / traction limits
+  const V = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    const a = P[(i - 8 + N) % N], b = P[i], c = P[(i + 8) % N];
+    const h1 = Math.atan2(b[1] - a[1], b[0] - a[0]), h2 = Math.atan2(c[1] - b[1], c[0] - b[0]);
+    let dh = Math.abs(h2 - h1); if (dh > Math.PI) dh = 2 * Math.PI - dh;
+    V[i] = Math.max(85, 330 - dh * 520);
+  }
+  for (let pass = 0; pass < 3; pass++) {
+    for (let i = 1; i < 2 * N; i++) V[i % N] = Math.min(V[i % N], V[(i - 1) % N] + 1.6);       // traction
+    for (let i = 2 * N - 2; i >= 0; i--) V[i % N] = Math.min(V[i % N], V[(i + 1) % N] + 4.2);  // braking
+  }
+  let vMean = 0; for (let i = 0; i < N; i++) vMean += V[i]; vMean /= N;
+  const at = i => ((Math.round(i) % N) + N) % N;
+
+  // Mini-sector owners (example): 24 segments, fastest driver per segment
+  const MINI = 24, miniOwner = [];
+  const pool = ['VER', 'VER', 'VER', 'LEC', 'SAI', 'NOR', 'PER', 'RUS'];
+  for (let i = 0; i < MINI; i++) miniOwner.push(pool[(i * 7 + 3) % pool.length]);
+  const minis = document.getElementById('minis');
+  const miniCol = ['p','g','g','y','g','p','g','g','y','y','g','p','g','g','g','y','g','p','p','g','y','g','g','g'];
+  const cmap = { p: 'var(--purple)', g: 'var(--green)', y: 'var(--yellow)' };
+  minis.innerHTML = miniCol.map(c => `<i style="background:${cmap[c]};box-shadow:0 0 6px ${cmap[c]}"></i>`).join('');
+
+  // ---- Track canvas ----
+  const cv = document.getElementById('trackCv'), g = cv.getContext('2d');
+  let W = 0, H = 0, dpr = 1, ox = 0, oy = 0, sc = 1, trackMode = 'sectors';
+  function resize() {
+    const r = cv.getBoundingClientRect();
+    dpr = Math.min(devicePixelRatio || 1, 2);
+    W = r.width; H = r.height;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    const pad = 46, topPad = 54;
+    sc = Math.min((W - pad * 2), (H - topPad - pad) / 0.72);
+    ox = (W - sc) / 2; oy = topPad + (H - topPad - pad - sc * 0.72) / 2 - sc * 0.06;
+  }
+  new ResizeObserver(resize).observe(cv);
+  resize();
+  const X = p => ox + p[0] * sc, Y = p => oy + p[1] * sc;
+  const SECT = [0, Math.round(N * 0.34), Math.round(N * 0.68), N];
+  const SECT_C = ['#b84dff', '#2ee67a', '#ffd21f'];
+  function strokeRange(i0, i1) {
+    g.beginPath(); g.moveTo(X(P[at(i0)]), Y(P[at(i0)]));
+    for (let i = i0 + 1; i <= i1; i++) g.lineTo(X(P[at(i)]), Y(P[at(i)]));
+    g.stroke();
+  }
+  const flagColour = () => getComputedStyle(document.documentElement).getPropertyValue('--flag').trim();
+
+  let leader = 120, lapF = 23.1, speed = 1, playing = true, last = performance.now(), pulse = 0;
+  const LAP_T = 20; // seconds per lap in the mockup so it feels alive
+  const REAL_LAP = 96; // gaps in race seconds map to track distance at a real lap time
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    if (playing) {
+      const step = V[at(leader)] / vMean * (N / LAP_T) * dt * speed * (flagState === 'sc' || flagState === 'vsc' ? 0.55 : flagState === 'red' ? 0 : 1);
+      leader += step; lapF += step / N;
+      if (lapF > 57.99) lapF = 1;
+    }
+    pulse += dt;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, W, H);
+    g.lineJoin = g.lineCap = 'round';
+    // base ribbon
+    g.strokeStyle = '#0c111b'; g.lineWidth = 22; strokeRange(0, N);
+    g.strokeStyle = '#1b2232'; g.lineWidth = 14; strokeRange(0, N);
+    // glow layer
+    const fc = flagColour();
+    g.lineWidth = 3.5;
+    g.shadowBlur = 14;
+    if (trackMode === 'sectors') {
+      for (let s = 0; s < 3; s++) { g.strokeStyle = g.shadowColor = SECT_C[s]; strokeRange(SECT[s], SECT[s + 1]); }
+    } else if (trackMode === 'minis') {
+      for (let m = 0; m < MINI; m++) {
+        const own = field.find(d => d.a === miniOwner[m]);
+        g.strokeStyle = g.shadowColor = TEAM[own.t];
+        strokeRange(Math.floor(m * N / MINI), Math.floor((m + 1) * N / MINI));
+      }
+    } else { g.strokeStyle = g.shadowColor = '#5b6b8c'; strokeRange(0, N); }
+    if (flagState !== 'green') { g.globalAlpha = 0.35; g.strokeStyle = g.shadowColor = fc; g.lineWidth = 9; strokeRange(0, N); g.globalAlpha = 1; }
+    g.shadowBlur = 0;
+    // chequered start/finish line
+    const s0 = P[0], s1 = P[3], ang = Math.atan2(s1[1] - s0[1], s1[0] - s0[0]);
+    g.save(); g.translate(X(s0), Y(s0)); g.rotate(ang);
+    for (let r = 0; r < 2; r++) for (let c = 0; c < 6; c++) { g.fillStyle = (r + c) % 2 ? '#fff' : '#111'; g.fillRect(-4 + r * 4, -12 + c * 4, 4, 4); }
+    g.restore();
+    // cars, back to front so the leader is on top
+    for (let k = field.length - 1; k >= 0; k--) {
+      const d = field[k];
+      let behind = 0; for (let j = 1; j <= k; j++) behind += field[j].gap;
+      const idx = leader - behind * (N / REAL_LAP) * (flagState === 'sc' ? 0.35 : 1);
+      const col = TEAM[d.t];
+      // fading trail
+      g.strokeStyle = col; g.lineWidth = 4;
+      for (let s = 0; s < 5; s++) { g.globalAlpha = 0.08 + s * 0.1; strokeRange(Math.round(idx) - 40 + s * 8, Math.round(idx) - 32 + s * 8 + 1); }
+      g.globalAlpha = 1;
+      const p = P[at(idx)], x = X(p), y = Y(p);
+      if (d.a === selected) {
+        const ph = reduce ? 0.5 : (pulse % 1.4) / 1.4;
+        g.beginPath(); g.arc(x, y, 9 + ph * 16, 0, Math.PI * 2);
+        g.strokeStyle = col; g.globalAlpha = 1 - ph; g.lineWidth = 2; g.stroke(); g.globalAlpha = 1;
+      }
+      g.beginPath(); g.arc(x, y, d.a === selected ? 8 : 6.5, 0, Math.PI * 2);
+      g.fillStyle = col; g.shadowColor = col; g.shadowBlur = 12; g.fill(); g.shadowBlur = 0;
+      g.lineWidth = 2; g.strokeStyle = '#05070c'; g.stroke();
+      // label tag
+      g.font = `700 ${d.a === selected ? 13 : 11}px 'Chakra Petch', sans-serif`;
+      const tw = g.measureText(d.a).width + 10, lx = x + 10, ly = y - 22 - (k % 2) * 4;
+      g.fillStyle = 'rgba(8,11,18,0.85)'; g.beginPath(); g.roundRect(lx, ly, tw, 17, 4); g.fill();
+      g.fillStyle = col; g.fillRect(lx, ly, 3, 17);
+      g.fillStyle = '#eef2f8'; g.fillText(d.a, lx + 6, ly + 13);
+    }
+    // "If they pitted now" ghost (Analytics mode)
+    if (anaOn && ghostBehind != null) {
+      const p = P[at(leader - ghostBehind * (N / REAL_LAP))], x = X(p), y = Y(p);
+      g.setLineDash([4, 3]); g.lineWidth = 2; g.strokeStyle = '#fff'; g.globalAlpha = 0.85;
+      g.beginPath(); g.arc(x, y, 9, 0, Math.PI * 2); g.stroke(); g.setLineDash([]); g.globalAlpha = 1;
+      g.font = "700 11px 'Chakra Petch', sans-serif"; g.fillStyle = '#fff';
+      g.fillText(`${selected} if pits`, x + 12, y + 16);
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  document.querySelectorAll('[data-tc]').forEach(b => b.addEventListener('click', () => {
+    trackMode = b.dataset.tc;
+    document.querySelectorAll('[data-tc]').forEach(x => x.classList.toggle('is-on', x === b));
+  }));
+
+  // ---- Telemetry at 10 Hz, like the real panels ----
+  const leds = document.getElementById('leds');
+  leds.innerHTML = Array.from({ length: 15 }, (_, i) => `<i class="${i < 5 ? 'g' : i < 10 ? 'r' : 'b'}"></i>`).join('');
+  const ledEls = [...leds.children];
+  const arc = document.getElementById('arc'), arcLen = arc.getTotalLength();
+  arc.style.strokeDasharray = arcLen;
+  const $ = id => document.getElementById(id);
+  const GEARS = [0, 95, 130, 165, 200, 240, 278, 306, 999];
+  function tele() {
+    const k = field.findIndex(d => d.a === selected);
+    let behind = 0; for (let j = 1; j <= k; j++) behind += field[j].gap;
+    const idx = leader - behind * (N / REAL_LAP);
+    const v = V[at(idx)], ahead = V[at(idx + 6)];
+    let gear = 1; while (v > GEARS[gear]) gear++;
+    const lo = GEARS[gear - 1], hi = Math.min(GEARS[gear], 340);
+    const rpm = Math.round(10400 + Math.min(1, (v - lo) / (hi - lo)) * 1500);
+    const braking = ahead < v - 3;
+    $('spd').textContent = Math.round(v);
+    $('rpm').textContent = rpm.toLocaleString('en-US');
+    $('gear').textContent = gear;
+    $('thr').style.height = (braking ? 0 : ahead >= v ? 100 : 62) + '%';
+    $('brk').style.height = (braking ? Math.min(100, (v - ahead) * 9) : 0) + '%';
+    arc.style.strokeDashoffset = arcLen * (1 - Math.min(1, v / 340));
+    const lit = Math.round(Math.max(0, (rpm - 10400) / 1500) * 15);
+    ledEls.forEach((el, i) => el.classList.toggle('on', i < lit));
+    const u = at(idx) / N;
+    $('drs').classList.toggle('on', flagState === 'green' && (u > 0.04 && u < 0.2) && field[k].drs !== false);
+    $('lapNow').textContent = Math.floor(lapF);
+    if (Math.floor(lapF) !== shownLap) { shownLap = Math.floor(lapF); renderCharts(); }
+    const f = (lapF - 1) / 56;
+    $('tlDone').style.width = f * 100 + '%';
+    $('tlHead').style.left = f * 100 + '%';
+  }
+  setInterval(tele, 100);
+
+  // ---- Timeline markers ----
+  const tl = $('tl');
+  const lapX = l => ((l - 1) / 56) * 100 + '%';
+  const scBand = document.createElement('div'); scBand.className = 'sc'; scBand.style.left = lapX(31); scBand.style.width = (3 / 56 * 100) + '%'; scBand.title = 'Safety car, laps 31–33';
+  tl.insertBefore(scBand, $('tlHead'));
+  for (const [l, cls, t] of [[12, 'pit', 'PIT'], [14, 'pit', 'PIT'], [17, 'pit', 'PIT'], [19, 'fl', 'FL'], [38, 'pit', 'PIT'], [40, 'pit', 'PIT'], [39, 'fl', 'FL']]) {
+    const m = document.createElement('div'); m.className = 'mk ' + cls; m.style.left = lapX(l); m.innerHTML = `${t}<i></i>`;
+    tl.insertBefore(m, $('tlHead'));
+  }
+  tl.addEventListener('click', e => {
+    const r = tl.getBoundingClientRect();
+    lapF = 1 + Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * 56;
+  });
+  $('play').addEventListener('click', () => {
+    playing = !playing;
+    $('play').setAttribute('aria-label', playing ? 'Pause' : 'Play');
+    $('playIco').innerHTML = playing ? '<path d="M6 4h4v16H6zM14 4h4v16h-4z"/>' : '<path d="M7 4l13 8-13 8z"/>';
+  });
+  document.querySelectorAll('[data-sp]').forEach(b => b.addEventListener('click', () => {
+    speed = +b.dataset.sp;
+    document.querySelectorAll('[data-sp]').forEach(x => x.classList.toggle('is-on', x === b));
+  }));
+
+  // ---- Battle tracker sparkline (gap trend over recent laps) ----
+  const hist = [1.9, 1.7, 1.62, 1.41, 1.25, 1.18, 1.02, 0.91, 0.84];
+  function spark() {
+    const max = 2.2;
+    const pts = hist.map((v, i) => `${(i / (hist.length - 1)) * 196 + 2},${(v / max) * 34 + 2}`);
+    $('sparkLine').setAttribute('points', pts.join(' '));
+    const lastP = pts[pts.length - 1].split(',');
+    $('sparkDot').setAttribute('cx', lastP[0]); $('sparkDot').setAttribute('cy', lastP[1]);
+    const gap = hist[hist.length - 1];
+    $('bGap').textContent = gap.toFixed(2);
+    $('inrange').hidden = gap >= 1;
+  }
+  spark();
+  setInterval(() => {
+    const lastV = hist[hist.length - 1];
+    hist.push(Math.max(0.25, Math.min(1.9, lastV + (Math.random() - 0.55) * 0.12)));
+    if (hist.length > 12) hist.shift();
+    spark();
+  }, 2000);
+
+  // ---- Flag state and race moments ----
+  let flagState = 'green';
+  const FLAG = { green: ['#2ee67a', 'GREEN'], yellow: ['#ffd21f', 'YELLOW'], sc: ['#ff8a1f', 'SAFETY CAR'], vsc: ['#ffd21f', 'VSC'], red: ['#ff2d3d', 'RED FLAG'], chequered: ['#f2f2f2', 'CHEQUERED'] };
+  function setFlag(s) {
+    flagState = s;
+    document.documentElement.style.setProperty('--flag', FLAG[s][0]);
+    $('statusTxt').textContent = FLAG[s][1];
+  }
+  const banner = $('banner');
+  function showBanner(cls, title, sub) {
+    banner.innerHTML = `<div class="slab ${cls}"><div class="t">${title}</div><div class="s">${sub}</div></div>`;
+  }
+  const MOMENTS = {
+    sc:    () => { setFlag('sc'); showBanner('', 'Safety car', 'Deployed · Turn 4 debris'); rcPush('SAFETY CAR DEPLOYED', 'var(--orange)'); },
+    vsc:   () => { setFlag('vsc'); showBanner('', 'Virtual safety car', 'Deployed'); rcPush('VIRTUAL SAFETY CAR DEPLOYED', 'var(--yellow)'); },
+    red:   () => { setFlag('red'); showBanner('red', 'Red flag', 'Session suspended'); rcPush('RED FLAG', 'var(--accent)'); },
+    clear: () => { setFlag('green'); showBanner('green', 'Track clear', 'Green flag · racing resumes'); rcPush('TRACK CLEAR', 'var(--green)'); },
+    flag:  () => { setFlag('chequered'); showBanner('check', 'Chequered flag', 'VER wins the race'); rcPush('CHEQUERED FLAG', '#f2f2f2'); },
+    fl:    () => { fastest = selected; drawBoard(); showBanner('purple', 'Fastest lap', `${selected} · 1:32.608`); rcPush(`FASTEST LAP ${selected} 1:32.608`, 'var(--purple)'); },
+    pit:   () => {
+      const d = field.find(x => x.a === 'NOR'); d.pit = true; drawBoard();
+      showBanner('blue', 'Pit stop', 'NOR · 2.4 s · Hard tyres');
+      rcPush('NOR PIT STOP 2.4 s', 'var(--blue)');
+      setTimeout(() => { d.pit = false; d.ty = 'H'; d.age = 0; drawBoard(); }, 3000);
+    },
+    ot:    () => {
+      // swap P3 and P4 (or back), with flashing rows
+      const a = field[2], b = field[3];
+      field[2] = b; field[3] = a;
+      b.ch += 1; a.ch -= 1;
+      const g3 = a.gap; a.gap = b.gap; b.gap = g3;
+      b.drs = false; a.drs = true;
+      drawBoard(b.a, a.a);
+      $('bA').textContent = b.a; $('bB').textContent = a.a;
+      showBanner('green', 'Overtake', `${b.a} passes ${a.a} for P3`);
+      rcPush(`${b.a} OVERTAKES ${a.a} · P3`, 'var(--green)');
+    },
+  };
+  document.querySelectorAll('[data-moment]').forEach(b => b.addEventListener('click', () => MOMENTS[b.dataset.moment]()));
+
+  // ---- Sync row: Go to lights out, lap steps, nudge ----
+  let offset = 0;
+  const bumpLap = () => { const c = document.querySelector('.lapchip'); c.classList.remove('bump'); void c.offsetWidth; c.classList.add('bump'); };
+  $('lightsOut').addEventListener('click', () => { lapF = 1; leader = 0; bumpLap(); });
+  document.querySelectorAll('[data-lap]').forEach(b => b.addEventListener('click', () => {
+    lapF = Math.max(1, Math.min(57.5, Math.floor(lapF) + +b.dataset.lap)); bumpLap();
+  }));
+  document.querySelectorAll('[data-nudge]').forEach(b => b.addEventListener('click', () => {
+    const s = +b.dataset.nudge; offset += s;
+    leader += s * (N / REAL_LAP); lapF = Math.max(1, lapF + s / 96);
+    $('offset').textContent = `${offset >= 0 ? '+' : '−'}${Math.abs(offset)} s`;
+  }));
+
+  // ======================= Analytics (example race model) =======================
+  // Deterministic example data so the charts look like a real race; the app computes these from OpenF1.
+  let seed = 7;
+  const rnd = () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  const LAPS = 57, SC = new Set([31, 32, 33]);
+  const IDS = field.map(d => d.a);
+  const TEAMOF = Object.fromEntries(field.map(d => [d.a, TEAM[d.t]]));
+  const PACE = { VER: 0, PER: .18, SAI: .22, LEC: .24, RUS: .38, NOR: .33, HAM: .42, PIA: .40, ALO: .55, STR: .7 };
+  const PIT1 = { VER: 17, PER: 18, SAI: 15, LEC: 14, RUS: 16, NOR: 16, HAM: 12, PIA: 12, ALO: 13, STR: 19 };
+  const PIT2 = { VER: 38, PER: 37, SAI: 36, LEC: 39, RUS: 35, NOR: 36, HAM: 34, PIA: 35, ALO: 37, STR: 40 };
+  const C2 = { VER: 'M', PER: 'M', SAI: 'H', LEC: 'H', RUS: 'M', NOR: 'M', HAM: 'H', PIA: 'H', ALO: 'H', STR: 'M' };
+  const C3 = { VER: 'H', PER: 'H', SAI: 'S', LEC: 'M', RUS: 'H', NOR: 'H', HAM: 'M', PIA: 'M', ALO: 'M', STR: 'H' };
+  const DEG = { S: .11, M: .07, H: .04 }, COMP = { S: -.6, M: 0, H: .4 }, FUEL = .06, PITLOSS = 22;
+  const stintsOf = a => [['S', 1, PIT1[a]], [C2[a], PIT1[a] + 1, PIT2[a]], [C3[a], PIT2[a] + 1, LAPS]];
+  const M = {}; // a -> { t: lap times[1..], cum, pos, gap, age, comp }
+  for (const a of IDS) M[a] = { t: [0], cum: [0], pos: [0], gap: [0], age: [0], comp: [''] };
+  for (let l = 1; l <= LAPS; l++) {
+    for (const a of IDS) {
+      const s = stintsOf(a).find(s => l >= s[1] && l <= s[2]);
+      const age = l - s[1] + 1;
+      let t = 96.2 + PACE[a] + COMP[s[0]] + DEG[s[0]] * age - FUEL * l + (rnd() - 0.5) * 0.5;
+      if (l === 1) t += 5;
+      if (l === PIT1[a] || l === PIT2[a]) t += PITLOSS * 0.45;
+      if (l === PIT1[a] + 1 || l === PIT2[a] + 1) t += PITLOSS * 0.55;
+      M[a].cum[l] = M[a].cum[l - 1] + t; M[a].age[l] = age; M[a].comp[l] = s[0];
+    }
+    if (SC.has(l)) { // the field bunches up behind the safety car
+      const lead = Math.min(...IDS.map(a => M[a].cum[l]));
+      for (const a of IDS) M[a].cum[l] = lead + 30 + (M[a].cum[l] - lead) * 0.4;
+    }
+    const lead = Math.min(...IDS.map(a => M[a].cum[l]));
+    [...IDS].sort((x, y) => M[x].cum[l] - M[y].cum[l]).forEach((a, i) => { M[a].pos[l] = i + 1; });
+    for (const a of IDS) { M[a].gap[l] = M[a].cum[l] - lead; M[a].t[l] = M[a].cum[l] - M[a].cum[l - 1]; }
+  }
+  const isClean = (a, l) => l > 1 && !SC.has(l) && l !== 34 && l !== PIT1[a] && l !== PIT1[a] + 1 && l !== PIT2[a] && l !== PIT2[a] + 1;
+  const median = xs => { const s = [...xs].sort((x, y) => x - y); return s.length ? s[s.length >> 1] : 0; };
+  const fit = pts => { // least squares y = a + b x
+    const n = pts.length; if (n < 2) return null;
+    let sx = 0, sy = 0, sxx = 0, sxy = 0;
+    for (const [x, y] of pts) { sx += x; sy += y; sxx += x * x; sxy += x * y; }
+    const b = (n * sxy - sx * sy) / (n * sxx - sx * sx || 1);
+    return { a: (sy - b * sx) / n, b };
+  };
+
+  // ---- SVG chart helpers ----
+  const tip = document.createElement('div'); tip.className = 'tip'; tip.hidden = true; document.body.appendChild(tip);
+  const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  function frameXY(host, h, x0, x1, y0, y1, inv, pad = { l: 34, r: 44, t: 8, b: 20 }) {
+    const w = Math.max(240, host.clientWidth);
+    const sx = v => pad.l + (v - x0) / (x1 - x0) * (w - pad.l - pad.r);
+    const sy = v => inv ? pad.t + (v - y0) / (y1 - y0) * (h - pad.t - pad.b) : h - pad.b - (v - y0) / (y1 - y0) * (h - pad.t - pad.b);
+    return { w, h, sx, sy, pad, ix: px => x0 + (px - pad.l) / (w - pad.l - pad.r) * (x1 - x0) };
+  }
+  function axes(f, xt, yt, yfmt, x0, x1) {
+    let s = '';
+    for (const v of yt) s += `<line x1="${f.pad.l}" x2="${f.w - f.pad.r}" y1="${f.sy(v)}" y2="${f.sy(v)}" stroke="rgba(140,160,200,.10)"/><text x="${f.pad.l - 6}" y="${f.sy(v) + 3}" text-anchor="end">${yfmt(v)}</text>`;
+    for (const v of xt) s += `<text x="${f.sx(v)}" y="${f.h - 5}" text-anchor="middle">${v}</text>`;
+    return s;
+  }
+  const scShade = (f, limit) => [...SC].filter(l => l <= limit).length
+    ? `<rect x="${f.sx(30.5)}" y="${f.pad.t}" width="${f.sx(Math.min(33.5, limit + .5)) - f.sx(30.5)}" height="${f.h - f.pad.t - f.pad.b}" fill="rgba(255,138,31,.10)"/><text x="${f.sx(32)}" y="${f.pad.t + 10}" text-anchor="middle" style="fill:#ff8a1f">SC</text>` : '';
+  const futureBand = (f, limit, x1) => limit < x1
+    ? `<rect x="${f.sx(limit + .5)}" y="${f.pad.t}" width="${f.sx(x1) - f.sx(limit + .5)}" height="${f.h - f.pad.t - f.pad.b}" fill="url(#hatch)" opacity=".6"/>` : '';
+  const HATCH = `<defs><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="none"/><line x1="0" y1="0" x2="0" y2="6" stroke="rgba(140,160,200,.10)" stroke-width="3"/></pattern></defs>`;
+  const style = a => a === selected ? { w: 3, o: 1 } : a === compare ? { w: 2.4, o: 1 } : { w: 1.3, o: 0.28 };
+  // Hover crosshair + tooltip and click-to-jump on lap-based charts
+  function hoverLaps(host, f, limit, rowsAt) {
+    const svg = host.querySelector('svg'), cross = svg.querySelector('.cross');
+    const lapAt = e => Math.max(1, Math.min(limit, Math.round(f.ix(e.clientX - svg.getBoundingClientRect().left))));
+    svg.addEventListener('mousemove', e => {
+      const l = lapAt(e);
+      cross.setAttribute('x1', f.sx(l)); cross.setAttribute('x2', f.sx(l)); cross.style.opacity = 1;
+      tip.innerHTML = `<b>LAP ${l}</b>` + rowsAt(l).map(([a, v]) => `<div><span><i style="background:${TEAMOF[a]}"></i>${a}</span><span>${esc(v)}</span></div>`).join('');
+      tip.hidden = false; tip.style.left = Math.min(innerWidth - 160, e.clientX + 14) + 'px'; tip.style.top = e.clientY + 14 + 'px';
+    });
+    svg.addEventListener('mouseleave', () => { tip.hidden = true; cross.style.opacity = 0; });
+    svg.addEventListener('click', e => { lapF = lapAt(e) + 0.05; bumpLap(); });
+    svg.style.cursor = 'pointer';
+  }
+  const lineSeries = (f, a, key, limit) => {
+    const st = style(a); let d = '';
+    for (let l = 1; l <= limit; l++) d += `${l === 1 ? 'M' : 'L'}${f.sx(l).toFixed(1)},${f.sy(M[a][key][l]).toFixed(1)}`;
+    const end = limit >= 1 && st.o === 1 ? `<circle cx="${f.sx(limit)}" cy="${f.sy(M[a][key][limit])}" r="3.5" fill="${TEAMOF[a]}"/><text x="${f.sx(limit) + 6}" y="${f.sy(M[a][key][limit]) + 3}" style="fill:${TEAMOF[a]}">${a}</text>` : '';
+    return `<path d="${d}" fill="none" stroke="${TEAMOF[a]}" stroke-width="${st.w}" opacity="${st.o}" stroke-linejoin="round"/>${end}`;
+  };
+  const drawOrder = () => [...IDS].sort((x, y) => (style(x).o - style(y).o) || (x === selected) - (y === selected));
+
+  function chartGap(limit) {
+    const host = $('chGap'), max = Math.max(5, ...IDS.map(a => Math.max(...M[a].gap.slice(1, limit + 1).filter(v => v < 60))));
+    const stepY = max <= 20 ? 5 : max <= 40 ? 10 : 20, top = Math.ceil(max / stepY) * stepY, f = frameXY(host, 210, 1, LAPS, 0, top, true);
+    const yt = []; for (let v = 0; v <= top; v += stepY) yt.push(v);
+    let s = HATCH + axes(f, [1, 10, 20, 30, 40, 50, 57], yt, v => `+${v}`) + scShade(f, limit) + futureBand(f, limit, LAPS);
+    const clip = `<clipPath id="cg"><rect x="0" y="0" width="${f.w}" height="${f.h - f.pad.b}"/></clipPath>`;
+    s += `${clip}<g clip-path="url(#cg)">` + drawOrder().map(a => lineSeries(f, a, 'gap', limit)).join('') + '</g>';
+    s += `<line class="cross" y1="${f.pad.t}" y2="${f.h - f.pad.b}" stroke="#fff" stroke-opacity=".35" style="opacity:0"/>`;
+    host.innerHTML = `<svg width="${f.w}" height="${f.h}" viewBox="0 0 ${f.w} ${f.h}">${s}</svg>`;
+    hoverLaps(host, f, limit, l => [...IDS].sort((x, y) => M[x].pos[l] - M[y].pos[l]).slice(0, 6).map(a => [a, M[a].gap[l] < .001 ? 'Leader' : `+${M[a].gap[l].toFixed(1)} s`]));
+  }
+  function chartPos(limit) {
+    const host = $('chPos'), f = frameXY(host, 210, 1, LAPS, 0.5, 10.5, true);
+    let s = HATCH + axes(f, [1, 10, 20, 30, 40, 50, 57], [1, 3, 5, 7, 10], v => `P${v}`) + scShade(f, limit) + futureBand(f, limit, LAPS);
+    s += drawOrder().map(a => lineSeries(f, a, 'pos', limit)).join('');
+    s += `<line class="cross" y1="${f.pad.t}" y2="${f.h - f.pad.b}" stroke="#fff" stroke-opacity=".35" style="opacity:0"/>`;
+    host.innerHTML = `<svg width="${f.w}" height="${f.h}" viewBox="0 0 ${f.w} ${f.h}">${s}</svg>`;
+    hoverLaps(host, f, limit, l => [...IDS].sort((x, y) => M[x].pos[l] - M[y].pos[l]).slice(0, 6).map(a => [a, `P${M[a].pos[l]}`]));
+  }
+  function chartStrat(limit) {
+    const host = $('chStrat'), rowH = 18, order = [...IDS].sort((x, y) => M[x].pos[Math.max(1, limit)] - M[y].pos[Math.max(1, limit)]);
+    const f = frameXY(host, order.length * rowH + 26, 0.5, LAPS + 0.5, 0, order.length, true, { l: 40, r: 10, t: 4, b: 20 });
+    let s = HATCH + axes(f, [1, 10, 20, 30, 40, 50, 57], [], () => '');
+    order.forEach((a, i) => {
+      const y = f.pad.t + i * rowH, em = a === selected || a === compare;
+      s += `<text x="${f.pad.l - 6}" y="${y + 12}" text-anchor="end" style="fill:${em ? '#eef2f8' : ''}">${a}</text>`;
+      for (const [c, l0, l1] of stintsOf(a)) {
+        if (l0 > limit) continue;
+        const e = Math.min(l1, limit), x0 = f.sx(l0 - .5), x1 = f.sx(e + .5);
+        s += `<rect x="${x0 + 1}" y="${y + 2}" width="${Math.max(2, x1 - x0 - 2)}" height="${rowH - 5}" rx="3" fill="${TYRE[c]}" opacity="${em ? 1 : .75}"/>`;
+        if (x1 - x0 > 18) s += `<text x="${x0 + 6}" y="${y + 12}" style="fill:#0b0d12">${c}${e - l0 + 1}</text>`;
+      }
+      if (em) s += `<rect x="${f.pad.l - 2}" y="${y + 1}" width="${f.w - f.pad.l - f.pad.r + 4}" height="${rowH - 3}" rx="4" fill="none" stroke="${TEAMOF[a]}" stroke-width="1.5"/>`;
+    });
+    s += futureBand(f, limit, LAPS + .5);
+    host.innerHTML = `<svg width="${f.w}" height="${f.h}" viewBox="0 0 ${f.w} ${f.h}">${s}</svg>`;
+  }
+  function chartDeg(limit) {
+    const host = $('chDeg'), corr = $('fuelCorr').checked;
+    const f = frameXY(host, 190, 0, 26, -1, 1.5, false);
+    let s = axes(f, [1, 5, 10, 15, 20], [-1, -0.5, 0, 0.5, 1, 1.5], v => (v > 0 ? '+' : '') + v);
+    s += `<text x="${f.w - f.pad.r}" y="${f.pad.t + 10}" text-anchor="end">s vs typical lap</text><text x="${f.w - f.pad.r}" y="${f.h - 5}" text-anchor="end">tyre age (laps)</text>`;
+    const sl = b => (Math.abs(b) < 0.005 ? '±0.00' : (b > 0 ? '+' : '') + b.toFixed(2));
+    const notes = [];
+    for (const c of ['S', 'M', 'H']) {
+      const pts = [], mine = [];
+      for (const a of IDS) {
+        const med = median(Array.from({ length: limit }, (_, i) => i + 1).filter(l => isClean(a, l)).map(l => M[a].t[l]));
+        for (let l = 2; l <= limit; l++) {
+          if (!isClean(a, l) || M[a].comp[l] !== c) continue;
+          const y = M[a].t[l] - med + (corr ? FUEL * (l - 28) : 0);
+          if (Math.abs(y) > 3) continue;
+          pts.push([M[a].age[l], y]); if (a === selected) mine.push([M[a].age[l], y]);
+        }
+      }
+      for (const [x, y] of pts) s += `<circle cx="${f.sx(x)}" cy="${f.sy(y)}" r="1.8" fill="${TYRE[c]}" opacity=".22"/>`;
+      for (const [x, y] of mine) s += `<circle cx="${f.sx(x)}" cy="${f.sy(y)}" r="3" fill="${TYRE[c]}" stroke="#05070c"/>`;
+      const ft = fit(pts);
+      if (ft && pts.length > 8) {
+        const xs = pts.map(p => p[0]), xa = Math.min(...xs), xb = Math.max(...xs);
+        s += `<line x1="${f.sx(xa)}" y1="${f.sy(ft.a + ft.b * xa)}" x2="${f.sx(xb)}" y2="${f.sy(ft.a + ft.b * xb)}" stroke="${TYRE[c]}" stroke-width="2.5"/>`;
+        notes.push(`<b style="color:${TYRE[c]}">${{ S: 'Soft', M: 'Medium', H: 'Hard' }[c]}</b> ${sl(ft.b)} s/lap`);
+      }
+    }
+    host.innerHTML = `<svg width="${f.w}" height="${f.h}" viewBox="0 0 ${f.w} ${f.h}">${s}</svg>`;
+    $('degNote').innerHTML = (notes.join(' · ') || 'Not enough clean laps yet.') + `<br>Lap time vs the driver's typical clean lap. ${corr ? 'Fuel burn removed (estimate 0.06 s/lap).' : 'Raw: fuel burn hides part of the tyre wear.'}`;
+  }
+  // Driver comparison: speed against distance on one lap, and the running time delta
+  function chartCmp() {
+    const host = $('chCmp'), k = 1 + (PACE[compare] - PACE[selected]) * 0.04;
+    const len = 5.412, step = 3, A = [], B = [];
+    for (let i = 0; i < N; i += step) {
+      A.push(V[i] * (1 - PACE[selected] * 0.01));
+      B.push(V[i] < 170 ? V[i] * (1.02 - (k - 1)) : V[i] * (0.988 - (k - 1) * .5));
+    }
+    const fS = frameXY(host, 150, 0, len, 60, 340, false), ds = len * 1000 / A.length;
+    const path = (arr, sy) => arr.map((v, i) => `${i ? 'L' : 'M'}${fS.sx(i / arr.length * len).toFixed(1)},${sy(v).toFixed(1)}`).join('');
+    let dl = [0];
+    for (let i = 0; i < A.length; i++) dl.push(dl[i] + ds / (B[i] / 3.6) - ds / (A[i] / 3.6));
+    const lim = Math.max(0.2, ...dl.map(Math.abs));
+    let s = axes(fS, [], [100, 200, 300], v => v);
+    for (let si = 1; si < 3; si++) { const x = fS.sx(len * SECT[si] / N); s += `<line x1="${x}" x2="${x}" y1="${fS.pad.t}" y2="${fS.h + 70}" stroke="rgba(140,160,200,.18)" stroke-dasharray="3 3"/><text x="${x + 4}" y="${fS.pad.t + 10}">S${si + 1}</text>`; }
+    s += `<path d="${path(B, fS.sy)}" fill="none" stroke="${TEAMOF[compare]}" stroke-width="2" ${TEAMOF[compare] === TEAMOF[selected] ? 'stroke-dasharray="5 3"' : ''}/>`;
+    s += `<path d="${path(A, fS.sy)}" fill="none" stroke="${TEAMOF[selected]}" stroke-width="2.2"/>`;
+    // delta strip under the trace (positive = selected driver ahead)
+    const top = fS.h + 8, hD = 60, syD = v => top + hD / 2 - v / lim * (hD / 2 - 4);
+    s += `<line x1="${fS.pad.l}" x2="${fS.w - fS.pad.r}" y1="${syD(0)}" y2="${syD(0)}" stroke="rgba(140,160,200,.25)"/>`;
+    s += `<path d="${dl.map((v, i) => `${i ? 'L' : 'M'}${fS.sx(i / A.length * len).toFixed(1)},${syD(v).toFixed(1)}`).join('')}" fill="none" stroke="#fff" stroke-width="1.8"/>`;
+    s += `<text x="${fS.pad.l - 6}" y="${top + 10}" text-anchor="end">Δ</text><text x="${fS.w - fS.pad.r + 4}" y="${syD(dl[dl.length - 1]) + 3}" style="fill:#fff">${dl[dl.length - 1] >= 0 ? '+' : ''}${dl[dl.length - 1].toFixed(2)}</text>`;
+    s += `<text x="${fS.w - fS.pad.r}" y="${top + hD + 12}" text-anchor="end">distance (km)</text>`;
+    host.innerHTML = `<svg width="${fS.w}" height="${top + hD + 16}" viewBox="0 0 ${fS.w} ${top + hD + 16}">${s}</svg>`;
+    const at = frac => dl[Math.round(frac * A.length)];
+    const sd = [at(SECT[1] / N), at(SECT[2] / N) - at(SECT[1] / N), dl[dl.length - 1] - at(SECT[2] / N)];
+    const top1 = Math.round(Math.max(...A)), top2 = Math.round(Math.max(...B));
+    $('cmpNote').innerHTML = `Sector deltas ${sd.map((v, i) => `S${i + 1} <b style="color:${v >= 0 ? 'var(--green)' : 'var(--accent)'}">${v >= 0 ? '+' : ''}${v.toFixed(3)}</b>`).join(' · ')} (positive: ${selected} faster). Speed trap ${selected} <b>${top1}</b> · ${compare} <b>${top2}</b> km/h`;
+  }
+  // Strategy tools: pit loss, "if they pitted now", undercut / overcut log
+  const fmtS = v => (v < 0.1 ? '<0.1 s' : `${v.toFixed(1)} s`);
+  function strategy(limit) {
+    const losses = [];
+    for (const a of IDS) {
+      const med = median(Array.from({ length: LAPS }, (_, i) => i + 1).filter(l => l <= limit && isClean(a, l)).map(l => M[a].t[l]));
+      for (const p of [PIT1[a], PIT2[a]]) if (p + 1 <= limit && !SC.has(p)) losses.push(M[a].t[p] + M[a].t[p + 1] - 2 * med);
+    }
+    const loss = losses.length ? losses.reduce((x, y) => x + y, 0) / losses.length : PITLOSS;
+    // rejoin from the live leaderboard gaps
+    const cumGap = []; let acc = 0; field.forEach((d, i) => { acc += i ? d.gap : 0; cumGap.push([d.a, acc]); });
+    const mine = cumGap.find(c => c[0] === selected)[1], after = mine + loss;
+    const others = cumGap.filter(c => c[0] !== selected);
+    const ahead = others.filter(c => c[1] < after).pop(), behind = others.find(c => c[1] >= after);
+    const rejoin = others.filter(c => c[1] < after).length + 1;
+    ghostBehind = after;
+    $('stDrv').textContent = selected;
+    $('stKpis').innerHTML =
+      `<div class="kpi"><small>Pit loss</small><b>${loss.toFixed(1)} s</b><span>from ${losses.length || 'no'} stops so far</span></div>` +
+      `<div class="kpi"><small>If ${selected} pits now</small><b>P${rejoin}</b><span>was P${field.findIndex(d => d.a === selected) + 1}</span></div>` +
+      `<div class="kpi"><small>Rejoins between</small><b style="font-size:16px">${ahead ? ahead[0] : '—'} · ${behind ? behind[0] : '—'}</b><span>${ahead ? `${fmtS(after - ahead[1])} behind ${ahead[0]}` : 'in the lead'}${behind ? `, ${fmtS(behind[1] - after)} ahead of ${behind[0]}` : ''}</span></div>`;
+    // undercut / overcut: pairs running within 4 s before the first of them stops
+    const log = [];
+    for (const round of [PIT1, PIT2]) {
+      for (let i = 0; i < IDS.length; i++) for (let j = 0; j < IDS.length; j++) {
+        const a = IDS[i], b = IDS[j]; if (a === b || round[a] >= round[b]) continue; // a stops first
+        const before = round[a] - 1, done = round[b] + 1; if (done > limit) continue;
+        const g0 = M[b].cum[before] - M[a].cum[before]; // + means a ahead
+        if (Math.abs(g0) > 4 || SC.has(round[a]) || SC.has(round[b])) continue;
+        const g1 = M[b].cum[done] - M[a].cum[done], gain = g1 - g0;
+        if (Math.abs(gain) < 0.4) continue;
+        const kind = g0 < 0 ? 'Undercut' : 'Overcut defence';
+        const worked = g0 < 0 ? g1 > 0 : g1 > 0;
+        log.push({ lap: round[a], text: `${a} ${g0 < 0 ? 'undercuts' : 'covers'} ${b}`, kind, gain, worked });
+      }
+    }
+    log.sort((x, y) => y.lap - x.lap);
+    const result = e => `${e.gain >= 0 ? 'gained' : 'lost'} ${Math.abs(e.gain).toFixed(1)} s · ${e.worked ? (e.kind === 'Undercut' ? 'now ahead' : 'stayed ahead') : (e.kind === 'Undercut' ? 'still behind' : 'lost the place')}`;
+    $('ulog').innerHTML = log.slice(0, 4).map(e => `<li><time>L${e.lap}</time><span>${e.text}</span><span class="${e.worked ? 'ok' : 'no'}">${result(e)}</span></li>`).join('') || '<li><span>No pit battles yet.</span></li>';
+  }
+
+  let compare = 'LEC', anaOn = false, ghostBehind = null, shownLap = -1;
+  const cmpSel = $('cmpSel');
+  cmpSel.innerHTML = IDS.map(a => `<option value="${a}">${a}</option>`).join('');
+  cmpSel.value = compare;
+  cmpSel.addEventListener('change', () => { compare = cmpSel.value; renderCharts(); });
+  $('fullSession').addEventListener('change', renderCharts);
+  $('fuelCorr').addEventListener('change', renderCharts);
+  function renderCharts() {
+    if (!anaOn) return;
+    if (compare === selected) { compare = IDS.find(a => a !== selected); cmpSel.value = compare; }
+    $('cmpA').textContent = selected;
+    const full = $('fullSession').checked;
+    const limit = full ? LAPS : Math.max(1, Math.floor(lapF) - 1);
+    $('spoilTag').textContent = full ? 'FULL SESSION' : `UP TO LAP ${limit}`;
+    $('spoilTag').classList.toggle('full', full);
+    chartGap(limit); chartPos(limit); chartStrat(limit); chartDeg(limit); chartCmp(); strategy(limit);
+  }
+  document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => {
+    anaOn = b.dataset.view === 'ana';
+    document.querySelectorAll('[data-view]').forEach(x => x.classList.toggle('is-on', x === b));
+    $('dash').classList.toggle('ana', anaOn);
+    renderCharts();
+  }));
+  if (location.hash === '#analytics') document.querySelector('[data-view="ana"]').click();
+  let rzT; new ResizeObserver(() => { clearTimeout(rzT); rzT = setTimeout(renderCharts, 120); }).observe($('charts'));
+
+  rcPush('DRS ENABLED', 'var(--green)');
+  rcPush('CAR 27 (HUL) TIME PENALTY 5 s · TRACK LIMITS', 'var(--yellow)');
+  rcPush('BLUE FLAG FOR CAR 2 (SAR)', 'var(--blue)');
+})();
+</script>
