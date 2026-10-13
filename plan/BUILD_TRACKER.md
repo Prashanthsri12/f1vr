@@ -15,7 +15,7 @@ Update the item's status as soon as it is created or finished. Add a dated entry
 | 2 | Scene, track and cars (desktop preview) | ✅ | 13 / 13 |
 | 3 | Panels | ✅ | 14 / 14 |
 | 4 | WebXR | 🟡 | 18 / 19 |
-| 4b | VR feedback (user test 2026-10-13) | 🟡 | 15 / 17 |
+| 4b | VR feedback (user test 2026-10-13) | 🟡 | 16 / 17 |
 | 5 | Main screen | ✅ | 8 / 8 |
 | 6 | Polish and performance | 🟡 | 9 / 10 |
 | 7 | Deploy | 🟡 | 3 / 7 |
@@ -125,8 +125,8 @@ From the user's first test on the Quest 3 (2026-10-13). Decisions made with the 
 | 4b.5 | **Theme switch:** a room button in the wrist menu cycles the themes; the choice is saved in `settings.js`. Desktop: a key (`T`) | `js/panels/wrist-menu.js`, `js/settings.js`, `js/input/desktop-input.js` | ✅ | Wrist 'Room' button and desktop T cycle themes; saved in settings.theme; verified desktop + emulator |
 | 4b.6 | **Readable car labels:** keep a constant apparent size (about 2 cm at 1 m from the head), whatever the table scale | `js/scene/labels.js` | ✅ | 2.5 cm per metre of view distance (clamped 4-50 mm), independent of table scale, 1 draw call; verified 0.5x/1x/3x |
 | 4b.7 | **Label declutter:** when labels would overlap, show full names for the selected driver, the top 3 and cars near the selected one; the rest show the position number only | `js/scene/labels.js`, `js/scene/cars.js` | ✅ | label-layout.js: 4 Hz greedy declutter; selected, top 3 and neighbours stay full, the rest show position only |
-| 4b.8 | **Find a CC0 car model:** a generic open-wheel / F1-style car with no livery or logos, glTF/GLB, about 3k triangles or fewer, few materials. Record the source URL, author and licence here. **Ask the user to approve the specific asset before adding it** | — (notes here) | ⛔ | Recommended: Kenney Racing Kit raceCarWhite.glb (CC0, kenney.nl/assets/racing-kit, 1,430 tris, 3 flat materials, 106 KB). Waiting for user approval |
-| 4b.9 | **Load the car model:** GLTFLoader from three/addons (same pinned 0.160.0, no new library), one InstancedMesh per material, team colour on the body material, fall back to the wedge if loading fails | `js/scene/car-model.js` (new), `js/scene/cars.js`, `assets/` | ✅ | car-model.js: GLTFLoader, one InstancedMesh per material, body tinted per team, wedge fallback; MODEL_URL null until 4b.8 is approved; candidate tested: 47 calls, 32k tris |
+| 4b.8 | **Find a CC0 car model:** a generic open-wheel / F1-style car with no livery or logos, glTF/GLB, about 3k triangles or fewer, few materials. Record the source URL, author and licence here. **Ask the user to approve the specific asset before adding it** | — (notes here) | ✅ | Approved by the user 2026-10-13: Kenney Racing Kit raceCarWhite.glb (CC0, https://kenney.nl/assets/racing-kit, author Kenney). In js/assets/cars/; 1,430 tris, materials grey (body, team tint) / carTire / glass; nose at +Z (MODEL_YAW 0); 47 calls, 32k tris on desktop. README credit added |
+| 4b.9 | **Load the car model:** GLTFLoader from three/addons (same pinned 0.160.0, no new library), one InstancedMesh per material, team colour on the body material, fall back to the wedge if loading fails | `js/scene/car-model.js` (new), `js/scene/cars.js`, `assets/` | ✅ | car-model.js: GLTFLoader, one InstancedMesh per material, body tinted per team, wedge fallback; MODEL_URL = js/assets/cars/raceCarWhite.glb (4b.8) |
 | 4b.10 | **Resize a held panel:** right stick ←/→ makes it smaller / larger (0.5×–2.5×). Text grows with the panel | `js/input/panel-grab.js`, `js/input/xr-buttons.js` | ✅ | Right stick left/right on a held panel: 1.5x/s, 0.5x-2.5x, about the grab point |
 | 4b.11 | **Two-hand stretch:** a second grip (or pinch-hold) on the held panel scales it by the distance between the hands, like the table | `js/input/panel-grab.js`, `js/input/xr-input.js` | ✅ | Second grip / pinch-hold on the held panel stretches it by distance ratio; controllers and hands (emulator) |
 | 4b.12 | **Desktop resize:** Shift + wheel over a panel (not dragging) scales it | `js/input/desktop-input.js` | ✅ | Shift+wheel over a panel scales it (deltaY or deltaX); table scale untouched |
@@ -225,3 +225,4 @@ _(Record anything that differs from the spec, especially from OpenF1 docs verifi
   - Merged build: 180/180 unit tests and the 32-check desktop + emulated Quest 3 regression run pass.
   - 6.8: at most 82 draw calls and 27k triangles in XR across all themes and tabs.
   - Still open: `session-data.js` (522 lines) and `main.js` (539) are over the ~400-line guideline.
+- **2026-10-13**: 4b.8 done: the user approved Kenney's Racing Kit `raceCarWhite.glb` (CC0), added as `js/assets/cars/raceCarWhite.glb` with a README credit. Body tinted per team, nose at +Z. Perf with the model: at most 86 draw calls and 86k triangles in XR (cars drawn per eye and in the onboard view), 49 calls and 34k on desktop. 180/180 unit tests pass. Pushed for the user's Quest test (4.14, 4b.17, 6.9).

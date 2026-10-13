@@ -2,12 +2,12 @@
 // pinned version: no new library). The model is flattened into one geometry per material,
 // normalised to the car length (nose along +Z, base at y = 0, centred), and the "body"
 // material is marked for the per-car team colour (InstancedMesh instanceColor).
-// MODEL_URL stays null until the user approves a specific CC0 asset (4b.8); until then,
-// and whenever loading fails, cars.js keeps its built-in wedge.
+// MODEL_URL is the approved CC0 asset (4b.8: Kenney Racing Kit raceCarWhite.glb). If it
+// fails to load, cars.js keeps its built-in wedge.
 import * as THREE from 'three';
 
 /** Same-origin path of the approved model (relative to index.html), or null for the wedge. */
-export const MODEL_URL = null;
+export const MODEL_URL = 'js/assets/cars/raceCarWhite.glb';
 /** Extra yaw (radians) if the approved model's nose doesn't point along +Z. */
 export const MODEL_YAW = 0;
 

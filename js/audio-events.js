@@ -13,7 +13,7 @@ import { indexAtOrBefore } from './interp.js';
 
 const TICK_MS = 100;           // real ms between checks (10 Hz)
 const POSITION_EVERY = 2;      // check positions every 2nd tick (5 Hz)
-const RADIO_MAX_RATE = 2.5;    // session ms per real ms: autoplay radio at ≤2x only
+const RADIO_MAX_RATE = 2.5;    // session ms per real ms: autoplay radio at ≤2x only (slack for frame jitter)
 const RADIO_MAX_AGE = 3000;    // ms: don't start a clip that began longer ago than this
 const SFX_MAX_RATE = 10.5;     // effects up to 10x
 const JUMP_SLACK = 1500;       // ms of session time beyond rate × real time that counts as a seek

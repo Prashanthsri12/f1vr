@@ -96,11 +96,10 @@ Every push to `master` deploys to GitHub Pages through `.github/workflows/pages.
 
 - Historical sessions only (2023 onwards). Live timing needs a paid OpenF1 subscription.
 - The free OpenF1 tier allows about 30 requests a minute. Playing at 10× or jumping around a lot can briefly show "Loading data…".
-- Cars are simple wedges until a CC0 car model is approved.
 - Team radio coverage drops sharply from 2026.
 - The driver tiles appear in the desktop preview only; in VR, pick drivers from the wrist menu, the leaderboard or X / Y.
 - Some 2023 sessions lack driver headshots. A coloured number tile is shown instead.
 
 ## Credits
 
-Data from [OpenF1](https://openf1.org). This project is unofficial and not affiliated with Formula 1, the FIA or any team. It includes no F1 logos, team logos, official fonts or broadcast media. Rendering uses [three.js](https://threejs.org).
+Data from [OpenF1](https://openf1.org). Car model by [Kenney](https://kenney.nl/assets/racing-kit) (CC0, Racing Kit `raceCarWhite`). This project is unofficial and not affiliated with Formula 1, the FIA or any team. It includes no F1 logos, team logos, official fonts or broadcast media. Rendering uses [three.js](https://threejs.org).
