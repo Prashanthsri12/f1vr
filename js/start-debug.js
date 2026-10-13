@@ -52,6 +52,7 @@ export function initDebug(root, { getSessionKey, getSessionLabel }) {
     queueLine.textContent = `Queue: ${pending} request(s) pending${dataPart}`;
   }
   setInterval(() => {
+    if (root.offsetParent === null) return; // start page hidden (app running): no work
     const details = root.closest('details');
     if (!details || details.open) refreshQueue();
   }, 500);

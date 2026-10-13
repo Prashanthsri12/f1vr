@@ -16,8 +16,8 @@ Update the item's status as soon as it is created or finished. Add a dated entry
 | 3 | Panels | ✅ | 14 / 14 |
 | 4 | WebXR | 🟡 | 18 / 19 |
 | 4b | VR feedback (user test 2026-10-13) | 🟡 | 15 / 17 |
-| 5 | Main screen | 🟡 | 0 / 8 |
-| 6 | Polish and performance | 🟡 | 1 / 10 |
+| 5 | Main screen | ✅ | 8 / 8 |
+| 6 | Polish and performance | 🟡 | 9 / 10 |
 | 7 | Deploy | 🟡 | 3 / 7 |
 
 ---
@@ -140,29 +140,29 @@ From the user's first test on the Quest 3 (2026-10-13). Decisions made with the 
 
 | ID | Item | Files | Status | Notes |
 |---|---|---|---|---|
-| 5.1 | Screen mesh (2.4 m, 16:9, at 2.8 m) and tab buttons | `js/scene/screen.js` | 🟡 | |
-| 5.2 | Onboard follow camera rendered to a 1024x576 target at 30 fps | `js/scene/onboard.js` | 🟡 | |
-| 5.3 | Onboard overlay: speed, gear, position (drawn in the scene) | `js/scene/screen.js` | 🟡 | |
-| 5.4 | Video tab: VideoTexture from an mp4/webm URL or a local file | `js/scene/screen.js` | 🟡 | |
-| 5.5 | HLS through hls.js from a CDN when there is no native HLS | `js/scene/screen.js`, `index.html` | 🟡 | Pinned version |
-| 5.6 | Video settings on the start page (collapsed section, localStorage, sync offset) and VR controls for play, mute and sync | `index.html`, `js/main.js` | 🟡 | Show the "Add a video source…" message when none is set |
-| 5.7 | Radio tab: clip list for the selected driver with play buttons | `js/scene/screen.js` | 🟡 | |
-| 5.8 | Manual test: onboard follows the car; a public sample mp4 plays | — | ⬜ | |
+| 5.1 | Screen mesh (2.4 m, 16:9, at 2.8 m) and tab buttons | `js/scene/screen.js` | ✅ | Screen in the layout rig; tabs, card and controls on the screen face within x ±0.5 (side panels cover its outer edges) |
+| 5.2 | Onboard follow camera rendered to a 1024x576 target at 30 fps | `js/scene/onboard.js` | ✅ | Onboard camera on the selected car, 1024x576 target at 30 Hz, table subtree only, 5 draw calls; XR-safe in emulator |
+| 5.3 | Onboard overlay: speed, gear, position (drawn in the scene) | `js/scene/screen.js` | ✅ | P / acronym / speed / gear card lower-left, ≤10 Hz, only on change |
+| 5.4 | Video tab: VideoTexture from an mp4/webm URL or a local file | `js/scene/screen.js` | ✅ | VideoTexture from an mp4/webm URL or local file; 'Add a video source…' message when none |
+| 5.5 | HLS through hls.js from a CDN when there is no native HLS | `js/scene/screen.js`, `index.html` | ✅ | hls.js 1.7.3 (2026-09-11) pinned in the import map, lazy-loaded only without native HLS |
+| 5.6 | Video settings on the start page (collapsed section, localStorage, sync offset) and VR controls for play, mute and sync | `index.html`, `js/main.js` | ✅ | Collapsed 'Video screen' section (URL, file, offset, sync), f1vr.video; in-VR play/mute/sync follows replay time, speed and pause |
+| 5.7 | Radio tab: clip list for the selected driver with play buttons | `js/scene/screen.js` | ✅ | Radio tab: selected driver's clips up to the playhead, newest first, play/stop, paging |
+| 5.8 | Manual test: onboard follows the car; a public sample mp4 plays | — | ✅ | Headless Chrome + IWER with a page-generated webm and a real radio mp3; re-check sync with a real mp4/HLS |
 
 ## Phase 6: Polish and performance
 
 | ID | Item | Files | Status | Notes |
 |---|---|---|---|---|
-| 6.1 | Leaderboard rows slide over 0.5 s | `js/panels/leaderboard.js` | 🟡 | |
-| 6.2 | Green/red flash on gaining/losing a place; purple fastest-lap marker | `js/panels/leaderboard.js` | 🟡 | |
-| 6.3 | Retired drivers greyed out with "OUT" | `js/panels/leaderboard.js` | 🟡 | |
-| 6.4 | Ticker flag colours, chequered pattern, flash on a new message | `js/panels/ticker.js` | 🟡 | |
+| 6.1 | Leaderboard rows slide over 0.5 s | `js/panels/leaderboard.js` | ✅ | row-anim.js: rows slide over 0.5 s (eased); redraws ≤10 Hz only while moving |
+| 6.2 | Green/red flash on gaining/losing a place; purple fastest-lap marker | `js/panels/leaderboard.js` | ✅ | 1 s green/red flash on a gained/lost place, purple for a new fastest-lap holder; seeks snap with no flashes |
+| 6.3 | Retired drivers greyed out with "OUT" | `js/panels/leaderboard.js` | ✅ | retirement.js + session_result (dnf/dns): OUT from the moment the car stops; leaderboard _isOut removed; totalLaps from the winner's number_of_laps (2023 AUS 58) |
+| 6.4 | Ticker flag colours, chequered pattern, flash on a new message | `js/panels/ticker.js` | ✅ | Flag colours, chequered, flash on a new message (from 3.8) re-verified: chequered, SC, red, yellow |
 | 6.7 | In-scene fps counter (toggled from the wrist menu) | `js/scene/world.js` | ✅ | fps-meter.js under the playback bar, 2 Hz redraw, wrist FPS toggle; verified in emulator |
-| 6.8 | Performance check: under 150 draw calls, under 300k triangles, no per-frame allocation | — | ⬜ | |
+| 6.8 | Performance check: under 150 draw calls, under 300k triangles, no per-frame allocation | — | ✅ | Desktop 43-47 calls / 2.5-4.4k tris; XR 74-82 calls / 23-27k tris (all themes x tabs). Heap sampling while playing: only ≤10 Hz redraws/HUD allocate; fixed a 2 Hz start-debug timer running behind the app |
 | 6.9 | Quest check: hold 72 fps | — | ⬜ | User test |
-| 6.10 | Error handling: API down | `js/api.js`, `js/main.js` | 🟡 | |
-| 6.11 | Error handling: sessions with missing data | `js/session-data.js` | 🟡 | |
-| 6.12 | Pit lane line (optional, §4) | `js/scene/track.js` | 🟡 | Optional |
+| 6.10 | Error handling: API down | `js/api.js`, `js/main.js` | ✅ | api.js getApiHealth/onApiHealth; start page 'Retrying… (attempt n)' + Retry; in-app 'Data unavailable · retrying'; verified with blocked API |
+| 6.11 | Error handling: sessions with missing data | `js/session-data.js` | ✅ | Optional datasets load as empty (data.unavailable/empty); 'No car position data' note on the table; telemetry/weather 'No data' states |
+| 6.12 | Pit lane line (optional, §4) | `js/scene/track.js` | ✅ | pit-lane.js traced from a typical stop (slowest stretch under 100 km/h), cached per circuit, 1 draw call; only checked on Bahrain 2024 |
 
 ## Phase 7: Deploy
 
@@ -195,8 +195,10 @@ _(Record anything that differs from the spec, especially from OpenF1 docs verifi
 - **Qualifying out-laps:** `lap_duration` includes garage time, so start + duration can land after the next lap starts. `lap-stats.js` ends a lap no later than the next lap's start.
 - **Qualifying stints** overlap by one lap (`lap_end` 4, next `lap_start` 4).
 - **SC/VSC/red flag end** with a `Flag CLEAR` scoped to Track ("TRACK CLEAR"), not with a SafetyCar message. A RED and a DOUBLE YELLOW can appear after the chequered flag (`race-status.js` handles this).
-- **TODO (data layer):** `getLeaderboardAt().retired` misses cars that stop on track while still visible (2023 Australia: LEC, ALB). `leaderboard.js` has a local `_isOut` workaround; move it into session-data. Could use the `session_result` endpoint (dnf).
-- **TODO (data layer):** `totalLaps` = max `lap_number` is 59 for 2023 Australia (a 58-lap race, red-flag restarts). Prefer `session_result.number_of_laps` for the winner.
+- **Done (6.3):** retirements come from `session_result` (`dnf`, `dns`, `dsq`) plus the time the car stopped (`js/retirement.js`). Rows: `{position, driver_number, number_of_laps, points, dnf, dns, dsq, duration, gap_to_leader, …}`. `points` is undocumented. DNF rows have null `position` (sometimes), `duration` and `gap_to_leader`.
+- **Done (6.3):** `totalLaps` uses the winner's `session_result.number_of_laps` (58 for 2023 Australia, where max `lap_number` was 59).
+- **`pit.date`** has no documented meaning. On 2024 Bahrain (LEC, lap 11) it is the pit lane exit: the car was stationary 15–13 s before it, and `lane_duration` was 24 s.
+- **Team radio:** records are `{meeting_key, session_key, driver_number, date, recording_url}`. The mp3s on livetiming.formula1.com send no CORS headers, so they play through a plain `<audio>` element, not the AudioContext.
 - **Layout question (resolved 2026-10-13):** the driver picker tiles hovered over the near part of the track table. The user decided to remove them in VR and keep them on desktop (4b.1).
 - **No commentary:** OpenF1 has no commentary audio, and broadcast commentary is copyrighted (ruled out by the spec). The only sound sources are team radio clips, WebAudio effects and the user's own video source (Phase 5).
 - **Passthrough above the walls in pit wall mode:** the session is always `immersive-ar`, so three.js clears with alpha 0 and `scene.background` never draws. Only real geometry hides passthrough (4b.3).
@@ -218,3 +220,8 @@ _(Record anything that differs from the spec, especially from OpenF1 docs verifi
 - **2026-10-12**: 4.9 wrist menu done and verified in the emulated Quest 3: palm-up shows it (controller and hand), turning away hides it, buttons work, Exit returns to the start page. Radio and sound toggles are saved in `js/settings.js` for Phase 6.
 - **2026-10-13**: 4.10, 4.11, 4.13 and 4.15–4.19 done. The panels now sit in a layout rig (`PanelManager.group`) that re-centre moves along with the table. The wrist menu stays outside the rig. Each panel and the driver picker group can be picked up (`js/input/panel-grab.js`), and moved units are saved rig-local in `f1vr.layout.v1`. The button map moved to `js/input/xr-buttons.js` to keep `xr-input.js` under 400 lines. Fixed: three's XR ArrayCamera sits behind the eyes (union frustum), so re-centre uses the midpoint of the two eye cameras. 37/37 IWER emulator checks and 130/130 unit tests pass. Only 4.14 (the Quest 3 test, done by the user) is left.
 - **2026-10-13**: Added Phase 4b (17 items) from the user's first Quest 3 test: remove driver tiles in VR (keep them on desktop), enclose the room plus easy themes, readable car labels, a CC0 car model (the user approves the asset first), panel resize, team radio and sound effects. 6.5 and 6.6 moved here as 4b.16 and 4b.15, so Phase 6 now has 10 items.
+- **2026-10-13**: Phase 4b (except 4b.8, waiting on car model approval, and the 4b.17 user test), Phase 5 and Phase 6 (except the 6.9 user test) built by 6 parallel agents in git worktrees, then merged.
+  - The `app.js`/`main.js`/`audio.js` merge conflicts were small; each side's additions were kept.
+  - Merged build: 180/180 unit tests and the 32-check desktop + emulated Quest 3 regression run pass.
+  - 6.8: at most 82 draw calls and 27k triangles in XR across all themes and tabs.
+  - Still open: `session-data.js` (522 lines) and `main.js` (539) are over the ~400-line guideline.

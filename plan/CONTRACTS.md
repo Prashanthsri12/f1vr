@@ -290,3 +290,31 @@ Panels never mutate `data` or `playback` directly. They go through `ctx.actions`
 - **Audio events** (`js/audio-events.js`): `createAudioEvents(data) -> { update(time, selected, playing), dispose() }`. It autoplays the selected driver's radio when the playhead passes a clip (if `radio` is on and playback is playing, not while seeking), plus the chime, whoosh and beep. Call it at ≤10 Hz or make it cheap per frame.
 - **Main screen** (`js/scene/screen.js`, `js/scene/onboard.js`): created by `app.js` in the layout rig, at `MAIN_SCREEN` from `layout.js`. Clickable parts are `Panel`s added through `pitWall.manager.add(panel, pos, { parent })`, so the shared raycaster and selection work.
 - **Video source settings** (`js/video-settings.js`): `loadVideoSettings() -> { kind: 'none' | 'url' | 'hls' | 'file', url, offsetSec, sync }`, plus the start page section. A local file is kept as an object URL in memory only (it can't be stored).
+
+## As built (4b, 5, 6): interface notes from the parallel agents
+
+- **Rooms:** `buildRoom(theme)` also returns `theme`, `background` and `fog {color, near, far}`. `world.setTheme(name)` returns the theme actually used; `world.getTheme()`; `world.roomGroup` is a getter. The night sky dome has a 40 m radius (camera far plane 100).
+- **Fps meter:** `new FpsMeter(renderer)`, `attachBelow(mesh, height)` (it rides under the playback bar), `update(dt)`, `dispose()`. It isn't in the PanelManager, so it isn't raycast and doesn't take passthrough opacity.
+- **Layout store:** entries are `{ p, q, s }`. `s` is a uniform scale: 1 when missing, clamped to 0.5–2.5. Saved entries for units the session doesn't build (the picker in XR) are kept on save.
+- **`createPitWall`** option `driverTiles` (default true; `app.js` passes `!xrSession`).
+- **`createPanelGrab`:**
+  - also `scaleBy(id, f)` (scales the held unit about the grab point) and `scaleUnit(panel, f)` (unheld, desktop wheel; calls `onRelease`);
+  - `isHeld(panel)`, `canMove(panel)`, `MIN_SCALE`/`MAX_SCALE`;
+  - `begin()` on a unit another pointer holds starts a two-pointer stretch;
+  - `has(id)` covers stretchers, while `isGrabbing()` counts carriers only.
+- **`Panel`:** `lw`/`lh` are the logical canvas px that `draw()`, hit rects and `uvToPx` use. `canvas.width/height` is the backing size (`density` × logical, up to `MAX_PX_PER_M` 2048 px/m), set with `setDensity(scale)` in 0.25 steps. `pit-wall` reapplies density 300 ms after a save or reset.
+- **Labels:** `CarLabels.refresh(getPosition, nowMs, camera?, selectedIndex?)`. `setLabel(i, visible, x, y, z, scale)` takes the car-top anchor. The apparent size is `ANGULAR_SIZE` 0.025 (2.5 cm at 1 m), clamped to 4–50 mm. Declutter is in `js/scene/label-layout.js` (pure, 4 Hz).
+- **Car model:** `js/scene/car-model.js` exports `MODEL_URL` (null = wedge), `MODEL_YAW`, `resolveModelUrl()` (`?carModel=` accepts only same-origin `.glb`/`.gltf`), `loadCarModel()` and `buildCarParts()`. Cars get one InstancedMesh per material sharing one instance matrix; the body is picked by material name, or else the largest light-coloured part, and tinted per team. `cars.getSelectedPose(outPos)` returns the heading, or NaN when the car is hidden.
+- **Audio:**
+  - `createAudioEvents(data, { playRadio, playSfx, getSettings, now })`; the second argument is optional, for tests.
+  - Radio autoplays at ≤2.5× for clips under 3 s old. A seek (going back, or jumping more than 10.5× real time + 1.5 s) or a driver change re-arms silently.
+  - `unlockAudio()` also primes the radio `<audio>` element with a silent WAV. `getRadioState()` is one live object, so don't mutate it.
+  - Exports `sfxStats` (debug counters).
+- **Main screen:** `createMainScreen({ manager, renderer, table, cars, data, playback })` returns `{ group, setTab, getTab, update(dt), onboard, video, dispose }`.
+  - It is in the layout rig at `MAIN_SCREEN` and is not movable. The tabs, onboard card and video controls sit on the screen face within x ±0.5 m, because the side panels cover the outer edges.
+  - The onboard pass renders the `table` subtree at 30 Hz into 1024×576 with XR disabled, then restores state. Its lights are on layer 5.
+- **Video settings:** the localStorage key is `f1vr.video` (`{url, offsetSec, sync}`); `loadVideoSettings()` also returns `name`. hls.js 1.7.3 is in the import map and imported lazily for `.m3u8` only when the browser has no native HLS.
+- **Data layer (Phase 6):**
+  - `SessionData` gains `unavailable`, `empty`, `isTelemetryLoaded(n, t)`, `getPitStops()` and `fetchLocation(n, start, end)`. `load()` also fetches `session_result` for race and sprint sessions; retirements are in `js/retirement.js`.
+  - `api.js` exports `getApiHealth()` / `onApiHealth(cb)` (`{ok, retrying, status, attempt, since}`; a 429 keeps ok).
+  - `loadTrack()` can return `{missing: true, …}`, and track cache entries gain `pitLane` (a flat xyz array or null).
