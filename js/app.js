@@ -206,6 +206,7 @@ export async function startApp({
         togglePlay: () => playback.toggle(),
         seekBy: (sec) => playback.seekBy(sec),
         seekToLap: (n) => playback.seekToLap(n),
+        seekTo: (t) => playback.seek(t),
         speedUp: () => playback.speedUp(),
         speedDown: () => playback.speedDown(),
         setSpeed: (sp) => playback.setSpeed(sp),

@@ -355,6 +355,16 @@ export class SessionData {
   }
 
   /**
+   * Interval to the car ahead at t (latest /intervals record at or before t): seconds, a
+   * string like "+1 LAP", or null (always null outside race / sprint). Used by the battle tracker.
+   */
+  getIntervalAt(driverNumber, t) {
+    if (!this.hasIntervals) return null;
+    const r = itemAt(this._intervals.byDriver.get(driverNumber), t, indexAtOrBefore);
+    return r ? r.interval : null;
+  }
+
+  /**
    * Race position of a driver at t (latest /position record at or before t).
    * @returns {number|null}
    */

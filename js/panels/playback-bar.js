@@ -4,7 +4,11 @@
 // nudge with the session's offset (or "VIDEO SYNC" while a synced video leads). It uses
 // ctx.actions.goLightsOut / stepLap / nudge / getSync (sync-control.js); without them the
 // row is drawn disabled.
-import { Panel, THEME, font, roundRect } from './panel-base.js';
+// Race timeline (9.15): SC / VSC / red flag bands on the lap slider, the selected driver's
+// pit stops (other stops faint) and fastest-lap marks above it, up to the playhead only.
+// Clicking a mark jumps there (ctx.actions.seekTo, a few seconds before).
+import { Panel, THEME, font, roundRect, rgba } from './panel-base.js';
+import { buildTimeline, visibleTimeline } from './timeline-marks.js';
 import { LAYOUT } from './layout.js';
 import { getApiHealth } from '../api.js';
 import { SPEEDS } from '../playback.js';
@@ -13,6 +17,8 @@ const L = LAYOUT.playbackBar;
 const PAD = 12;
 const ROW1 = Math.round(L.row1Height * 1024);   // 164 px: transport, slider, clock
 const NUDGES = [['n-5', -5, '−5s'], ['n-1', -1, '−1s'], ['n+1', 1, '+1s'], ['n+5', 5, '+5s']];
+const BAND_COLOUR = { sc: THEME.orange, vsc: THEME.yellow, red: THEME.red };
+const JUMP_LEAD_MS = 3000; // a mark jumps this much before its moment
 
 /** Sync offset label: "+1.5 s", "−2.0 s", "0.0 s". */
 export function fmtOffset(ms) {
@@ -48,7 +54,8 @@ export class PlaybackBarPanel extends Panel {
   constructor(data) {
     super({ name: 'playbackBar', width: L.width, height: L.height });
     this.data = data;
-    this._shown = { playing: null, waiting: null, speed: null, sec: NaN, down: null, off: NaN, lead: null };
+    this._shown = { playing: null, waiting: null, speed: null, sec: NaN, down: null, off: NaN, lead: null, sel: null };
+    this._tl = null;     // timeline-marks.js, built on first draw
     this._track = { x: 0, w: 1 };   // slider track in canvas px (set in draw)
   }
 
@@ -76,9 +83,10 @@ export class PlaybackBarPanel extends Panel {
     const off = sync ? sync.offsetMs : NaN;
     const lead = sync ? sync.videoLeads : null;
     if (s.playing === pb.playing && s.waiting === pb.waiting && s.speed === pb.speed && s.sec === sec
-      && s.down === down && (s.off === off || (off !== off && s.off !== s.off)) && s.lead === lead) return false;
+      && s.down === down && (s.off === off || (off !== off && s.off !== s.off)) && s.lead === lead
+      && s.sel === ctx.selected) return false;
     s.playing = pb.playing; s.waiting = pb.waiting; s.speed = pb.speed; s.sec = sec; s.down = down;
-    s.off = off; s.lead = lead;
+    s.off = off; s.lead = lead; s.sel = ctx.selected;
     return true;
   }
 
@@ -91,6 +99,10 @@ export class PlaybackBarPanel extends Panel {
     else if (hit.id === 'lapPrev') a.stepLap(-1);
     else if (hit.id === 'lapNext') a.stepLap(1);
     else if (hit.id.startsWith('n') && hit.payload) a.nudge(hit.payload);
+    else if (hit.id.startsWith('mark') && hit.payload != null) {
+      if (a.seekTo) a.seekTo(hit.payload - JUMP_LEAD_MS);
+      else a.seekToLap(Math.max(1, this.data.getLeaderLapAt(hit.payload)));
+    }
     else if (hit.id === 'slider' && px) {
       const total = Math.max(1, this.data.totalLaps || 1);
       const f = (px.x - this._track.x) / this._track.w;
@@ -270,6 +282,7 @@ export class PlaybackBarPanel extends Panel {
     g.fillStyle = THEME.accent;
     roundRect(g, trX, trackY - trackH / 2, Math.max(trackH, fx - trX), trackH, trackH / 2);
     g.fill();
+    const markHits = this._drawTimeline(g, t, ctx.selected, trX, trW, trackY, trackH, total);
     g.beginPath();
     g.arc(fx, trackY, hov ? 22 : 18, 0, Math.PI * 2);
     g.fillStyle = THEME.text;
@@ -281,6 +294,51 @@ export class PlaybackBarPanel extends Panel {
       g.stroke();
     }
     this.addHit('slider', sx, PAD, sw, bh);
+    for (const m of markHits) this.addHit(m.id, m.x - 14, m.y, 28, m.h, m.t); // after the slider: marks win
     this._drawSyncRow(g, w, h, ctx);
+  }
+
+  /** x on the slider track for session time t. */
+  _xAt(t, trX, trW, total) {
+    return trX + Math.min(1, Math.max(0, this._progress(t).value / total)) * trW;
+  }
+
+  /** Bands on the track, marks above it (9.15). Returns the clickable marks. */
+  _drawTimeline(g, t, selected, trX, trW, trackY, trackH, total) {
+    if (!this._tl) this._tl = buildTimeline(this.data);
+    const v = visibleTimeline(this._tl, t, selected);
+    const hits = [];
+    for (const b of v.bands) {
+      const x0 = this._xAt(b.from, trX, trW, total);
+      const x1 = Math.max(x0 + 6, this._xAt(b.to, trX, trW, total));
+      g.fillStyle = rgba(BAND_COLOUR[b.kind], 0.9);
+      roundRect(g, x0, trackY - trackH / 2 - 3, x1 - x0, trackH + 6, 4);
+      g.fill();
+      hits.push({ id: `mark:${b.kind}`, x: (x0 + x1) / 2, y: trackY - 20, h: 40, t: b.from });
+    }
+    const top = trackY - trackH / 2 - 6;
+    for (const m of v.marks) {
+      const x = this._xAt(m.t, trX, trW, total);
+      if (m.kind === 'fastest') {
+        g.fillStyle = THEME.purple;
+        g.beginPath();
+        g.moveTo(x, top - 22); g.lineTo(x + 7, top - 14); g.lineTo(x, top - 6); g.lineTo(x - 7, top - 14);
+        g.closePath();
+        g.fill();
+        hits.push({ id: 'mark:fl', x, y: top - 26, h: 24, t: m.t });
+      } else if (m.mine) {
+        // The selected driver's stop: a tall blue pin (no label: it would collide with the lap text).
+        g.fillStyle = THEME.blue;
+        g.fillRect(x - 3, top - 24, 6, 24);
+        g.beginPath();
+        g.arc(x, top - 28, 8, 0, Math.PI * 2);
+        g.fill();
+        hits.push({ id: 'mark:pit', x, y: top - 40, h: 40, t: m.t });
+      } else {
+        g.fillStyle = rgba(THEME.blue, 0.35);
+        g.fillRect(x - 1, top - 10, 2, 10);
+      }
+    }
+    return hits;
   }
 }

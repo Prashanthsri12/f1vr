@@ -7,16 +7,18 @@
 // when the window is too small for that, the content grows taller than the window and the
 // dashboard scrolls.
 //
-// Landscape (width / height >= LANDSCAPE_MIN):
+// Landscape (width / height >= LANDSCAPE_MIN), with the Insights tile under telemetry and
+// the main screen and weather sharing the last row (9.18, agreed with the user):
 //   ┌──────────┬──────────── ticker strip ───────────┬───────────┐
 //   │ LEADER-  │                                     │ TELEMETRY │
 //   │ BOARD    │            TRACK (big)              │           │
 //   │          │                                     ├───────────┤
-//   ├──────────┤                                     │ MAIN      │
-//   │ LAPS     │                                     ├───────────┤
-//   │          ├──────────── playback bar ───────────┤ WEATHER   │
-//   └──────────┴─────────────────────────────────────┴───────────┘
-// Portrait: ticker, track, playback bar, then leaderboard | telemetry, laps | main, weather.
+//   ├──────────┤                                     │ INSIGHTS  │
+//   │ LAPS     │                                     ├──────┬────┤
+//   │          ├──────────── playback bar ───────────┤ MAIN │ WX │
+//   └──────────┴─────────────────────────────────────┴──────┴────┘
+// Portrait: ticker, track, playback bar, then leaderboard | telemetry, laps | main,
+// insights | weather.
 // Stack (narrow windows): one column, scrolling.
 // focus 'main' swaps the track and main tiles (8.7 "Video focus").
 import { LAYOUT } from '../panels/layout.js';
@@ -24,7 +26,7 @@ import { LAYOUT } from '../panels/layout.js';
 export const MIN_SCALE = 0.42;     // smallest panel scale (24 px canvas text -> 10 CSS px)
 export const MAX_SCALE = 1;
 export const LANDSCAPE_MIN = 1.15; // width / height at or above which the landscape layout is used
-export const TILE_NAMES = ['ticker', 'track', 'leaderboard', 'telemetry', 'laps', 'weather', 'main', 'playbackBar'];
+export const TILE_NAMES = ['ticker', 'track', 'leaderboard', 'telemetry', 'laps', 'weather', 'main', 'playbackBar', 'insights'];
 
 const PX = 1024;
 const COL_LW = LAYOUT.leaderboard.width * PX;                       // 921.6 logical px
@@ -33,6 +35,10 @@ const TEL_RATIO = LAYOUT.telemetry.height / LAYOUT.telemetry.width;
 const LAPS_RATIO = LAYOUT.laps.height / LAYOUT.laps.width;
 const WEATHER_RATIO = LAYOUT.weather.height / LAYOUT.weather.width;
 const WEATHER_REL = LAYOUT.weather.width / LAYOUT.leaderboard.width; // weather is narrower than a column
+const INS_RATIO = LAYOUT.insights.height / LAYOUT.insights.width;
+// Landscape bottom-right row: main (16:9) and weather (4:3) side by side, same height.
+const ROW_SPLIT = (16 / 9) / (16 / 9 + LAYOUT.weather.width / LAYOUT.weather.height);
+const ROW_RATIO = 1 / (16 / 9 + LAYOUT.weather.width / LAYOUT.weather.height); // row height / row width
 const TICKER_RATIO = LAYOUT.ticker.stripHeight / LAYOUT.ticker.width;
 const BAR_RATIO = LAYOUT.playbackBar.height / LAYOUT.playbackBar.width;
 const MAIN_RATIO = 9 / 16;
@@ -81,10 +87,10 @@ export function computeScreenLayout(width, height, { focus = 'track', gap = 8 } 
 
 function landscape(W, H, g) {
   // Column width: a quarter-ish of the width, limited by the height of the left column
-  // (leaderboard + laps) and the right one (telemetry + main + weather), and never below
-  // the readable minimum.
+  // (leaderboard + laps) and the right one (telemetry + insights + the main | weather row),
+  // and never below the readable minimum.
   const leftFactor = LB_RATIO + LAPS_RATIO;
-  const rightFactor = TEL_RATIO + MAIN_RATIO + WEATHER_REL * WEATHER_RATIO;
+  const rightFactor = TEL_RATIO + INS_RATIO + ROW_RATIO;
   let c = Math.min(0.27 * W, (H - 3 * g) / leftFactor, (H - 4 * g) / rightFactor);
   c = clamp(c, MIN_SCALE * COL_LW, MAX_SCALE * COL_LW);
   const mw = W - 2 * c - 4 * g;
@@ -94,10 +100,10 @@ function landscape(W, H, g) {
   const lbH = c * LB_RATIO;
   const lapsH = c * LAPS_RATIO;
   const telH = c * TEL_RATIO;
-  const mainH = c * MAIN_RATIO;
-  const weatherMin = c * WEATHER_REL * WEATHER_RATIO;
+  const insH = c * INS_RATIO;
+  const rowMin = (c - g) * ROW_RATIO;
   const left = g + lbH + g + lapsH + g;
-  const right = g + telH + g + mainH + g + weatherMin + g;
+  const right = g + telH + g + insH + g + rowMin + g;
   const Hc = Math.max(H, left, right);
 
   const xl = g;
@@ -107,7 +113,8 @@ function landscape(W, H, g) {
   const barH = clamp(mw * BAR_RATIO, 56, 0.12 * Hc);
   const trackY = g + tickerH + g;
   const barY = Hc - g - barH;
-  const weatherY = g + telH + g + mainH + g;
+  const rowY = g + telH + g + insH + g;
+  const mainW = (c - g) * ROW_SPLIT;
   return {
     orientation: 'landscape',
     scale: s,
@@ -120,8 +127,9 @@ function landscape(W, H, g) {
       track: rect(xm, trackY, mw, barY - g - trackY),
       playbackBar: rect(xm, barY, mw, barH),
       telemetry: rect(xr, g, c, telH),
-      main: rect(xr, g + telH + g, c, mainH),
-      weather: rect(xr, weatherY, c, Hc - g - weatherY),
+      insights: rect(xr, g + telH + g, c, insH),
+      main: rect(xr, rowY, mainW, Hc - g - rowY),
+      weather: rect(xr + mainW + g, rowY, c - g - mainW, Hc - g - rowY),
     },
   };
 }
@@ -132,15 +140,15 @@ function portrait(W, H, g) {
   const fw = W - 2 * g;
   const tickerH = Math.max(36, fw * TICKER_RATIO);
   const barH = clamp(fw * BAR_RATIO, 56, 0.08 * H);
-  // Rows below the track: leaderboard | telemetry, laps | main, weather (factors of c).
-  const rowsFactor = Math.max(LB_RATIO, TEL_RATIO) + LAPS_RATIO + WEATHER_REL * WEATHER_RATIO;
+  // Rows below the track: leaderboard | telemetry, laps | main, insights | weather (factors of c).
+  const rowsFactor = Math.max(LB_RATIO, TEL_RATIO) + LAPS_RATIO + INS_RATIO;
   const fixed = g + tickerH + g + g + barH + g + g + g;   // gaps around the stacked rows
   let c = Math.min(half, MAX_SCALE * COL_LW, (H * (1 - MIN_TRACK) - fixed) / rowsFactor);
   c = Math.max(c, MIN_SCALE * COL_LW);
   const s = c / COL_LW;
   const rowLb = c * Math.max(LB_RATIO, TEL_RATIO);
   const rowLaps = c * LAPS_RATIO;
-  const rowWeather = c * WEATHER_REL * WEATHER_RATIO;
+  const rowWeather = c * INS_RATIO;
   const trackMin = MIN_TRACK * H;
   const Hc = Math.max(H, fixed + trackMin + rowLb + rowLaps + rowWeather);
   const trackH = Hc - fixed - rowLb - rowLaps - rowWeather;
@@ -155,7 +163,8 @@ function portrait(W, H, g) {
   tiles.telemetry = rect(x2, y, half, rowLb); y += rowLb + g;
   tiles.laps = rect(g, y, half, rowLaps);
   tiles.main = rect(x2, y, half, rowLaps); y += rowLaps + g;
-  tiles.weather = rect(g, y, fw, rowWeather);
+  tiles.insights = rect(g, y, half, rowWeather);
+  tiles.weather = rect(x2, y, half, rowWeather);
   return { orientation: 'portrait', scale: s, width: W, height: contentHeight(Hc, H), tiles };
 }
 
@@ -172,10 +181,11 @@ function stack(W, H, g) {
     laps: c * LAPS_RATIO,
     main: fw * MAIN_RATIO,
     weather: c * WEATHER_REL * WEATHER_RATIO,
+    insights: c * INS_RATIO,
   };
   const tiles = {};
   let y = g;
-  for (const name of ['ticker', 'track', 'playbackBar', 'leaderboard', 'telemetry', 'main', 'laps', 'weather']) {
+  for (const name of ['ticker', 'track', 'playbackBar', 'leaderboard', 'telemetry', 'insights', 'main', 'laps', 'weather']) {
     tiles[name] = rect(g, y, fw, heights[name]);
     y += heights[name] + g;
   }

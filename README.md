@@ -7,7 +7,10 @@ Replay real Formula 1 sessions on a pit wall in VR. A WebXR app for the **Meta Q
 - A 3D track table with all 20 cars moving, built from real position data
 - A leaderboard with gaps, intervals, tyres, pit stops and the track status
 - Telemetry for a selected driver: speed, gear, RPM, throttle, brake, DRS, and a live speed trace
-- Laps and tyres (sector colours, personal and session bests, stints), weather, and a race control ticker
+- Laps and tyres (sector and mini-sector colours, personal and session bests, stints), weather, and a race control ticker
+- **Insights:** battles within 1 s with their gap trend, head-to-head against any rival, and a driver card
+- A neon track coloured by sectors or mini-sectors, car trails, race moment banners (lights out, safety car, overtakes, pit stops, fastest laps…) and room lighting that follows the flags
+- A race timeline on the playback bar: safety car periods, pit stops and fastest laps, click to jump
 - In VR, **one big screen** (flat or curved) with the whole dashboard, or **floating panels** around a 3D track table
 - **Pit wall** mode (a virtual room) or **passthrough** mode (your real room), switchable in the same session
 - On a desktop, a flat dashboard that fits horizontal and vertical monitors
@@ -52,7 +55,7 @@ The other buttons (play, seek, speed, drivers, re-centre, wrist menu) work as be
 | Right stick ← / → | Seek −10 s / +10 s (hold to repeat) |
 | Right stick ↑ / ↓ | Playback speed up / down (0.5×, 1×, 2×, 5×, 10×) |
 | Left stick press | Re-centre the panels and table to where you stand and face |
-| Left palm toward you | Wrist menu (play, speed, driver grid, passthrough, radio, sounds, room theme, fps counter, re-centre, reset layout, exit) |
+| Left palm toward you | Wrist menu (play, speed, driver grid, passthrough, radio, sounds, room theme, fps counter, track colours, engine hum, re-centre, reset layout, exit) |
 
 ### Hand tracking
 
@@ -60,7 +63,7 @@ Put the controllers down and your hands appear. **Pinch** to select. **Pinch and
 
 ### Desktop ("Open on desktop")
 
-The desktop shows a flat dashboard that fills the window: the track in the middle, the leaderboard and laps on the left, telemetry, the main screen and weather on the right, race control on top and the playback bar below. It rearranges itself for vertical monitors and narrow windows (scrolling when the window is too small for readable text).
+The desktop shows a flat dashboard that fills the window: the track in the middle, the leaderboard and laps on the left, telemetry and Insights on the right with the main screen and weather side by side under them, race control on top and the playback bar below. It rearranges itself for vertical monitors and narrow windows (scrolling when the window is too small for readable text).
 
 | Input | Action |
 |---|---|
@@ -70,6 +73,8 @@ The desktop shows a flat dashboard that fills the window: the track in the middl
 | Wheel on the track | Zoom |
 | Double-click the track | Reset the view |
 | ⤢ (or F) | Swap the track and the main screen, e.g. to watch your video big |
+| Sectors / Mini / Plain (or C) | Track colours: the selected driver's last lap by sector, each mini-sector in the team colour of whoever last went purple there, or plain |
+| Engine (or E) | Engine hum that follows the selected driver's RPM (off by default) |
 | Space | Play / pause |
 | ← / → | Seek 10 s |
 | ↑ / ↓ | Playback speed |
@@ -91,6 +96,13 @@ The main screen (the big screen ahead of you in VR, a tile on the desktop) has t
 **Watching a broadcast in another window** (e.g. F1 TV, which can't play inside the app): the playback bar's second row has **Lights out**, **◀ Lap / Lap ▶** and a **±1 s / ±5 s** nudge. Start both at lights out, then nudge until they match. The nudge is saved for each race on this device, so Lights out lands on the same moment next time. While a synced video leads, the nudge moves the video's sync point instead.
 
 Team radio for the selected driver also plays automatically as the replay passes each clip (up to 2.5× speed), and quiet sound effects mark race control messages, the selected driver's overtakes and new fastest laps. Turn either off in the wrist menu. There is no commentary: OpenF1 has none, and broadcast commentary is copyrighted.
+
+## Insights, timeline and race moments
+
+- **Insights** (a tile under telemetry; a panel on your left in the floating-panel view) has three tabs. **Battles** lists pairs within 1 s, the selected driver's first, with the gap, whether it is closing over the last laps and a DRS chip. **Head-to-head** compares the selected driver with the car ahead (◀ ▶ picks another rival): position, gap, last and best lap, sector differences, tyre, stops and top speed. **Driver** shows the photo, team, status, position against the grid, laps led, best lap and its rank, and the stints so far.
+- **Race timeline:** the playback bar's lap slider shows safety car (orange), VSC (yellow) and red flag periods, the selected driver's pit stops (blue pins, other stops faint) and new fastest laps (purple). Click a mark to jump just before it. Like everything else it only shows what has happened by the playhead.
+- **Banners** announce lights out, the safety car, VSC, red and chequered flags, track clear, fastest laps, retirements, and pit stops and overtakes for the selected driver or the top 3. In VR they fade in ahead of you and stay put; they never follow your head.
+- **Flag lighting:** during a yellow, safety car or red flag, the room's light strips and the table rim (and the dashboard edge on desktop) slowly take the flag colour.
 
 ## Run locally
 
@@ -120,6 +132,9 @@ Every push to `master` deploys to GitHub Pages through `.github/workflows/pages.
 - Team radio coverage drops sharply from 2026.
 - In VR, pick drivers from the wrist menu, the leaderboard or X / Y; on the desktop, click a leaderboard row or press [ / ].
 - Some 2023 sessions lack driver headshots. A coloured number tile is shown instead.
+- Mini-sector colours come from OpenF1's segment codes, which the docs say may not match TV and may be missing in races. Mini-sector positions on the map are approximate (each sector is split evenly).
+- The DRS chips mark DRS *range* (under 1 s with DRS enabled), not the car's own DRS flap.
+- Overtakes are detected from position swaps, ignoring pit stop shuffles; a pass and re-pass inside a few seconds may be missed.
 
 ## Credits
 

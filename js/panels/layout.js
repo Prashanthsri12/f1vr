@@ -20,6 +20,8 @@ export const LAYOUT = {
   telemetry: { width: 0.9, height: 1.2, position: polar(1.4, 35, 1.4) },
   // Right, beside telemetry (a panel 0.9 m wide spans ~37° at 1.4 m).
   laps: { width: 0.9, height: 0.6, position: polar(1.4, 72, 1.4) },
+  // Insights (9.14–9.17): left, mirroring laps (layout agreed with the user, 9.18).
+  insights: { width: 0.9, height: 0.42, position: polar(1.4, -72, 1.4) },
   // Small, left of the main screen.
   weather: { width: 0.4, height: 0.3, position: { x: -1.55, y: 1.75, z: -2.7 } },
   // Directly above the main screen. The mesh is 0.65 m tall so it can expand

@@ -76,3 +76,17 @@ test('containRect keeps the aspect and centres', () => {
   const t = containRect({ x: 0, y: 0, w: 100, h: 400 }, 1);
   assert.deepEqual(t, { x: 0, y: 150, w: 100, h: 100 });
 });
+
+test('9.18: insights sits under telemetry; the main screen and weather share the last row', () => {
+  const l = computeScreenLayout(1920, 1080);
+  const { telemetry: tel, insights: ins, main, weather: wx } = l.tiles;
+  assert.equal(ins.x, tel.x);
+  assert.equal(ins.w, tel.w);
+  assert.ok(ins.y > tel.y + tel.h - 1);
+  assert.equal(main.y, wx.y);
+  assert.ok(main.y > ins.y + ins.h - 1);
+  assert.ok(main.x < wx.x && main.w > wx.w);
+  assert.ok(wx.x + wx.w <= tel.x + tel.w + 1);
+  const p = computeScreenLayout(1080, 1920).tiles;
+  assert.equal(p.insights.y, p.weather.y);
+});

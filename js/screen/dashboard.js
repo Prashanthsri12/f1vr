@@ -10,6 +10,7 @@ import { LapsPanel } from '../panels/laps.js';
 import { WeatherPanel } from '../panels/weather.js';
 import { TickerPanel } from '../panels/ticker.js';
 import { PlaybackBarPanel } from '../panels/playback-bar.js';
+import { InsightsPanel } from '../panels/insights.js';
 import { panelStats } from '../panels/panel-base.js';
 import { createAudioEvents } from '../audio-events.js';
 import { createSyncControl } from '../sync-control.js';
@@ -71,6 +72,7 @@ export async function startDashboard({ data, container, onExit, onStatus }) {
       togglePlay: () => playback.toggle(),
       seekBy: (sec) => playback.seekBy(sec),
       seekToLap: (n) => playback.seekToLap(n),
+      seekTo: (t) => playback.seek(t),
       speedUp: () => playback.speedUp(),
       speedDown: () => playback.speedDown(),
       setSpeed: (sp) => playback.setSpeed(sp),
@@ -126,6 +128,7 @@ export async function startDashboard({ data, container, onExit, onStatus }) {
     host.add(new TelemetryPanel(data), tiles.telemetry);
     host.add(new LapsPanel(data), tiles.laps);
     host.add(new WeatherPanel(data), tiles.weather);
+    host.add(new InsightsPanel(data), tiles.insights);
     const ticker = host.add(new TickerPanel(data), tiles.ticker, { anchor: 'top' });
     host.add(new PlaybackBarPanel(data), tiles.playbackBar);
     unsubs.push(() => { tiles.ticker.classList.remove('is-open'); });

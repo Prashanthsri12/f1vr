@@ -12,6 +12,7 @@ import { LapsPanel } from './laps.js';
 import { WeatherPanel } from './weather.js';
 import { TickerPanel } from './ticker.js';
 import { PlaybackBarPanel } from './playback-bar.js';
+import { InsightsPanel } from './insights.js';
 import { WristMenu, placeWristMenu } from './wrist-menu.js';
 import { loadLayout, saveLayout, clearLayout } from './layout-store.js';
 
@@ -53,6 +54,7 @@ export function createPitWall({ parent, data, playback, actions, canPassthrough 
   place(new TelemetryPanel(data), LAYOUT.telemetry);
   place(new LapsPanel(data), LAYOUT.laps);
   place(new WeatherPanel(data), LAYOUT.weather);
+  place(new InsightsPanel(data), LAYOUT.insights);
   const ticker = place(new TickerPanel(data), LAYOUT.ticker);
   ticker.passThroughEmpty = true; // its transparent lower area must not block the main screen
   place(new PlaybackBarPanel(data), LAYOUT.playbackBar);

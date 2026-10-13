@@ -9,6 +9,7 @@ const MODULES = {
   telemetry: ['../js/panels/telemetry.js', 'TelemetryPanel'],
   laps: ['../js/panels/laps.js', 'LapsPanel'],
   weather: ['../js/panels/weather.js', 'WeatherPanel'],
+  insights: ['../js/panels/insights.js', 'InsightsPanel'],
   ticker: ['../js/panels/ticker.js', 'TickerPanel'],
   picker: ['../js/panels/driver-picker.js', 'DriverPicker'],
   playback: ['../js/panels/playback-bar.js', 'PlaybackBarPanel'],
@@ -49,6 +50,7 @@ for (const name of names) {
   try {
     const Cls = (await import(path))[exp];
     const obj = new Cls(data);
+    if (q.get('tab') && 'tab' in obj) obj.tab = q.get('tab'); // insights: battle | h2h | driver
     const list = [];
     if (typeof obj.addTo === 'function') obj.addTo({ group: { add() {} }, add: (p) => { list.push(p); return p; } });
     else list.push(obj);

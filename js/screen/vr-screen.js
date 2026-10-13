@@ -24,7 +24,7 @@ const LABEL_PX = 18;                 // virtual px
 const BG = 0x0b0e13;
 const OVERLAY_Z = 0.01;              // the ticker's expanded list sits in front of the track
 const STORE_KEY = 'f1vr.vrscreen.v1';
-const SCREEN_PANELS = ['leaderboard', 'telemetry', 'laps', 'weather', 'ticker', 'playbackBar'];
+const SCREEN_PANELS = ['leaderboard', 'telemetry', 'laps', 'weather', 'insights', 'ticker', 'playbackBar'];
 
 /** The track tile: a Panel (so rays hit it and grabs work) showing the track render target. */
 class TrackTile extends Panel {
