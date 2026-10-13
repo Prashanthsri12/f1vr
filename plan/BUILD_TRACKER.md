@@ -19,6 +19,7 @@ Update the item's status as soon as it is created or finished. Add a dated entry
 | 5 | Main screen | ✅ | 8 / 8 |
 | 6 | Polish and performance | 🟡 | 9 / 10 |
 | 7 | Deploy | 🟡 | 3 / 7 |
+| 8 | Screen mode | ⬜ | 0 / 17 |
 
 ---
 
@@ -176,6 +177,47 @@ From the user's first test on the Quest 3 (2026-10-13). Decisions made with the 
 | 7.6 | Final CLAUDE.md update | `CLAUDE.md` | ⬜ | |
 | 7.7 | Final end-to-end test on Quest 3 | — | ⬜ | User test |
 
+## Phase 8: Screen mode
+
+Planned with the user on 2026-10-13. This changes the scene layout (approved by the user): the desktop stops being a VR room seen through a mouse camera and becomes a flat dashboard. There are three modes:
+- **Screen (desktop):** a full-window dashboard.
+- **Screen in VR (the default in VR):** the same dashboard on one big flat or curved virtual screen.
+- **Immersive (VR only):** today's floating, movable panels and the track table, unchanged.
+
+Decisions made with the user:
+- Drop the desktop driver tiles.
+- The track view defaults to 2D.
+- VR opens in Screen mode.
+- Start with the proposed landscape layout below.
+- The desktop must work on horizontal and vertical monitors.
+- Stay on the free OpenF1 tier. F1TV can't play inside the app (DRM) and runs in its own window, synced by hand with "Go to lights out" and a ± nudge (8.9).
+
+Landscape layout:
+- Left: the track (big tile) on top; under it, telemetry, laps/tyres and the main screen side by side; the playback bar along the bottom.
+- Right column: leaderboard, weather, race control.
+
+Phase 7 items 7.4–7.7 are finished after this phase.
+
+| ID | Item | Files | Status | Notes |
+|---|---|---|---|---|
+| 8.1 | **Modes and settings:** Screen (desktop), Screen in VR and Immersive; `settings.js` keys for the mode, the screen shape (flat / curved) and the track view (2D / 3D), all remembered. The start page offers Screen on desktop and Screen or Immersive in VR (Screen by default) | `js/settings.js`, `js/main.js`, `index.html` | ⬜ | |
+| 8.2 | **Shared screen layout:** one definition of the tile grid (track, leaderboard, telemetry, laps, weather, race control, main screen, playback bar), used by both the desktop dashboard and Screen in VR. Landscape and portrait variants, chosen by aspect ratio | `js/screen/screen-layout.js` (new) | ⬜ | |
+| 8.3 | **Desktop dashboard:** each panel's canvas placed in an HTML/CSS grid (no 3D room). Sharp at the monitor's devicePixelRatio, follows window resizes, and maps mouse clicks and hover to the panel's canvas pixels (`hitTestPx`). The keyboard shortcuts stay | `js/screen/dashboard.js` (new), `css/` | ⬜ | |
+| 8.4 | **Horizontal and vertical monitors:** a landscape layout (the sketch above) and a portrait layout (track on top, then the leaderboard and main screen, then the data panels, with the playback bar at the bottom). It switches live on resize or monitor rotation, and no tile falls below a readable minimum size. Check 16:9, 21:9, 9:16, 3:4 and a narrow window | `js/screen/screen-layout.js`, `css/` | ⬜ | |
+| 8.5 | **Track tile:** 2D top-down view (default) or 3D view (drag to rotate, wheel to zoom), with a toggle that is remembered. Reuses the existing track, cars and labels | `js/screen/track-view.js` (new), `js/scene/` | ⬜ | |
+| 8.6 | **Main screen tile on desktop:** the onboard, video and radio tabs. Video uses a native `<video>` element | `js/screen/dashboard.js`, `js/scene/onboard.js` | ⬜ | |
+| 8.7 | **Video tile:** the video can run in its own tile beside the track. A "Video focus" option swaps it into the big tile and moves the track to a small one | `js/screen/` | ⬜ | |
+| 8.8 | **Video drives the timing:** after a one-time sync point, the replay time is computed from the video's position, so pausing, seeking or scrubbing the video moves every panel, car and radio clip with no drift. Above 2× the video pauses and resumes at normal speed | `js/playback.js`, `js/scene/screen-video.js` | ⬜ | |
+| 8.9 | **F1TV side by side (manual sync):** a "Go to lights out" button (from the race start in the data) and "Go to lap N", plus ± nudge buttons and keys (±1 s, ±5 s) that apply instantly. The nudge is saved per session | `js/panels/playback-bar.js`, `js/input/desktop-input.js` | ⬜ | Free OpenF1 tier: a session is available about 30 min after it ends |
+| 8.10 | **Remove the desktop 3D room:** no driver tiles, Shift-drag or `T` key on desktop. The old room view stays behind `?debug`, to check the VR layout on desktop | `js/app.js`, `js/input/desktop-input.js`, `js/panels/pit-wall.js` | ⬜ | Replaces 4b.1/4b.2 and 4.19 on desktop |
+| 8.11 | **Screen in VR:** one screen about 3 m wide at about 2.5 m, flat or curved (part of a cylinder centred on the head), with the tiles laid out on its surface. The track and onboard views are render targets (the track at 36 Hz if needed). Works in every room theme and in passthrough | `js/screen/vr-screen.js` (new), `js/scene/world.js` | ⬜ | |
+| 8.12 | **Screen in VR input:** point and click with the controller ray or a hand pinch (tile hit, then canvas pixel, then the panel's hit rect). Grab to move the screen, stick or two-hand stretch to resize, push / pull, re-centre | `js/input/xr-input.js`, `js/input/panel-grab.js` | ⬜ | |
+| 8.13 | **Wrist menu:** a Screen ⇄ Immersive switch and a Flat / Curved option, both saved | `js/panels/wrist-menu.js` | ⬜ | |
+| 8.14 | **Quest 2D page:** the dashboard works in a normal Quest browser window, without entering VR, next to another window (for F1TV alongside). Check the controller pointer, clicks and readability | `js/screen/dashboard.js` | ⬜ | Check whether F1TV plays in the Quest browser |
+| 8.15 | **Tests and performance check:** unit tests for the layout grid (landscape and portrait) and the sync math. Screen in VR stays under 150 draw calls and 300k triangles, with no per-frame allocation | `tests/` | ⬜ | |
+| 8.16 | **Docs:** CONTRACTS.md (modes, screen layout, sync), README (modes, controls, F1TV side-by-side how-to) and the CLAUDE.md architecture section | `plan/CONTRACTS.md`, `README.md`, `CLAUDE.md` | ⬜ | |
+| 8.17 | **User test:** desktop on a horizontal and a vertical monitor, the Quest 2D page, Screen in VR (flat and curved) and Immersive | — | ⬜ | User test |
+
 ---
 
 ## Open questions and API differences
@@ -226,3 +268,4 @@ _(Record anything that differs from the spec, especially from OpenF1 docs verifi
   - 6.8: at most 82 draw calls and 27k triangles in XR across all themes and tabs.
   - Still open: `session-data.js` (522 lines) and `main.js` (539) are over the ~400-line guideline.
 - **2026-10-13**: 4b.8 done: the user approved Kenney's Racing Kit `raceCarWhite.glb` (CC0), added as `js/assets/cars/raceCarWhite.glb` with a README credit. Body tinted per team, nose at +Z. Perf with the model: at most 86 draw calls and 86k triangles in XR (cars drawn per eye and in the onboard view), 49 calls and 34k on desktop. 180/180 unit tests pass. Pushed for the user's Quest test (4.14, 4b.17, 6.9).
+- **2026-10-13**: Added Phase 8 (Screen mode, 17 items), planned with the user. The desktop becomes a flat dashboard that works on horizontal and vertical monitors, with a 2D / 3D track view. In VR, the same dashboard appears on a flat or curved screen (now the default), and Immersive keeps today's floating panels. The video can drive the replay timing. For F1TV alongside, there is a "Go to lights out" button and a ± nudge. Stay on the free OpenF1 tier: no live data.
