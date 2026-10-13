@@ -10,12 +10,17 @@ import {
   indexIntervals, indexPit, indexRaceControl, indexWeather, indexTeamRadio,
   currentLap, completedLapTimes, tyreOnLap, itemAt, pickReferenceLap, lapPoints,
 } from './session-index.js';
+import {
+  indexResults, raceLapsFromResults, retireLapStart, typicalLapMs, isRetiredAt, STOP_WINDOW_MS,
+} from './retirement.js';
 
 export const SESSION_TYPES_WITH_INTERVALS = ['Race', 'Sprint'];
 
 /** Bracketing samples further apart than this hide the car. */
 const MAX_GAP_MS = 5000;
 const SMALL = ['drivers', 'laps', 'stints', 'pit', 'race_control', 'weather', 'team_radio', 'position'];
+/** Without these the session can't be replayed; any other dataset may fail and load as empty. */
+const REQUIRED = ['sessions', 'drivers', 'laps'];
 
 const iso = (ms) => new Date(ms).toISOString();
 
@@ -37,18 +42,28 @@ export class SessionData {
     const session = normaliseSession(Array.isArray(sessions) ? sessions[0] : undefined, sessionKey);
     const raceLike = SESSION_TYPES_WITH_INTERVALS.includes(session.name)
       || SESSION_TYPES_WITH_INTERVALS.includes(session.type);
-    const steps = raceLike ? [...SMALL, 'intervals'] : SMALL;
+    // session_result (race/sprint): who retired (dnf/dns) and the real race distance.
+    const steps = raceLike ? [...SMALL, 'intervals', 'session_result'] : SMALL;
     const total = steps.length + 1;
     let done = 1;
     progress({ step: 'sessions', done, total });
+    const unavailable = [];
     const results = await Promise.all(steps.map((step) =>
-      fj(step, { session_key: sessionKey }).then((r) => {
+      fj(step, { session_key: sessionKey }).then((r) => Array.isArray(r) ? r : [], (err) => {
+        if (REQUIRED.includes(step)) throw err;
+        // Optional dataset failed even after the queue's retries: replay without it.
+        console.warn(`[f1vr] ${step} unavailable, continuing without it`, err);
+        unavailable.push(step);
+        return [];
+      }).then((r) => {
         progress({ step, done: ++done, total });
-        return Array.isArray(r) ? r : [];
+        return r;
       })));
     const raw = {};
     steps.forEach((s, i) => { raw[s] = results[i]; });
-    return new SessionData(session, raw, { fetchJson: fj, raceLike, retryDelayMs });
+    const d = new SessionData(session, raw, { fetchJson: fj, raceLike, retryDelayMs });
+    d.unavailable = unavailable;
+    return d;
   }
 
   /**
@@ -75,7 +90,20 @@ export class SessionData {
     this.hasIntervals = !!raceLike && this._intervals.all.items.length > 0;
     this._raceLike = !!raceLike;
 
+    this._results = indexResults(raw.session_result);
     this.totalLaps = this._laps.totalLaps;
+    this._finish = this._laps.finishTime;
+    const resultLaps = raceLike ? raceLapsFromResults(this._results) : null;
+    if (resultLaps && resultLaps !== this.totalLaps) {
+      // e.g. 2023 Australia: max lap_number 59 after red-flag restarts, race distance 58.
+      this.totalLaps = resultLaps;
+      this._finish = null;
+      for (const laps of this._laps.byDriver.values()) {
+        for (const l of laps) {
+          if (l.lap_number === resultLaps && l.date_end != null && (this._finish === null || l.date_end < this._finish)) this._finish = l.date_end;
+        }
+      }
+    }
     const lap1 = this._laps.lapStart.get(1);
     this.raceStartTime = lap1 ?? session.start ?? 0;
     const posTimes = this._position.all.times;
@@ -102,8 +130,20 @@ export class SessionData {
     this._lastError = undefined;
     this._s = { a: null, ai: 0, b: null, bi: 0, f: 0 };
     this._tmp = { x: 0, y: 0, z: 0 };
+    this._tmp2 = { x: 0, y: 0, z: 0 };
+    // Per-DNF caches for isRetiredAt: retirement lap start and typical lap time.
+    this._retire = new Map();
+    for (const [n, r] of this._results) {
+      if (!r.dnf) continue;
+      const laps = this._laps.byDriver.get(n);
+      this._retire.set(n, { start: retireLapStart(laps, r.laps, this.raceStartTime), lapMs: typicalLapMs(laps) });
+    }
     this._refLap = null;
     this._disposed = false;
+    /** Optional datasets that failed to load (load() fills it); empty ones are simply empty. */
+    this.unavailable = [];
+    /** Which small datasets have no records (for "No data" states in panels). */
+    this.empty = new Set(Object.keys(raw).filter((k) => Array.isArray(raw[k]) && raw[k].length === 0));
   }
 
   _makeStore(endpoint, driverNumber) {
@@ -304,6 +344,17 @@ export class SessionData {
   }
 
   /**
+   * True once the selected driver's car_data chunk covering t has loaded (even if it was
+   * empty), so the telemetry panel can tell "loading" from "no telemetry here".
+   */
+  isTelemetryLoaded(driverNumber, t) {
+    const store = this._car.get(driverNumber);
+    if (!store) return false;
+    const k = store.indexOf(this._clamp(t));
+    return k < 0 || k > this._maxChunk || store.isLoaded(k);
+  }
+
+  /**
    * Race position of a driver at t (latest /position record at or before t).
    * @returns {number|null}
    */
@@ -316,14 +367,14 @@ export class SessionData {
    * Leaderboard at t, sorted by position (drivers without a position last, by number).
    * gapToLeader/interval are numbers (s), strings like "+1 LAP", or null
    * (always null outside race/sprint). bestLap/lastLap are seconds.
-   * retired (race/sprint only, heuristic): the car is not visible at t, the
-   * driver's final recorded lap ended > 30 s ago, and it ended before the
-   * leader finished the race (so lapped finishers are not marked).
+   * retired (race/sprint only): see retirement.js. With /session_result, DNF drivers
+   * are OUT from the moment their car stops on their final lap (DNS all race);
+   * otherwise heuristics on hidden / stale laps.
    * @param {number} t
    */
   getLeaderboardAt(t) {
     const rows = [];
-    const finish = this._laps.finishTime;
+    const leaderLap = this._raceLike ? this.getLeaderLapAt(t) : 0;
     for (const d of this.drivers) {
       const n = d.number;
       const laps = this._laps.byDriver.get(n);
@@ -333,13 +384,7 @@ export class SessionData {
       const tyre = tyreOnLap(this._stints.get(n), Math.max(1, lapNumber));
       const pit = this._pit.byDriver.get(n);
       const { best, last } = completedLapTimes(laps, t);
-      let retired = false;
-      if (this._raceLike && laps && laps.length) {
-        const fl = laps[laps.length - 1];
-        const end = fl.date_end ?? fl.date_start;
-        retired = end != null && t > end + 30000 && (finish == null || end < finish)
-          && fl.lap_number < this.totalLaps && !this.getCarPositionAt(n, t, this._tmp);
-      }
+      const retired = this._raceLike && this._isRetired(n, laps, t, leaderLap, cur);
       rows.push({
         driverNumber: n,
         position: this.getPositionAt(n, t),
@@ -356,6 +401,22 @@ export class SessionData {
     }
     rows.sort((a, b) => (a.position ?? 1e9) - (b.position ?? 1e9) || a.driverNumber - b.driverNumber);
     return rows;
+  }
+
+  _isRetired(n, laps, t, leaderLap, cur) {
+    const c = this._retire.get(n);
+    return isRetiredAt({
+      t, laps, result: this._results.get(n), hasResults: this._results.size > 0,
+      raceStart: this.raceStartTime, finishTime: this._finish, totalLaps: this.totalLaps, leaderLap,
+      lapNumber: cur ? cur.lap_number : 0, lapStart: cur ? cur.date_start : null,
+      retireStart: c ? c.start : undefined, lapMs: c ? c.lapMs : undefined,
+      visible: () => this.getCarPositionAt(n, t, this._tmp),
+      movedUnits: () => {
+        const a = this._tmp; const b = this._tmp2;
+        if (!this.getCarPositionAt(n, t, a) || !this.getCarPositionAt(n, t - STOP_WINDOW_MS, b)) return NaN;
+        return Math.hypot(a.x - b.x, a.y - b.y);
+      },
+    });
   }
 
   /**
@@ -409,6 +470,18 @@ export class SessionData {
   /** Extra (not in the contract): a driver's stints sorted by lap_start. */
   getDriverStints(driverNumber) {
     return this._stints.get(driverNumber) || [];
+  }
+
+  /** Extra: all pit stops `{ driver_number, date (ms), lap_number, lane_duration, … }` in time order. */
+  getPitStops() {
+    return this._pit.all ? this._pit.all.items : [];
+  }
+
+  /** Extra: one driver's raw location records in [start, end) ms (through the queue and cache). */
+  fetchLocation(driverNumber, start, end) {
+    return this._fetch('location', {
+      session_key: this.session.key, driver_number: driverNumber, 'date>=': iso(start), 'date<': iso(end),
+    }, { priority: -1 });
   }
 
   /** The lap chosen for the track outline (no fetch), or null. See getReferenceLap. */

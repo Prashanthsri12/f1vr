@@ -107,6 +107,8 @@ export class TelemetryPanel extends Panel {
     const s = this._s;
     const tel = this._tel;
     this._telOk = data.getTelemetryAt(n, t, tel);
+    // Chunk loaded but no samples: the session has no car_data here (6.11), not "loading".
+    this._telNone = !this._telOk && typeof data.isTelemetryLoaded === 'function' && data.isTelemetryLoaded(n, t);
 
     const lap = this._currentLap(n, t);
     this._cur = lap;
@@ -136,12 +138,12 @@ export class TelemetryPanel extends Panel {
     const lapN = lap ? lap.lap_number : -1;
     const prevN = this._prevTrace ? this._prevTrace.time.length : -1;
 
-    if (s.selected === n && s.telOk === this._telOk && s.speed === speed && s.gear === gear && s.rpm === rpm
+    if (s.selected === n && s.telOk === this._telOk && s.telNone === this._telNone && s.speed === speed && s.gear === gear && s.rpm === rpm
       && s.throttle === thr && s.brake === brk && s.drs === drs && s.hasDrs === data.hasDrs && s.pos === pos
       && s.lap === lapN && s.curN === this._curN && s.prevN === prevN && s.curLoaded === !!ct
       && s.radio === radio && s.headshot === hs.ok) return false;
 
-    s.selected = n; s.telOk = this._telOk; s.speed = speed; s.gear = gear; s.rpm = rpm; s.throttle = thr;
+    s.selected = n; s.telOk = this._telOk; s.telNone = this._telNone; s.speed = speed; s.gear = gear; s.rpm = rpm; s.throttle = thr;
     s.brake = brk; s.drs = drs; s.hasDrs = data.hasDrs; s.pos = pos; s.lap = lapN; s.curN = this._curN;
     s.prevN = prevN; s.curLoaded = !!ct; s.radio = radio; s.headshot = hs.ok;
     return true;
@@ -157,7 +159,7 @@ export class TelemetryPanel extends Panel {
       g.font = font(32, 600);
       g.textAlign = 'center';
       g.textBaseline = 'middle';
-      g.fillText('Loading telemetry…', w / 2, (LIVE_Y + TRACE_Y) / 2);
+      g.fillText(this._telNone ? 'No telemetry for this moment' : 'Loading telemetry…', w / 2, (LIVE_Y + TRACE_Y) / 2);
     }
     this._drawTrace(g, w, h, d);
   }

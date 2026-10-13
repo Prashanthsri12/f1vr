@@ -14,7 +14,7 @@ import { retimeSeries } from '../js/retime.js';
 const FIX = new URL('./fixtures/', import.meta.url);
 const fx = (name) => JSON.parse(readFileSync(new URL(name + '.json', FIX), 'utf8'));
 const ENDPOINTS = ['sessions', 'drivers', 'laps', 'stints', 'pit', 'race_control', 'weather',
-  'team_radio', 'position', 'intervals', 'location', 'car_data'];
+  'team_radio', 'position', 'intervals', 'session_result', 'location', 'car_data'];
 const fixtures = () => Object.fromEntries(ENDPOINTS.map((e) => [e, fx(e)]));
 const ms = Date.parse;
 const iso = (t) => new Date(t).toISOString();
@@ -57,10 +57,11 @@ test('load: requests, progress and static facts (race)', async () => {
   assert.equal(fetchJson.calls[0].endpoint, 'sessions');
   assert.deepEqual(fetchJson.calls[0].params, { session_key: 9472 });
   assert.deepEqual(fetchJson.calls.map((c) => c.endpoint).sort(),
-    ['drivers', 'intervals', 'laps', 'pit', 'position', 'race_control', 'sessions', 'stints', 'team_radio', 'weather']);
-  assert.equal(progress.length, 10);
-  assert.equal(progress.at(-1).done, 10);
-  assert.equal(progress.at(-1).total, 10);
+    ['drivers', 'intervals', 'laps', 'pit', 'position', 'race_control', 'session_result', 'sessions', 'stints',
+      'team_radio', 'weather']);
+  assert.equal(progress.length, 11);
+  assert.equal(progress.at(-1).done, 11);
+  assert.equal(progress.at(-1).total, 11);
 
   assert.deepEqual(d.session, { key: 9472, meetingKey: 1229, name: 'Race', type: 'Race', circuit: 'Sakhir',
     country: 'Bahrain', year: 2024, start: ms('2024-03-02T15:00:00Z'), end: ms('2024-03-02T17:00:00Z') });
@@ -427,4 +428,46 @@ test('retired heuristic', async () => {
   assert.equal(d.getLeaderboardAt(T0 + 200000).find((r) => r.driverNumber === 2).retired, false);
   assert.equal(d.getLeaderLapAt(T0 + 200000), 2);
   assert.equal(d.getLeaderLapAt(T0 + 250000), 3);
+});
+
+test('retired with session_result: DNF only once the car stops; finishers never; DNS always', async () => {
+  const raw = syntheticRaw();
+  raw.laps = [];
+  for (const n of [1, 2]) for (let l = 1; l <= 3; l++) raw.laps.push(lap(n, l, (l - 1) * 100 + n, 99));
+  // Driver 3 completes lap 1, starts lap 2 at ~103 s and stops on track (still visible) from 140 s.
+  raw.laps.push(lap(3, 1, 3, 99), lap(3, 2, 103, null));
+  // Synthetic cars crawl at 1 unit/s; make driver 3 race at 100 units/s, then park it.
+  for (const r of raw.location) if (r.driver_number === 3) { r.x *= 100; r.y *= 100; }
+  const stop = raw.location.find((r) => r.driver_number === 3 && ms(r.date) >= T0 + 140000);
+  for (const r of raw.location) {
+    if (r.driver_number === 3 && ms(r.date) > T0 + 140000) { r.x = stop.x; r.y = stop.y; r.z = stop.z; }
+  }
+  raw.session_result = [
+    { position: 1, driver_number: 1, number_of_laps: 3, dnf: false, dns: false, dsq: false },
+    { position: 2, driver_number: 2, number_of_laps: 3, dnf: false, dns: false, dsq: false },
+    { position: null, driver_number: 3, number_of_laps: 1, dnf: true, dns: false, dsq: false },
+  ];
+  const { d } = syntheticSession(raw);
+  const r = (n, t) => d.getLeaderboardAt(t).find((x) => x.driverNumber === n).retired;
+  d.setPlayhead(T0 + 120000, 1);
+  await flush();
+  assert.equal(r(3, T0 + 50000), false);  // lap 1: racing
+  assert.equal(r(3, T0 + 120000), false); // retirement lap begun, still moving
+  d.setPlayhead(T0 + 160000, 1);
+  await flush();
+  assert.equal(r(3, T0 + 160000), true);  // stopped for > 5 s
+  assert.equal(r(2, T0 + 160000), false); // finisher
+  raw.session_result[1].dns = true;
+  const { d: d2 } = syntheticSession(raw);
+  assert.equal(d2.getLeaderboardAt(T0 + 1000).find((x) => x.driverNumber === 2).retired, true);
+});
+
+test('totalLaps prefers the session_result race distance (red-flag lap numbering)', () => {
+  const raw = syntheticRaw();
+  raw.laps = [];
+  for (let l = 1; l <= 4; l++) raw.laps.push(lap(1, l, (l - 1) * 100, 99));
+  raw.session_result = [{ position: 1, driver_number: 1, number_of_laps: 3, dnf: false, dns: false, dsq: false }];
+  const { d } = syntheticSession(raw);
+  assert.equal(d.totalLaps, 3);
+  assert.equal(d.getLeaderLapAt(T0 + 350000), 3);
 });

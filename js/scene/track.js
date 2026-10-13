@@ -1,5 +1,7 @@
 // Track table and track ribbon (spec §4, CONTRACTS.md `js/scene/track.js`).
-// Draw calls: table = 2 (top + rim), track = 3 (ribbon, edge lines, start/finish line).
+// Draw calls: table = 2 (top + rim), track = 3 (ribbon, edge lines, start/finish line),
+// + 1 pit lane line when one could be traced (pit-lane.js). A session without usable
+// location data gets an empty table with a "no position data" note instead of failing.
 
 import * as THREE from 'three';
 import { cacheGet, cachePut } from '../cache.js';
@@ -7,6 +9,7 @@ import {
   dedupePoints, trimClosure, computeTransformParams, makeToScene, trackWidth,
   nearestSampleIndex, TARGET_SIZE,
 } from './track-math.js';
+import { pickPitStop, pitWindow, extractPitLane } from './pit-lane.js';
 
 const TABLE_RADIUS = 0.8;
 const TABLE_THICKNESS = 0.03;
@@ -108,7 +111,18 @@ export async function loadTrack(data, table) {
   } catch { /* cache never throws, but be safe */ }
 
   if (!built) {
-    built = await buildTrackData(data);
+    try {
+      built = await buildTrackData(data);
+    } catch (err) {
+      // 6.11: no location for any clean lap (or no laps). Replay the timing data anyway.
+      console.warn('[f1vr] no track outline for this session:', err && err.message);
+      return noTrack(table);
+    }
+    try { await cachePut(key, built, 'tracks'); } catch { /* ignore */ }
+  }
+  // 6.12: trace the pit lane once per circuit (null = tried, not traceable; cached either way).
+  if (built.pitLane === undefined) {
+    built.pitLane = await buildPitLane(data, built.params);
     try { await cachePut(key, built, 'tracks'); } catch { /* ignore */ }
   }
 
@@ -116,6 +130,7 @@ export async function loadTrack(data, table) {
   const toScene = makeToScene(params);
   const content = table.userData.content || table;
   const group = buildTrackMeshes(built);
+  if (built.pitLane) group.add(buildPitLaneLine(built.pitLane));
   content.add(group);
 
   return {
@@ -133,6 +148,81 @@ export async function loadTrack(data, table) {
           o.material.dispose();
         }
       });
+    },
+  };
+}
+
+/**
+ * Pit lane polyline in scene coordinates (flat xyz array), or null. One location request.
+ * @returns {Promise<number[]|null>}
+ */
+async function buildPitLane(data, params) {
+  try {
+    if (typeof data.getPitStops !== 'function') return null;
+    const stop = pickPitStop(data.getPitStops());
+    if (!stop) return null;
+    const { start, end } = pitWindow(stop);
+    const lane = extractPitLane(await data.fetchLocation(stop.driver, start, end), stop.lane);
+    if (!lane) return null;
+    const toScene = makeToScene(params);
+    const v = new THREE.Vector3();
+    const out = [];
+    for (const p of lane) {
+      toScene(p.x, p.y, p.z, v);
+      out.push(v.x, v.y, v.z);
+    }
+    return out;
+  } catch (err) {
+    console.warn('[f1vr] pit lane not traced:', err && err.message);
+    return undefined; // a fetch error: try again next time
+  }
+}
+
+function buildPitLaneLine(flat) {
+  const pos = new Float32Array(flat);
+  for (let i = 1; i < pos.length; i += 3) pos[i] += 0.0005; // just above the table / ribbon
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const line = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0x8fb3d9, transparent: true, opacity: 0.7 }));
+  line.name = 'pitLane';
+  return line;
+}
+
+/**
+ * Track stand-in for a session without position data: a note on the table, and a
+ * transform that maps everything to the table centre (cars stay hidden without location).
+ */
+function noTrack(table) {
+  const params = { scale: 1e-4, center: { x: 0, y: 0, z: 0 }, zExaggeration: 1, yOffset: 0 };
+  const canvas = document.createElement('canvas');
+  canvas.width = 1024; canvas.height = 256;
+  const g = canvas.getContext('2d');
+  g.fillStyle = '#8a94a6';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.font = "700 64px 'Titillium Web', system-ui, sans-serif";
+  g.fillText('No car position data', 512, 96);
+  g.font = "600 44px 'Titillium Web', system-ui, sans-serif";
+  g.fillText('for this session', 512, 176);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const geo = new THREE.PlaneGeometry(1.0, 0.25);
+  geo.rotateX(-Math.PI / 2);
+  const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true });
+  const note = new THREE.Mesh(geo, mat);
+  note.name = 'noTrackNote';
+  note.position.set(0, 0.002, 0.15);
+  (table.userData.content || table).add(note);
+  return {
+    scale: params.scale,
+    center: { ...params.center },
+    toScene: makeToScene(params),
+    width: trackWidth(TARGET_SIZE),
+    mesh: note,
+    missing: true,
+    dispose() {
+      note.removeFromParent();
+      geo.dispose(); mat.dispose(); tex.dispose();
     },
   };
 }

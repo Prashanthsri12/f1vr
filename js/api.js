@@ -95,11 +95,15 @@ export class RequestQueue {
    * @param {number} [opts.maxRetries=5] retries after the first attempt
    * @param {() => number} [opts.random] jitter source in [0,1)
    * @param {number} [opts.baseDelayMs=1000] first backoff delay
+   * @param {(h: ApiHealth) => void} [opts.onHealth] reachability changes (see ApiHealth)
    */
   constructor({
     perSecond = 3, perMinute = 30, fetchFn = defaultFetch, now = Date.now,
-    sleep = defaultSleep, maxRetries = 5, random = Math.random, baseDelayMs = 1000,
+    sleep = defaultSleep, maxRetries = 5, random = Math.random, baseDelayMs = 1000, onHealth = null,
   } = {}) {
+    this._onHealth = onHealth;
+    /** @type {ApiHealth} */
+    this.health = { ok: true, retrying: false, status: null, attempt: 0, since: 0 };
     this.perSecond = perSecond;
     this.perMinute = perMinute;
     this.maxRetries = maxRetries;
@@ -181,6 +185,15 @@ export class RequestQueue {
     }
   }
 
+  /** Update and report reachability (only on a change of ok / retrying / status / attempt). */
+  _health(ok, retrying, status, attempt) {
+    const h = this.health;
+    if (h.ok === ok && h.retrying === retrying && h.status === status && h.attempt === attempt) return;
+    if (h.ok !== ok) h.since = this._now();
+    h.ok = ok; h.retrying = retrying; h.status = status; h.attempt = attempt;
+    if (this._onHealth) { try { this._onHealth(h); } catch (_) { /* listener errors are not ours */ } }
+  }
+
   async _execute(url) {
     let attempt = 0;
     for (;;) {
@@ -191,12 +204,15 @@ export class RequestQueue {
         res = await f(url, { headers: { Accept: 'application/json' } });
       } catch (cause) {
         if (attempt >= this.maxRetries) {
+          this._health(false, false, 0, attempt);
           throw new ApiError(`Network error for ${url}: ${cause?.message ?? cause}`, { url, cause });
         }
+        this._health(false, true, 0, attempt + 1);
         await this._sleep(this._backoff(attempt++, null));
         continue;
       }
       if (res.ok) {
+        this._health(true, false, null, 0);
         try {
           return await res.json();
         } catch (cause) {
@@ -204,11 +220,15 @@ export class RequestQueue {
         }
       }
       if (isRetryable(res.status) && attempt < this.maxRetries) {
+        // 429 is the free tier pacing us, not an outage: keep ok, just say we're retrying.
+        this._health(res.status === 429, true, res.status, attempt + 1);
         const retryAfter = parseRetryAfter(res.headers?.get?.('Retry-After'), this._now());
         await readBody(res); // drain
         await this._sleep(this._backoff(attempt++, retryAfter));
         continue;
       }
+      if (isRetryable(res.status)) this._health(false, false, res.status, attempt);
+      else this._health(true, false, null, 0); // a 4xx answer means the server is up
       const body = await readBody(res);
       throw new ApiError(`HTTP ${res.status} for ${url}`, { status: res.status, url, body });
     }
@@ -222,16 +242,43 @@ export class RequestQueue {
   }
 }
 
+/**
+ * OpenF1 reachability as seen by the queue. ok=false: the last attempt failed with a network
+ * error or 5xx (retrying=true while backing off, false once retries ran out; the next
+ * request tries again). A 429 keeps ok=true with retrying=true.
+ * @typedef {{ok: boolean, retrying: boolean, status: number|null, attempt: number, since: number}} ApiHealth
+ */
+
 /** @type {RequestQueue|null} */
 let sharedQueue = null;
+const healthCbs = new Set();
 
 /**
  * The shared default queue (3/s, 30/min) used by fetchJson.
  * @returns {RequestQueue}
  */
 export function getQueue() {
-  if (!sharedQueue) sharedQueue = new RequestQueue();
+  if (!sharedQueue) {
+    sharedQueue = new RequestQueue({
+      onHealth: (h) => { for (const cb of healthCbs) { try { cb(h); } catch (e) { console.error(e); } } },
+    });
+  }
   return sharedQueue;
+}
+
+/** Current OpenF1 reachability of the shared queue (a live object: read, don't keep a copy). */
+export function getApiHealth() {
+  return getQueue().health;
+}
+
+/**
+ * Subscribe to reachability changes of the shared queue.
+ * @param {(h: ApiHealth) => void} cb
+ * @returns {() => void} unsubscribe
+ */
+export function onApiHealth(cb) {
+  healthCbs.add(cb);
+  return () => healthCbs.delete(cb);
 }
 
 /** Concurrent fetchJson calls for the same URL share one request. */
