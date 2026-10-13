@@ -1,5 +1,9 @@
 // Playback bar (spec §8): play/pause, speed −/+, lap slider (click to seek to a lap),
 // elapsed race time and the real session clock. Sits just below the main screen.
+// Second row (8.9, sync with a broadcast): Lights out, ◀ LAP / LAP ▶ and the ±1 s / ±5 s
+// nudge with the session's offset (or "VIDEO SYNC" while a synced video leads). It uses
+// ctx.actions.goLightsOut / stepLap / nudge / getSync (sync-control.js); without them the
+// row is drawn disabled.
 import { Panel, THEME, font, roundRect } from './panel-base.js';
 import { LAYOUT } from './layout.js';
 import { getApiHealth } from '../api.js';
@@ -7,6 +11,15 @@ import { SPEEDS } from '../playback.js';
 
 const L = LAYOUT.playbackBar;
 const PAD = 12;
+const ROW1 = Math.round(L.row1Height * 1024);   // 164 px: transport, slider, clock
+const NUDGES = [['n-5', -5, '−5s'], ['n-1', -1, '−1s'], ['n+1', 1, '+1s'], ['n+5', 5, '+5s']];
+
+/** Sync offset label: "+1.5 s", "−2.0 s", "0.0 s". */
+export function fmtOffset(ms) {
+  const v = Math.round(ms / 100) / 10;
+  if (v === 0) return '0.0 s';
+  return `${v > 0 ? '+' : '−'}${Math.abs(v).toFixed(1)} s`;
+}
 
 function two(n) { return (n < 10 ? '0' : '') + n; }
 
@@ -35,7 +48,7 @@ export class PlaybackBarPanel extends Panel {
   constructor(data) {
     super({ name: 'playbackBar', width: L.width, height: L.height });
     this.data = data;
-    this._shown = { playing: null, waiting: null, speed: null, sec: NaN, down: null };
+    this._shown = { playing: null, waiting: null, speed: null, sec: NaN, down: null, off: NaN, lead: null };
     this._track = { x: 0, w: 1 };   // slider track in canvas px (set in draw)
   }
 
@@ -59,9 +72,13 @@ export class PlaybackBarPanel extends Panel {
     // Elapsed time and clock change every playhead second; the slider moves far slower,
     // so the whole-second check covers it.
     const down = !getApiHealth().ok;   // OpenF1 unreachable / 5xx: say so instead of looking frozen
+    const sync = ctx.actions && ctx.actions.getSync ? ctx.actions.getSync() : null;
+    const off = sync ? sync.offsetMs : NaN;
+    const lead = sync ? sync.videoLeads : null;
     if (s.playing === pb.playing && s.waiting === pb.waiting && s.speed === pb.speed && s.sec === sec
-      && s.down === down) return false;
+      && s.down === down && (s.off === off || (off !== off && s.off !== s.off)) && s.lead === lead) return false;
     s.playing = pb.playing; s.waiting = pb.waiting; s.speed = pb.speed; s.sec = sec; s.down = down;
+    s.off = off; s.lead = lead;
     return true;
   }
 
@@ -70,6 +87,10 @@ export class PlaybackBarPanel extends Panel {
     if (hit.id === 'play') a.togglePlay();
     else if (hit.id === 'slower') a.speedDown();
     else if (hit.id === 'faster') a.speedUp();
+    else if (hit.id === 'lights') a.goLightsOut();
+    else if (hit.id === 'lapPrev') a.stepLap(-1);
+    else if (hit.id === 'lapNext') a.stepLap(1);
+    else if (hit.id.startsWith('n') && hit.payload) a.nudge(hit.payload);
     else if (hit.id === 'slider' && px) {
       const total = Math.max(1, this.data.totalLaps || 1);
       const f = (px.x - this._track.x) / this._track.w;
@@ -92,13 +113,67 @@ export class PlaybackBarPanel extends Panel {
     if (enabled) this.addHit(id, x, y, w, h);
   }
 
+  /** Text button for the sync row. */
+  _textButton(g, id, x, y, w, h, label, enabled, payload) {
+    this._button(g, id, x, y, w, h, enabled);
+    if (enabled && payload !== undefined) this._hits[this._hits.length - 1].payload = payload;
+    g.globalAlpha = enabled ? 1 : 0.4;
+    g.fillStyle = THEME.text;
+    g.font = font(30, 700);
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(label, x + w / 2, y + h / 2 + 1);
+    g.globalAlpha = 1;
+  }
+
+  /** Second row: Lights out, lap steps, nudge and the offset (8.9). */
+  _drawSyncRow(g, w, h, ctx) {
+    const a = ctx.actions || {};
+    const sync = a.getSync ? a.getSync() : null;
+    const on = !!sync;
+    const y = ROW1;
+    const bh = h - ROW1 - PAD;
+    let x = PAD;
+    this._textButton(g, 'lights', x, y, 236, bh, '⚑ LIGHTS OUT', on);
+    x += 248;
+    this._textButton(g, 'lapPrev', x, y, 136, bh, '◀ LAP', on);
+    x += 148;
+    this._textButton(g, 'lapNext', x, y, 136, bh, 'LAP ▶', on);
+    // Nudge, right-aligned: −5 −1 [offset] +1 +5
+    const nw = 92;
+    const vw = 190;
+    let nx = w - PAD - (4 * nw + vw + 4 * 8);
+    g.fillStyle = THEME.muted;
+    g.font = font(24, 700);
+    g.textAlign = 'right';
+    g.textBaseline = 'middle';
+    g.fillText('SYNC', nx - 14, y + bh / 2);
+    for (let i = 0; i < NUDGES.length; i++) {
+      const [id, sec, label] = NUDGES[i];
+      if (i === 2) {
+        const lead = on && sync.videoLeads;
+        g.fillStyle = THEME.surface;
+        roundRect(g, nx, y, vw, bh, 14);
+        g.fill();
+        g.fillStyle = lead ? THEME.accent : on && sync.offsetMs ? THEME.yellow : THEME.text;
+        g.font = font(lead ? 26 : 32, 700);
+        g.textAlign = 'center';
+        g.fillText(!on ? '–' : lead ? 'VIDEO SYNC' : fmtOffset(sync.offsetMs), nx + vw / 2, y + bh / 2 + 1);
+        nx += vw + 8;
+      }
+      this._textButton(g, id, nx, y, nw, bh, label, on, sec);
+      nx += nw + 8;
+    }
+    g.textAlign = 'left';
+  }
+
   draw(g, w, h, ctx) {
     this.clear(g, w, h);
     const pb = ctx.playback;
     const t = ctx.time;
     const d = this.data;
-    const bh = h - 2 * PAD;          // 140 px buttons
-    const cy = h / 2;
+    const bh = ROW1 - 2 * PAD;       // 140 px buttons
+    const cy = ROW1 / 2;
 
     // --- play / pause ---
     let x = PAD;
@@ -206,5 +281,6 @@ export class PlaybackBarPanel extends Panel {
       g.stroke();
     }
     this.addHit('slider', sx, PAD, sw, bh);
+    this._drawSyncRow(g, w, h, ctx);
   }
 }

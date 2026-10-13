@@ -16,6 +16,7 @@ import { setSetting } from './settings.js';
 import { createAudioEvents } from './audio-events.js';
 import { stopRadio, sfxStats } from './audio.js';
 import { createMainScreen } from './scene/screen.js';
+import { createSyncControl } from './sync-control.js';
 
 const HUD_INTERVAL = 0.1; // seconds (10 Hz)
 const STYLE_ID = 'f1vr-hud-style';
@@ -176,6 +177,7 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
     status('Placing cars…');
     cars = new Cars(data.drivers, transform, table);
     playback = new Playback(data);
+    const sync = createSyncControl({ data, playback }); // 8.9: playback bar sync row
     status('Building panels…');
     pitWall = createPitWall({
       parent: world.scene,
@@ -194,6 +196,10 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
         recenter: xrSession ? recenter : undefined,
         resetLayout: () => pitWall.resetLayout(),
         cycleTheme: () => cycleTheme(),
+        goLightsOut: () => sync.lightsOut(),
+        stepLap: (dir) => sync.stepLap(dir),
+        nudge: (sec) => sync.nudge(sec),
+        getSync: () => sync,
       },
       canPassthrough,
       driverTiles: !xrSession, // 4b.1: VR picks drivers from the wrist menu / leaderboard

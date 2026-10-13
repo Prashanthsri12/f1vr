@@ -28,8 +28,9 @@ export const LAYOUT = {
     width: 2.4, height: 0.65, stripHeight: 0.15,
     position: { x: 0, y: SCREEN_TOP + 0.03 + 0.15 - 0.65 / 2, z: -2.79 },
   },
-  // Just below the main screen.
-  playbackBar: { width: 1.2, height: 0.16, position: { x: 0, y: SCREEN_BOTTOM - 0.13, z: -2.75 } },
+  // Just below the main screen (top edge 5 cm under it). Two rows: transport + slider + clock
+  // (row1Height), then the sync row (8.9: lights out, lap steps, ± nudge).
+  playbackBar: { width: 1.2, height: 0.24, row1Height: 0.16, position: { x: 0, y: SCREEN_BOTTOM - 0.05 - 0.12, z: -2.75 } },
   // 20 tiles (0.12 m) at waist height near the table's near edge, tilted back 35°
   // like a console, centred on the user. One arc can't fit 20 tiles (2.7 m of arc vs
   // 1.3 m at this radius), so DriverPicker uses two rows of 10 (P1–P10 behind/above).

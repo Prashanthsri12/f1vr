@@ -8,7 +8,7 @@
 // the user's start position the leaderboard and telemetry panels (±17°–53°) hide the screen's
 // outer 0.35 m on each side. Screen-local, 2 cm in front of the bottom edge:
 //   tab strip 0.54 x 0.10 m at x +0.5 (y -0.615, rig-local y 0.985)
-//   video controls 0.54 x 0.10 m at x -0.5 (Video tab)
+//   video controls 0.62 x 0.10 m at x -0.5 (Video tab: play, mute, sync, sync here)
 // The playback bar stays just below the screen and the ticker above it.
 // Draw calls: screen 1 + tabs 1 + content / controls.
 import * as THREE from 'three';

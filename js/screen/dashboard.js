@@ -12,6 +12,7 @@ import { TickerPanel } from '../panels/ticker.js';
 import { PlaybackBarPanel } from '../panels/playback-bar.js';
 import { panelStats } from '../panels/panel-base.js';
 import { createAudioEvents } from '../audio-events.js';
+import { createSyncControl } from '../sync-control.js';
 import { stopRadio, sfxStats } from '../audio.js';
 import { getSettings, setSetting } from '../settings.js';
 import { computeScreenLayout, TILE_NAMES } from './screen-layout.js';
@@ -20,6 +21,7 @@ import { createTrackView } from './track-view.js';
 import { createMainTile } from './main-tile.js';
 
 const KEYS_HELP = 'Space play/pause · ←/→ seek 10 s · ↑/↓ speed · [ ] driver · V 2D/3D · F swap track and screen · Esc exit'
+  + '\nSync: L lights out · PgUp/PgDn previous/next lap · , / . nudge −1/+1 s · Shift+, / Shift+. nudge −5/+5 s'
   + '\nTrack: drag pans (2D) or rotates (3D), right-drag pans, wheel zooms, double-click resets';
 
 function el(tag, cls, parent, text) {
@@ -50,6 +52,7 @@ export async function startDashboard({ data, container, onExit, onStatus }) {
   }
 
   const playback = new Playback(data);
+  const sync = createSyncControl({ data, playback }); // 8.9 lights out, lap steps, nudge
   let selected = null;
   let trackView = null;
   let mainTile = null;
@@ -69,6 +72,10 @@ export async function startDashboard({ data, container, onExit, onStatus }) {
       speedDown: () => playback.speedDown(),
       setSpeed: (sp) => playback.setSpeed(sp),
       togglePassthrough: () => {},
+      goLightsOut: () => sync.lightsOut(),
+      stepLap: (dir) => sync.stepLap(dir),
+      nudge: (sec) => sync.nudge(sec),
+      getSync: () => sync,
       exit: () => exit(),
     },
   };
@@ -201,6 +208,11 @@ export async function startDashboard({ data, container, onExit, onStatus }) {
         case 'BracketRight': stepDriver(1); return;
         case 'KeyV': if (!e.repeat) setView(trackView.getView() === '2d' ? '3d' : '2d'); return;
         case 'KeyF': if (!e.repeat) toggleFocus(); return;
+        case 'KeyL': if (!e.repeat) sync.lightsOut(); return;
+        case 'PageUp': e.preventDefault(); sync.stepLap(-1); return;
+        case 'PageDown': e.preventDefault(); sync.stepLap(1); return;
+        case 'Comma': sync.nudge(e.shiftKey ? -5 : -1); return;
+        case 'Period': sync.nudge(e.shiftKey ? 5 : 1); return;
         default:
       }
     };
@@ -245,7 +257,7 @@ export async function startDashboard({ data, container, onExit, onStatus }) {
     // Dev/test hook: ?debug exposes the live objects (used by headless tests).
     if (new URLSearchParams(location.search).has('debug')) {
       window.__f1vr = {
-        data, playback, host, trackView, mainTile, sfxStats, layout: () => computeScreenLayout(root.clientWidth, root.clientHeight, { focus }),
+        data, playback, sync, host, trackView, mainTile, sfxStats, layout: () => computeScreenLayout(root.clientWidth, root.clientHeight, { focus }),
         toggleFocus, setView, getFocus: () => focus,
       };
       unsubs.push(() => { if (window.__f1vr && window.__f1vr.playback === playback) delete window.__f1vr; });
