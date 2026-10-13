@@ -12,8 +12,8 @@
 
 // Same values as THEME in panel-base.js (not imported: panel-base pulls in three).
 const COLOURS = {
-  GREEN: '#2ad36a', YELLOW: '#f5c400', SC: '#ff8a00', VSC: '#ff8a00',
-  RED: '#ff3b30', CHEQUERED: '#f2f2f2',
+  GREEN: '#2ee67a', YELLOW: '#ffd21f', SC: '#ff8a1f', VSC: '#ff8a1f',
+  RED: '#ff3b3b', CHEQUERED: '#f2f2f2',
 };
 
 function result(status, label) {

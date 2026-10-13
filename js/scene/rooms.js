@@ -12,7 +12,7 @@ const HALF = ROOM / 2;
 const CEILING = 3.4;         // above the ticker (top ≈ 2.5 m)
 const WALL_HEIGHT = 1.2;     // the low pit wall counters
 const WALL_THICK = 0.08;
-const ACCENT_RED = 0xe10600;
+const ACCENT_RED = 0xff2d3d;
 const STRIP_BLUE = 0x8fb3d9;
 
 /**

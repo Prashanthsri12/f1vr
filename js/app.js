@@ -18,6 +18,7 @@ import { stopRadio, sfxStats } from './audio.js';
 import { createMainScreen } from './scene/screen.js';
 import { createVrScreen } from './screen/vr-screen.js';
 import { createSyncControl } from './sync-control.js';
+import { createRain } from './scene/rain.js';
 
 const HUD_INTERVAL = 0.1; // seconds (10 Hz)
 const STYLE_ID = 'f1vr-hud-style';
@@ -31,7 +32,7 @@ const CSS = `
 .f1vr-loading{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);padding:12px 22px;background:rgba(10,12,16,.8);border:1px solid rgba(225,6,0,.6);border-radius:4px;font-size:18px;display:none}
 .f1vr-help{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);padding:5px 12px;background:rgba(10,12,16,.6);border-radius:4px;font-size:12px;opacity:.85;white-space:nowrap}
 .f1vr-exit{position:absolute;top:12px;right:12px;pointer-events:auto;font:inherit;font-weight:700;font-size:14px;color:#fff;background:rgba(10,12,16,.75);border:1px solid #e10600;border-radius:4px;padding:6px 14px;cursor:pointer}
-.f1vr-exit:hover{background:#e10600}
+.f1vr-exit:hover{background:#ff2d3d}
 @media (max-width:600px){.f1vr-help{display:none}}
 `;
 
@@ -98,6 +99,9 @@ export async function startApp({
   let fpsMeter = null;
   let audioEvents = null;
   const unsubs = [];
+  const rain = createRain();
+  world.scene.add(rain.object);
+  unsubs.push(() => rain.dispose());
   let overlay = null;
   let disposed = false;
 
@@ -394,6 +398,8 @@ export async function startApp({
     playback.update(dt);
     cars.update(data, playback.time, screenUp() ? vrScreen.camera : world.camera);
     pitWall.update(dt);
+    const wx = data.getWeatherAt(playback.time);
+    rain.update(dt, !!(wx && wx.rainfall > 0), mode !== 'passthrough');
     fpsMeter.update(dt);
     audioEvents.update(playback.time, selected, playback.playing && !playback.waiting);
     input.update(dt);

@@ -1,14 +1,15 @@
-/* Start page styles. Dark theme, F1-style red accent, 48px minimum touch targets. */
+/* Start page styles. Dark pit wall theme (9.2), red accent, 48px minimum touch targets.
+   Colours match THEME in js/panels/panel-base.js. */
 :root {
-  --bg: #101014;
-  --bg-elev: #1a1a21;
-  --bg-elev-2: #24242d;
-  --border: #33333f;
-  --text: #f2f2f5;
-  --text-dim: #a3a3b2;
-  --accent: #e10600;
-  --accent-hover: #ff2a1f;
-  --ok: #3ecf6e;
+  --bg: #05070c;
+  --bg-elev: rgba(17, 22, 33, 0.78);
+  --bg-elev-2: #1a2131;
+  --border: rgba(140, 160, 200, 0.18);
+  --text: #eef2f8;
+  --text-dim: #8692a8;
+  --accent: #ff2d3d;
+  --accent-hover: #ff5260;
+  --ok: #2ee67a;
   --warn: #ffb020;
   --error-bg: #3a1214;
   --error-border: #a3262a;
@@ -16,6 +17,7 @@
   --gap: 16px;
   --touch: 48px;
   --font: 'Titillium Web', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --display: 'Chakra Petch', 'Titillium Web', system-ui, sans-serif;
   --mono: ui-monospace, 'Cascadia Mono', Consolas, monospace;
   color-scheme: dark;
 }
@@ -24,7 +26,13 @@
 
 html, body {
   margin: 0;
-  background: var(--bg);
+  min-height: 100%;
+  background:
+    radial-gradient(1100px 560px at 15% -10%, rgba(61, 139, 255, 0.10), transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, rgba(255, 45, 61, 0.09), transparent 60%),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.012) 0 2px, transparent 2px 6px),
+    var(--bg);
+  background-attachment: fixed;
   color: var(--text);
   font-family: var(--font);
   font-size: 18px;
@@ -46,9 +54,11 @@ html, body {
 .start__header { padding: 8px 0; }
 .start__title {
   margin: 0;
+  font-family: var(--display);
   font-size: clamp(2rem, 6vw, 3rem);
   font-weight: 700;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -60,18 +70,20 @@ html, body {
   background: var(--accent);
   transform: skewX(-15deg);
   border-radius: 2px;
+  box-shadow: 0 0 16px var(--accent);
 }
 .start__subtitle { margin: 4px 0 0; color: var(--text-dim); }
 
 .card {
-  background: var(--bg-elev);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 40%), var(--bg-elev);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 14px;
   padding: 16px;
   min-width: 0;
+  backdrop-filter: blur(10px);
 }
 .card--quiet { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
-.card__heading { margin: 0 0 12px; font-size: 1.2rem; font-weight: 600; }
+.card__heading { margin: 0 0 12px; font-family: var(--display); font-size: 1.05rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
 
 .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
 .field label, .field__label { font-weight: 600; color: var(--text-dim); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.06em; }
@@ -117,11 +129,12 @@ select:focus-visible, input:focus-visible, .btn:focus-visible, .choice:focus-vis
   cursor: pointer;
   min-width: 0;
 }
-.choice:hover { border-color: var(--text-dim); }
+.choice { transition: border-color .15s, background .15s; }
+.choice:hover { border-color: var(--text-dim); background: #212a3d; }
 .choice[aria-selected="true"] {
   border-color: var(--accent);
-  box-shadow: inset 4px 0 0 var(--accent);
-  background: #2c1a1c;
+  box-shadow: inset 4px 0 0 var(--accent), 0 0 18px -6px var(--accent);
+  background: #2a141a;
 }
 .choice__flag {
   width: 32px;
@@ -157,7 +170,9 @@ select:focus-visible, input:focus-visible, .btn:focus-visible, .choice:focus-vis
 }
 .btn:hover:not(:disabled) { border-color: var(--text-dim); }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.btn--primary { background: var(--accent); border-color: var(--accent); }
+.btn { transition: border-color .15s, background .15s, transform .1s; }
+.btn:active:not(:disabled) { transform: scale(0.98); }
+.btn--primary { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 22px -6px var(--accent); }
 .btn--primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
 .btn--accent-outline { border-color: var(--accent); }
 .btn--small { padding: 8px 14px; font-size: 0.95rem; }
@@ -178,7 +193,7 @@ select:focus-visible, input:focus-visible, .btn:focus-visible, .choice:focus-vis
   animation: pulse 1s ease-in-out infinite;
 }
 @keyframes pulse { 50% { opacity: 0.25; } }
-@media (prefers-reduced-motion: reduce) { .status--busy::before { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .status--busy::before { animation: none; } .btn, .choice { transition: none; } }
 
 .error {
   display: flex;
@@ -219,7 +234,7 @@ select:focus-visible, input:focus-visible, .btn:focus-visible, .choice:focus-vis
 .debug__out {
   margin: 0;
   padding: 10px;
-  background: #0b0b0e;
+  background: #070a10;
   border: 1px solid var(--border);
   border-radius: 8px;
   font-family: var(--mono);

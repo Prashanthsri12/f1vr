@@ -98,7 +98,7 @@ test('sector yellows: yellow until every sector is cleared, double yellow label'
 
 test('safety car: deployed, in this lap, ended by TRACK CLEAR', () => {
   const s = st('05:05:00');
-  assert.deepEqual([s.status, s.label, s.colour], ['SC', 'SAFETY CAR', '#ff8a00']);
+  assert.deepEqual([s.status, s.label, s.colour], ['SC', 'SAFETY CAR', '#ff8a1f']);
   assert.equal(st('05:08:00').label, 'SC ENDING');
   assert.equal(st('05:08:00').status, 'SC');
   assert.equal(st('05:10:00').status, 'GREEN');

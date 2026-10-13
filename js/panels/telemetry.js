@@ -1,14 +1,13 @@
 // Telemetry panel (spec §5): selected driver header, live speed / gear / RPM /
 // throttle / brake / DRS, and a speed-vs-distance trace of the current lap
 // (revealed up to the playhead) over the previous lap.
-import { Panel, THEME, font, roundRect } from './panel-base.js';
+import { Panel, THEME, font, dfont, rgba, roundRect } from './panel-base.js';
 import { LAYOUT } from './layout.js';
 import { LapTraceCache } from './lap-trace.js';
 import { lowerBound } from '../interp.js';
 import { getRadioState, onRadioChange } from '../audio.js';
+import { drawLive } from './telemetry-live.js';
 
-const RPM_MAX = 13000;
-const RPM_SEGMENTS = 26;
 const RADIO_WINDOW_MS = 8000;
 const SPEED_MAX = 350;
 
@@ -23,13 +22,6 @@ function drsState(code) {
   if (code === 10 || code === 12 || code === 14) return 2;
   if (code === 8) return 1;
   return 0;
-}
-
-function segColour(rpm) {
-  if (rpm >= 12500) return THEME.purple;
-  if (rpm >= 12000) return THEME.red;
-  if (rpm >= 11500) return THEME.green;
-  return '#d8dee8';
 }
 
 export class TelemetryPanel extends Panel {
@@ -153,7 +145,7 @@ export class TelemetryPanel extends Panel {
     this.clear(g, w, h);
     const d = this.data.driverByNumber.get(ctx.selected);
     this._drawHeader(g, w, d, ctx);
-    if (this._telOk) this._drawLive(g, w);
+    if (this._telOk) drawLive(g, w, LIVE_Y, PAD, this._tel, this._s, this.data.hasDrs);
     else {
       g.fillStyle = THEME.muted;
       g.font = font(32, 600);
@@ -167,6 +159,9 @@ export class TelemetryPanel extends Panel {
   _drawHeader(g, w, d, ctx) {
     const colour = d ? d.teamColour : THEME.muted;
     // team colour stripe along the left edge of the header
+    g.fillStyle = rgba(colour, 0.3);
+    roundRect(g, 0, 0, 22, HEADER_H, [18, 0, 0, 0]);
+    g.fill();
     g.fillStyle = colour;
     roundRect(g, 0, 0, 12, HEADER_H, [18, 0, 0, 0]);
     g.fill();
@@ -206,7 +201,7 @@ export class TelemetryPanel extends Panel {
     const name = d ? (d.fullName || d.acronym) : `#${ctx.selected}`;
     g.fillText(fitText(g, name, w - x - 190), x, 78);
     g.fillStyle = colour;
-    g.font = font(34, 700);
+    g.font = dfont(34, 700);
     const num = d ? String(d.number) : '';
     g.fillText(num, x, 126);
     const nw = g.measureText(num).width;
@@ -233,7 +228,7 @@ export class TelemetryPanel extends Panel {
     g.fill();
     g.textAlign = 'center';
     g.fillStyle = THEME.text;
-    g.font = font(64, 700);
+    g.font = dfont(64, 700);
     g.fillText(pos ? `P${pos}` : '–', bx + 79, 104);
 
     if (this._s.radio) {
@@ -251,91 +246,6 @@ export class TelemetryPanel extends Panel {
 
     g.fillStyle = THEME.line;
     g.fillRect(PAD, HEADER_H, w - 2 * PAD, 2);
-  }
-
-  _drawLive(g, w) {
-    const tel = this._tel;
-    const s = this._s;
-    const y0 = LIVE_Y;
-
-    // speed
-    g.textBaseline = 'alphabetic';
-    g.textAlign = 'left';
-    g.fillStyle = THEME.text;
-    g.font = font(150, 700);
-    g.fillText(String(s.speed), PAD - 6, y0 + 150);
-    const sx = PAD - 6 + g.measureText('000').width;
-    g.fillStyle = THEME.muted;
-    g.font = font(30, 600);
-    g.fillText('km/h', sx + 14, y0 + 148);
-
-    // gear box
-    const gw = 170;
-    const gx = w - PAD - gw;
-    const gy = y0 + 24;
-    g.fillStyle = THEME.surface;
-    roundRect(g, gx, gy, gw, 150, 14);
-    g.fill();
-    g.textAlign = 'center';
-    g.fillStyle = THEME.muted;
-    g.font = font(24, 600);
-    g.fillText('GEAR', gx + gw / 2, gy + 34);
-    g.fillStyle = THEME.text;
-    g.font = font(100, 700);
-    g.fillText(tel.gear > 0 ? String(s.gear) : 'N', gx + gw / 2, gy + 132);
-
-    // RPM LED strip
-    const ry = y0 + 210;
-    const rx = PAD;
-    const rw = w - 2 * PAD;
-    g.textAlign = 'left';
-    g.fillStyle = THEME.muted;
-    g.font = font(24, 600);
-    g.fillText('RPM', rx, ry - 10);
-    g.textAlign = 'right';
-    g.fillStyle = THEME.text;
-    g.font = font(28, 700);
-    g.fillText(String(Math.round(tel.rpm)), rx + rw, ry - 10);
-    const gap = 5;
-    const segW = (rw - gap * (RPM_SEGMENTS - 1)) / RPM_SEGMENTS;
-    for (let i = 0; i < RPM_SEGMENTS; i++) {
-      const lo = (i / RPM_SEGMENTS) * RPM_MAX;
-      const lit = tel.rpm > lo;
-      g.fillStyle = lit ? segColour(lo) : THEME.surface;
-      roundRect(g, rx + i * (segW + gap), ry, segW, 38, 4);
-      g.fill();
-    }
-
-    // throttle bar
-    const ty = ry + 92;
-    const barW = 560;
-    g.textAlign = 'left';
-    g.fillStyle = THEME.muted;
-    g.font = font(24, 600);
-    g.fillText('THROTTLE', rx, ty - 10);
-    g.textAlign = 'right';
-    g.fillStyle = THEME.text;
-    g.font = font(28, 700);
-    g.fillText(`${s.throttle}%`, rx + barW, ty - 10);
-    g.fillStyle = THEME.surface;
-    roundRect(g, rx, ty, barW, 38, 6);
-    g.fill();
-    const tw = Math.max(0, Math.min(1, tel.throttle / 100)) * barW;
-    if (tw > 0) {
-      g.fillStyle = THEME.green;
-      roundRect(g, rx, ty, tw, 38, 6);
-      g.fill();
-    }
-
-    // brake + DRS indicators beside the throttle bar
-    const ix = rx + barW + 24;
-    const iw = (w - PAD - ix - 16) / 2;
-    const iy = ty - 38;
-    const ih = 76;
-    pill(g, ix, iy, iw, ih, 'BRAKE', s.brake ? 'on' : 'off', THEME.red);
-    if (this.data.hasDrs === true) {
-      pill(g, ix + iw + 16, iy, iw, ih, 'DRS', s.drs === 2 ? 'on' : s.drs === 1 ? 'dim' : 'off', THEME.green);
-    }
   }
 
   _drawTrace(g, w, h, d) {
@@ -414,7 +324,11 @@ export class TelemetryPanel extends Panel {
     const n = this._curN;
     if (!cur) traceMsg(g, (x0 + x1) / 2, y0 + 30, 'Loading lap trace…');
     if (cur && n > 1) {
-      g.strokeStyle = d ? d.teamColour : THEME.accent;
+      const tc = d ? d.teamColour : THEME.accent;
+      g.strokeStyle = rgba(tc, 0.22);
+      g.lineWidth = 14;
+      strokeTrace(g, cur, n, x0, x1, y0, y1, maxD);
+      g.strokeStyle = tc;
       g.lineWidth = 5;
       strokeTrace(g, cur, n, x0, x1, y0, y1, maxD);
       // playhead dot
@@ -446,28 +360,6 @@ function traceMsg(g, x, y, msg) {
   g.fillStyle = THEME.muted;
   g.font = font(28, 600);
   g.fillText(msg, x, y);
-}
-
-/** Indicator pill: state 'on' (filled), 'dim' (outlined), 'off' (muted). */
-function pill(g, x, y, w, h, label, state, colour) {
-  roundRect(g, x, y, w, h, 12);
-  if (state === 'on') {
-    g.fillStyle = colour;
-    g.fill();
-  } else {
-    g.fillStyle = THEME.surface;
-    g.fill();
-    if (state === 'dim') {
-      g.strokeStyle = colour;
-      g.lineWidth = 3;
-      g.stroke();
-    }
-  }
-  g.textAlign = 'center';
-  g.textBaseline = 'middle';
-  g.font = font(30, 700);
-  g.fillStyle = state === 'on' ? '#ffffff' : state === 'dim' ? colour : THEME.muted;
-  g.fillText(label, x + w / 2, y + h / 2 + 1);
 }
 
 /** Truncate text with an ellipsis to fit maxW px (uses the current font). */

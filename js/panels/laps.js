@@ -1,13 +1,12 @@
 // Laps and tyres panel (spec §5): running lap clock, last / personal best / session best,
 // last-lap sectors (purple / green / yellow), speed trap and the tyre stint strip,
 // all for ctx.selected. Statistics come from the pure LapStats index (lap-stats.js).
-import { Panel, THEME, TYRE_COLOURS, font, roundRect, fmtLap } from './panel-base.js';
+import { Panel, THEME, TYRE_COLOURS, font, dfont, rgba, glowStroke, roundRect, fmtLap } from './panel-base.js';
 import { LAYOUT } from './layout.js';
 import { LapStats, newLapStatsOut } from './lap-stats.js';
 
 const PAD = 28;
 const SECTOR_FILL = { purple: THEME.purple, green: THEME.green, yellow: THEME.yellow };
-const SECTOR_INK = { purple: '#ffffff', green: '#06210f', yellow: '#2a2100' };
 const TYRE_INK = { SOFT: '#ffffff', MEDIUM: '#1d1800', HARD: '#111418', INTERMEDIATE: '#06210f', WET: '#ffffff', UNKNOWN: '#111418' };
 
 /** Running clock: m:ss.s (tenths). */
@@ -53,6 +52,8 @@ export class LapsPanel extends Panel {
     g.textBaseline = 'alphabetic';
 
     // Header: accent bar, title, driver tag, lap counter.
+    g.fillStyle = rgba(THEME.accent, 0.25);
+    g.fillRect(0, 16, 14, 52);
     g.fillStyle = THEME.accent;
     g.fillRect(0, 20, 8, 44);
     g.fillStyle = THEME.muted;
@@ -65,7 +66,7 @@ export class LapsPanel extends Panel {
       g.fillStyle = drv.teamColour;
       g.fillRect(x, 26, 6, 32);
       g.fillStyle = THEME.text;
-      g.font = font(30, 700);
+      g.font = dfont(30, 700);
       g.fillText(drv.acronym, x + 16, 53);
     }
     g.textAlign = 'right';
@@ -76,7 +77,7 @@ export class LapsPanel extends Panel {
     g.fillText(totTxt, w - PAD, 52);
     const totW = totTxt ? g.measureText(totTxt).width : 0;
     g.fillStyle = THEME.text;
-    g.font = font(30, 700);
+    g.font = dfont(30, 700);
     g.fillText(lapTxt, w - PAD - totW, 53);
     g.fillStyle = THEME.line;
     g.fillRect(PAD, 78, w - 2 * PAD, 2);
@@ -89,7 +90,7 @@ export class LapsPanel extends Panel {
     g.fillText('CURRENT LAP', PAD, 118);
     g.textAlign = 'right';
     g.fillStyle = o.running == null ? THEME.muted : THEME.text;
-    g.font = font(72, 700);
+    g.font = dfont(72, 700);
     g.fillText(fmtRun(o.running), colR, 180);
 
     const sbHolder = o.sessionBestDriver != null ? this.data.driverByNumber?.get(o.sessionBestDriver) : null;
@@ -115,7 +116,7 @@ export class LapsPanel extends Panel {
       }
       g.textAlign = 'right';
       g.fillStyle = val == null ? THEME.muted : colour;
-      g.font = font(34, 700);
+      g.font = dfont(34, 700);
       g.fillText(fmtLap(val), colR - 6, y + 2);
       y += 58;
     }
@@ -132,7 +133,7 @@ export class LapsPanel extends Panel {
     g.fillText('SPEED TRAP', rx + 18, 132);
     g.textAlign = 'right';
     g.fillStyle = o.stSpeed == null ? THEME.muted : THEME.text;
-    g.font = font(64, 700);
+    g.font = dfont(64, 700);
     g.fillText(o.stSpeed == null ? '–' : String(Math.round(o.stSpeed)), rx + rw - 18, 214);
     g.fillStyle = THEME.muted;
     g.font = font(24, 600);
@@ -147,11 +148,9 @@ export class LapsPanel extends Panel {
     if (curStint && curStint.current) {
       const cx = rx + 54;
       const cy = ty + 58;
-      g.lineWidth = 9;
-      g.strokeStyle = TYRE_COLOURS[curStint.compound] || TYRE_COLOURS.UNKNOWN;
       g.beginPath();
       g.arc(cx, cy, 32, 0, Math.PI * 2);
-      g.stroke();
+      glowStroke(g, TYRE_COLOURS[curStint.compound] || TYRE_COLOURS.UNKNOWN, 9, 2);
       g.textAlign = 'center';
       g.fillStyle = THEME.text;
       g.font = font(32, 700);
@@ -169,7 +168,7 @@ export class LapsPanel extends Panel {
       g.fillText('TYRE AGE', rx + 18, ty + 150);
       g.textAlign = 'right';
       g.fillStyle = THEME.text;
-      g.font = font(30, 700);
+      g.font = dfont(30, 700);
       g.fillText(`${curStint.ageEnd} LAPS`, rx + rw - 18, ty + 151);
     } else {
       g.textAlign = 'left';
@@ -188,16 +187,29 @@ export class LapsPanel extends Panel {
     for (let k = 0; k < 3; k++) {
       const sec = o.sectors[k];
       const x = PAD - 8 + k * (sw + gap);
-      g.fillStyle = sec.cls ? SECTOR_FILL[sec.cls] : THEME.surface;
+      // Dark card tinted in the sector colour, with a glowing strip and the time in colour.
+      const col = sec.cls ? SECTOR_FILL[sec.cls] : null;
+      g.fillStyle = THEME.surface;
       roundRect(g, x, sy, sw, sh, 8);
       g.fill();
-      const ink = sec.cls ? SECTOR_INK[sec.cls] : THEME.muted;
-      g.fillStyle = ink;
+      if (col) {
+        g.fillStyle = rgba(col, 0.18);
+        roundRect(g, x, sy, sw, sh, 8);
+        g.fill();
+        g.fillStyle = rgba(col, 0.35);
+        roundRect(g, x, sy, 14, sh, [8, 0, 0, 8]);
+        g.fill();
+        g.fillStyle = col;
+        roundRect(g, x, sy, 7, sh, [8, 0, 0, 8]);
+        g.fill();
+      }
+      g.fillStyle = THEME.muted;
       g.textAlign = 'left';
       g.font = font(24, 700);
-      g.fillText(`S${k + 1}`, x + 12, sy + 42);
+      g.fillText(`S${k + 1}`, x + 20, sy + 42);
       g.textAlign = 'right';
-      g.font = font(30, 700);
+      g.fillStyle = col || THEME.muted;
+      g.font = dfont(30, 700);
       g.fillText(sec.time == null ? '–' : sec.time.toFixed(3), x + sw - 12, sy + 43);
     }
 
@@ -249,10 +261,8 @@ export class LapsPanel extends Panel {
       }
       if (s.current) {
         // Current stint: outline plus a red marker at the current lap.
-        g.lineWidth = 3;
-        g.strokeStyle = THEME.text;
         roundRect(g, bx + 1.5, y + 1.5, bw - 3, sh - 3, 5);
-        g.stroke();
+        glowStroke(g, THEME.text, 3, 2.4);
         const mx = bx + bw;
         g.fillStyle = THEME.accent;
         g.fillRect(mx - 2, y - 8, 5, sh + 16);

@@ -20,7 +20,7 @@ Update the item's status as soon as it is created or finished. Add a dated entry
 | 6 | Polish and performance | 🟡 | 9 / 10 |
 | 7 | Deploy | 🟡 | 3 / 7 |
 | 8 | Screen mode | 🟡 | 12 / 17 |
-| 9 | Style pass and analytics | 🟡 | 1 / 30 |
+| 9 | Style pass and analytics | 🟡 | 7 / 30 |
 
 ---
 
@@ -232,12 +232,12 @@ Analytics decisions: all four groups (race story, pace and tyres, strategy tools
 | ID | Item | Files | Status | Notes |
 |---|---|---|---|---|
 | 9.1 | **Style mockup:** one static page showing the new look for the leaderboard, telemetry, a race banner, the track and the playback bar, for the user to approve before any real code changes | `plan/mockups/style-pass.html` (new) | ✅ | plan/mockups/style-pass.html (also a private claude.ai artifact): dashboard + Analytics view, approved by the user |
-| 9.2 | **Theme refresh:** new `THEME` tokens (deeper neutrals, glass-style panel fill, team-colour rims, glow accents), a subtle background texture, matching `dashboard.css` and `start.css` | `js/panels/panel-base.js`, `css/` | ⬜ | 9a |
-| 9.3 | **Display font** for big numbers (free Google Font, e.g. Chakra Petch), Titillium kept for body text | `index.html`, `js/panels/panel-base.js` | ⬜ | 9a. Chakra Petch approved by the user |
-| 9.4 | **Leaderboard redesign:** team-colour gradient rows, flashing ▲▼ position change, smoother swaps, tyre ring with compound and age, fastest-lap purple badge, DRS / PIT chips | `js/panels/leaderboard.js`, `js/panels/row-anim.js` | ⬜ | 9a |
-| 9.5 | **Telemetry redesign:** round speed/RPM gauge with an arc, big gear digit, glowing throttle and brake bars, DRS light | `js/panels/telemetry.js` | ⬜ | 9a |
-| 9.6 | **Laps and tyres:** purple / green / yellow sector fills, stint bars in compound colours | `js/panels/laps.js`, `js/panels/lap-stats.js` | ⬜ | 9a |
-| 9.7 | **Weather:** livelier drawn icons, and rain particles in the VR room when `rainfall` is set | `js/panels/weather.js`, `js/scene/rooms.js` | ⬜ | 9a |
+| 9.2 | **Theme refresh:** new `THEME` tokens (deeper neutrals, glass-style panel fill, team-colour rims, glow accents), a subtle background texture, matching `dashboard.css` and `start.css` | `js/panels/panel-base.js`, `css/` | ✅ | panel-base THEME (deeper neutrals, sheen + rim in clear()), rgba/glowStroke helpers; start.css + dashboard.css glass cards and pill buttons; 3D accent reds updated |
+| 9.3 | **Display font** for big numbers (free Google Font, e.g. Chakra Petch), Titillium kept for body text | `index.html`, `js/panels/panel-base.js` | ✅ | Chakra Petch 600/700 (Google Fonts) via dfont() for numbers; Titillium kept for body text |
+| 9.4 | **Leaderboard redesign:** team-colour gradient rows, flashing ▲▼ position change, smoother swaps, tyre ring with compound and age, fastest-lap purple badge, DRS / PIT chips | `js/panels/leaderboard.js`, `js/panels/row-anim.js` | ✅ | Team-colour row gradients (cached) and glowing rims; +/- places vs grid (last position before lights out); PIT chip (lane window ends at pit.date) and DRS-range chip (leaderboard-flags.js, tested). Tyre ring stays a full ring: tyre life isn't in the data |
+| 9.5 | **Telemetry redesign:** round speed/RPM gauge with an arc, big gear digit, glowing throttle and brake bars, DRS light | `js/panels/telemetry.js` | ✅ | telemetry-live.js: 15 shift lights, 270-degree speed arc with rpm, big gear, vertical throttle/brake bars, DRS light; trace glow |
+| 9.6 | **Laps and tyres:** purple / green / yellow sector fills, stint bars in compound colours | `js/panels/laps.js`, `js/panels/lap-stats.js` | ✅ | Sector cards tinted with a glowing strip and coloured times; display font; current stint glow. Mini-sectors wait for 9.10 (segment codes not verified yet: 9472 shows 2048/2049) |
+| 9.7 | **Weather:** livelier drawn icons, and rain particles in the VR room when `rainfall` is set | `js/panels/weather.js`, `js/scene/rooms.js` | ✅ | Drawn sun / rain-cloud icon (no cloud cover in the data); rain.js streaks in the room while rainfall > 0, 1 draw call, clear 1.3 m around the user |
 | 9.8 | **Neon track:** glowing track ribbon with the three sectors coloured and a chequered start/finish line | `js/scene/track.js` | ⬜ | 9b |
 | 9.9 | **Car trails and halo:** short fading trails (fixed-size buffers, no per-frame allocation) and a pulsing halo on the selected car | `js/scene/cars.js` | ⬜ | 9b |
 | 9.10 | **Mini-sectors:** track segments coloured by who is fastest through them | `js/scene/track.js`, `js/session-data.js` | ⬜ | 9b. Check what OpenF1 `laps.segments_sector_*` gives first |
@@ -270,6 +270,7 @@ _(Record anything that differs from the spec, especially from OpenF1 docs verifi
 
 **OpenF1 check (2026-10-12), compared with spec §2:**
 - Rate limit confirmed: 3 req/s and 30 req/min on the free tier.
+- **Phase 9 checks (2026-10-13, session 9472):** the last `position` record before lights out (14:03:47) is the starting grid. `race_control` category `Drs` has only "DRS DISABLED" (lap 1) and "DRS ENABLED" (lap 2) here. `laps.segments_sector_*` holds codes such as 2048 and 2049 (VER lap 10); their meaning is not confirmed yet, so mini-sectors (9.10) wait until the codes are checked against the docs.
 - `pit.pit_duration` is **deprecated** (removed at the end of 2026). Use `lane_duration` and `stop_duration` instead.
 - `intervals.gap_to_leader` and `interval` can be strings like `"+1 LAP"`. The spec assumed numbers.
 - `intervals` is large (4.2 MB, about 30k records for the 2024 Bahrain race), not "small". It is still loaded in one request and cached.
@@ -326,3 +327,4 @@ _(Record anything that differs from the spec, especially from OpenF1 docs verifi
   - The headless runs on the merged build were skipped at the user's request; the user checks are in `plan/USER_CHECKS.md`.
 - **2026-10-13**: Added Phase 9 (Style pass, 20 items) at the user's request: they dropped live video (DRM) and live data and want a more fun, modern UI for replays. Mockup first (9.1), then the look (9a), track and race moments (9b) and new features (9c). The display font and the placement of new panels need the user's approval.
 - **2026-10-13**: Phase 9 extended with 9d Analytics (9.21–9.30), planned with the user: race story, pace and tyres, strategy tools and driver comparison, as a main-screen tab and a full Analytics mode, spoiler-free by default. Order: interface (9a–9c) first, then analytics. Chakra Petch approved; Go to lights out stays on the new playback bar.
+- **2026-10-13**: 9a done (9.2–9.7): new theme and Chakra Petch numbers on every panel, the start page and the dashboard; leaderboard team gradients, +/- vs grid, PIT and DRS-range chips; telemetry arc gauge, shift lights and pedal bars (`telemetry-live.js`); tinted sector cards; weather icon and rain in the VR room. Checks: 205/205 unit tests (with three); real-data renders of the panels, the desktop dashboard (12 draw calls, 32k tris) and the room preview with forced rain (28 calls, 32k tris).

@@ -3,10 +3,15 @@
 // qualifying (no intervals) show best lap + gap to the session best instead.
 // Rows slide to their new place over 0.5 s; a gained / lost place flashes green / red and
 // a new fastest lap purple (row-anim.js). Redraws stay ≤10 Hz and stop when nothing moves.
-import { Panel, THEME, TYRE_COLOURS, font, roundRect, fmtLap, fmtGap } from './panel-base.js';
+// 9.4 restyle: team-colour row gradients and rims, places gained / lost since the grid
+// (race only), and PIT / DRS chips (rules in leaderboard-flags.js). The DRS chip means the
+// interval is under 1 s while race control has DRS enabled and the track is green or yellow:
+// DRS range from timing, not the car's own DRS flag (car_data is loaded for one driver only).
+import { Panel, THEME, TYRE_COLOURS, font, dfont, rgba, glowStroke, roundRect, fmtLap, fmtGap } from './panel-base.js';
 import { LAYOUT } from './layout.js';
 import { trackStatusAt } from './race-status.js';
 import { RowAnimator } from './row-anim.js';
+import { gridPositions, drsTimeline, drsEnabledAt, pitLaneAt } from './leaderboard-flags.js';
 
 const PAD = 16;
 const HEADER_H = 112;
@@ -18,15 +23,16 @@ const ROW_GAP = 3;
 
 // Column anchors (canvas px). R = right-aligned, C = centre, L = left.
 const X = {
-  posR: 66, bar: 78, acr: 96, fl: 192,
-  gapR: 448, intR: 626,            // race
-  bestR: 470, bestGapR: 626,       // practice / qualifying
-  tyreC: 678, ageL: 706, pitR: 898,
+  posR: 66, bar: 78, acr: 98, fl: 196, chip: 234,
+  gapR: 462, intR: 618,            // race
+  bestR: 470, bestGapR: 618,       // practice / qualifying
+  tyreC: 664, ageL: 690, pitR: 790, chgR: 898,
 };
 
 const TYRE_LETTER = { SOFT: 'S', MEDIUM: 'M', HARD: 'H', INTERMEDIATE: 'I', WET: 'W' };
 const JUMP_MS = 15000;     // playhead moved more than this between refreshes (or back) = seek
-const FLASH_RGB = { gain: '42,211,106', loss: '255,59,48', fastest: '177,56,221' };
+const FLASH_RGB = { gain: '46,230,122', loss: '255,59,59', fastest: '184,77,255' };
+const DRS_RANGE_S = 1.0;
 
 const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
@@ -55,6 +61,11 @@ export class LeaderboardPanel extends Panel {
     this._lastT = NaN;
     this._now = 0;
     this._flash = { kind: null, alpha: 0 };
+    this._grid = null;          // driver -> grid slot (race only), built once
+    this._inPit = new Set();    // drivers in the pit lane now
+    this._drsOn = false;        // DRS enabled by race control and the track allows it
+    this._drsMsgs = null;       // [{t, on}] from race control "Drs" messages, oldest first
+    this._rowGrad = new Map();  // team colour -> cached row gradient
   }
 
   /** Row top (canvas px) for a display index. */
@@ -73,11 +84,16 @@ export class LeaderboardPanel extends Panel {
       if (r.retired) this.out.add(r.driverNumber);
       if (r.bestLap != null && r.bestLap < best) { best = r.bestLap; fastest = r.driverNumber; }
     }
-    // Compact signature at display precision: redraw only if something visible changed.
     const race = data.hasIntervals;
-    let sig = `${status.label}|${lap}|${ctx.selected}|${fastest}|`;
+    pitLaneAt(data.getPitStops ? data.getPitStops() : [], t, this._inPit);
+    if (race && !this._drsMsgs) this._drsMsgs = drsTimeline(data.getRaceControlAt(Infinity, Infinity) || []);
+    this._drsOn = race && (status.status === 'GREEN' || status.status === 'YELLOW') && drsEnabledAt(this._drsMsgs, t);
+    if (race && !this._grid) this._grid = gridPositions(data);
+    // Compact signature at display precision: redraw only if something visible changed.
+    let sig = `${status.label}|${lap}|${ctx.selected}|${fastest}|${this._drsOn ? 1 : 0}|`;
     for (const r of rows) {
       sig += `${r.driverNumber},${r.position},${this.out.has(r.driverNumber) ? 1 : 0},${r.compound},${r.tyreAge},${r.pitStops},`;
+      sig += `${this._inPit.has(r.driverNumber) ? 1 : 0},`;
       sig += race ? `${fmtGap(r.gapToLeader)},${fmtGap(r.interval)};` : `${r.bestLap == null ? '' : r.bestLap.toFixed(3)};`;
     }
     this.rows = rows;
@@ -123,14 +139,18 @@ export class LeaderboardPanel extends Panel {
 
   _drawHeader(g, w) {
     const s = this.data.session || {};
-    // Red accent strip, top left (F1 TV style).
+    // Red accent strip with a soft glow, top left.
+    g.fillStyle = rgba(THEME.accent, 0.25);
+    roundRect(g, PAD - 3, 19, 14, 76, 6);
+    g.fill();
     g.fillStyle = THEME.accent;
-    g.fillRect(PAD, 22, 8, 70);
+    roundRect(g, PAD, 22, 8, 70, 4);
+    g.fill();
 
     g.textBaseline = 'alphabetic';
     g.textAlign = 'left';
     g.fillStyle = THEME.text;
-    g.font = font(40, 700);
+    g.font = dfont(40, 700);
     const title = [s.country || s.circuit || '', s.year || ''].join(' ').trim().toUpperCase() || 'SESSION';
     g.fillText(title, PAD + 22, 58);
     g.fillStyle = THEME.muted;
@@ -139,15 +159,18 @@ export class LeaderboardPanel extends Panel {
 
     // Status pill, top right.
     const st = this.status;
-    let right = w - PAD;
+    const right = w - PAD;
     if (st) {
-      g.font = font(26, 700);
-      const pw = Math.max(120, g.measureText(st.label).width + 36);
+      g.font = dfont(24, 700);
+      const pw = Math.max(120, g.measureText(st.label).width + 40);
       const px = right - pw;
+      g.fillStyle = rgba(st.colour, 0.25);
+      roundRect(g, px - 4, 18, pw + 8, 48, 24);
+      g.fill();
       g.fillStyle = st.colour;
       roundRect(g, px, 22, pw, 40, 20);
       g.fill();
-      g.fillStyle = st.status === 'RED' ? '#ffffff' : st.status === 'GREEN' ? '#06210f' : '#0d1016';
+      g.fillStyle = st.status === 'RED' ? '#ffffff' : st.status === 'GREEN' ? '#04140a' : THEME.bg;
       g.textAlign = 'center';
       g.fillText(st.label, px + pw / 2, 51);
     }
@@ -158,7 +181,7 @@ export class LeaderboardPanel extends Panel {
     if (this.data.hasIntervals) {
       const lapTxt = `${this.leaderLap}/${total}`;
       g.fillStyle = THEME.text;
-      g.font = font(32, 700);
+      g.font = dfont(32, 700);
       g.fillText(lapTxt, right, 98);
       const lw = g.measureText(lapTxt).width;
       g.fillStyle = THEME.muted;
@@ -172,7 +195,7 @@ export class LeaderboardPanel extends Panel {
 
   _drawColumnTitles(g) {
     const y = COLHEAD_Y + COLHEAD_H / 2;
-    g.font = font(24, 600);
+    g.font = font(22, 700);
     g.fillStyle = THEME.muted;
     g.textBaseline = 'middle';
     g.textAlign = 'right';
@@ -188,32 +211,49 @@ export class LeaderboardPanel extends Panel {
       g.fillText('GAP', X.bestGapR, y);
     }
     g.textAlign = 'center';
-    g.fillText('TYRE', X.tyreC + 18, y);
+    g.fillText('TYRE', X.tyreC + 16, y);
     g.textAlign = 'right';
     g.fillText('PIT', X.pitR, y);
+    if (this.data.hasIntervals) g.fillText('+/−', X.chgR, y);
+  }
+
+  /** Row fill: team colour fading into the surface (cached per colour; rows draw translated). */
+  _rowFill(g, w, colour, strong) {
+    const key = strong ? `${colour}+` : colour;
+    let gr = this._rowGrad.get(key);
+    if (!gr) {
+      gr = g.createLinearGradient(PAD, 0, PAD + (w - PAD * 2) * 0.6, 0);
+      gr.addColorStop(0, rgba(colour, strong ? 0.42 : 0.26));
+      gr.addColorStop(1, strong ? THEME.surfaceHi : THEME.surface);
+      this._rowGrad.set(key, gr);
+    }
+    return gr;
   }
 
   _drawRow(g, w, r, y, nowMs) {
     const n = r.driverNumber;
     const id = `row:${n}`;
     const d = this.data.driverByNumber.get(n);
+    const team = d ? d.teamColour : THEME.muted;
     const selected = n === this.selected;
     const hover = this.hover === id;
     const rh = ROW_H - ROW_GAP;
     const cy = y + rh / 2;
 
-    // Background.
-    g.fillStyle = selected || hover ? THEME.surfaceHi : THEME.surface;
-    roundRect(g, PAD, y, w - PAD * 2, rh, 6);
+    // Background: team-colour gradient (drawn translated so one cached gradient fits every row).
+    g.save();
+    g.translate(0, y);
+    g.fillStyle = this._rowFill(g, w, team, selected || hover);
+    roundRect(g, PAD, 0, w - PAD * 2, rh, 8);
     g.fill();
+    g.restore();
     if (selected) {
-      g.fillStyle = THEME.accent;
-      roundRect(g, PAD, y, 6, rh, 3);
-      g.fill();
+      roundRect(g, PAD + 1.5, y + 1.5, w - PAD * 2 - 3, rh - 3, 8);
+      glowStroke(g, team, 3);
     } else if (hover) {
-      g.strokeStyle = THEME.line;
+      g.strokeStyle = THEME.rim;
       g.lineWidth = 2;
-      roundRect(g, PAD + 1, y + 1, w - PAD * 2 - 2, rh - 2, 6);
+      roundRect(g, PAD + 1, y + 1, w - PAD * 2 - 2, rh - 2, 8);
       g.stroke();
     }
     this.addHit(id, PAD, y, w - PAD * 2, rh, n);
@@ -221,7 +261,7 @@ export class LeaderboardPanel extends Panel {
     const fl = this._flash;
     if (this.anim.flashAt(n, nowMs, fl)) {
       g.fillStyle = `rgba(${FLASH_RGB[fl.kind]},${(0.45 * fl.alpha).toFixed(3)})`;
-      roundRect(g, PAD, y, w - PAD * 2, rh, 6);
+      roundRect(g, PAD, y, w - PAD * 2, rh, 8);
       g.fill();
     }
 
@@ -232,56 +272,68 @@ export class LeaderboardPanel extends Panel {
     // Position.
     g.textAlign = 'right';
     g.fillStyle = THEME.text;
-    g.font = font(30, 700);
+    g.font = dfont(30, 700);
     g.fillText(r.position != null ? String(r.position) : '–', X.posR, cy + 1);
 
-    // Team bar + acronym.
-    g.fillStyle = d ? d.teamColour : THEME.muted;
-    g.fillRect(X.bar, y + 9, 7, rh - 18);
+    // Team rim (with a soft glow) + acronym.
+    g.fillStyle = rgba(team, 0.28);
+    roundRect(g, X.bar - 4, y + 5, 15, rh - 10, 5);
+    g.fill();
+    g.fillStyle = team;
+    roundRect(g, X.bar, y + 9, 7, rh - 18, 3);
+    g.fill();
     g.textAlign = 'left';
     g.fillStyle = THEME.text;
-    g.font = font(30, 700);
+    g.font = dfont(30, 700);
     g.fillText(d ? d.acronym : String(n), X.acr, cy + 1);
 
-    // Fastest lap marker (purple stopwatch).
+    // Fastest lap marker (purple stopwatch), then a PIT or DRS chip.
     if (n === this.fastest) this._drawFastest(g, X.fl, cy);
+    if (!out) {
+      if (this._inPit.has(n)) chip(g, X.chip, cy, 'PIT', THEME.blue, '#ffffff');
+      else if (this._drsOn && r.position > 1 && typeof r.interval === 'number' && r.interval > 0 && r.interval < DRS_RANGE_S) {
+        chip(g, X.chip, cy, 'DRS', THEME.green, '#04140a');
+      }
+    }
 
     // Timing columns.
     g.textAlign = 'right';
     if (out) {
       g.fillStyle = THEME.muted;
-      g.font = font(28, 700);
+      g.font = dfont(26, 700);
       g.fillText('OUT', this.data.hasIntervals ? X.gapR : X.bestR, cy + 1);
     } else if (this.data.hasIntervals) {
-      g.font = font(28, 600);
+      g.font = dfont(27, 600);
       g.fillStyle = THEME.text;
       g.fillText(r.position === 1 ? 'LEADER' : fmtGap(r.gapToLeader), X.gapR, cy + 1);
       g.fillStyle = THEME.muted;
       g.fillText(r.position === 1 ? '' : fmtGap(r.interval), X.intR, cy + 1);
     } else {
-      g.font = font(28, 600);
+      g.font = dfont(27, 600);
       g.fillStyle = n === this.fastest ? THEME.purple : THEME.text;
       g.fillText(r.bestLap != null ? fmtLap(r.bestLap) : '–', X.bestR, cy + 1);
       g.fillStyle = THEME.muted;
       g.fillText(fmtSessionBestGap(r.bestLap, this.sessionBest), X.bestGapR, cy + 1);
     }
 
-    // Tyre ring with letter + age.
+    // Tyre ring (glowing) with letter + age.
     if (r.compound) {
       const col = TYRE_COLOURS[r.compound] || TYRE_COLOURS.UNKNOWN;
-      g.strokeStyle = col;
-      g.lineWidth = 4;
+      g.fillStyle = THEME.bg;
+      g.beginPath();
+      g.arc(X.tyreC, cy, 19, 0, Math.PI * 2);
+      g.fill();
       g.beginPath();
       g.arc(X.tyreC, cy, 17, 0, Math.PI * 2);
-      g.stroke();
+      glowStroke(g, col, 4.5, 2.2);
       g.fillStyle = col;
-      g.font = font(24, 700);
+      g.font = dfont(22, 700);
       g.textAlign = 'center';
       g.fillText(TYRE_LETTER[r.compound] || '?', X.tyreC, cy + 1);
       if (r.tyreAge != null) {
         g.textAlign = 'left';
         g.fillStyle = THEME.muted;
-        g.font = font(26, 600);
+        g.font = dfont(24, 600);
         g.fillText(String(r.tyreAge), X.ageL, cy + 1);
       }
     }
@@ -289,13 +341,25 @@ export class LeaderboardPanel extends Panel {
     // Pit stops.
     g.textAlign = 'right';
     g.fillStyle = r.pitStops ? THEME.text : THEME.muted;
-    g.font = font(28, 600);
+    g.font = dfont(26, 600);
     g.fillText(String(r.pitStops || 0), X.pitR - 4, cy + 1);
+
+    // Places gained / lost since the grid (race only).
+    const grid = this._grid ? this._grid.get(n) : undefined;
+    if (this.data.hasIntervals && grid != null && r.position != null && !out) {
+      const dPos = grid - r.position;
+      g.font = dfont(24, 700);
+      g.fillStyle = dPos > 0 ? THEME.green : dPos < 0 ? THEME.red : THEME.muted;
+      g.fillText(dPos > 0 ? `▲${dPos}` : dPos < 0 ? `▼${-dPos}` : '–', X.chgR, cy + 1);
+    }
 
     g.globalAlpha = 1;
   }
 
   _drawFastest(g, x, cy) {
+    g.fillStyle = rgba(THEME.purple, 0.3);
+    roundRect(g, x - 4, cy - 19, 38, 38, 10);
+    g.fill();
     g.fillStyle = THEME.purple;
     roundRect(g, x, cy - 15, 30, 30, 7);
     g.fill();
@@ -310,4 +374,20 @@ export class LeaderboardPanel extends Panel {
     g.lineTo(x + 18, cy - 10);
     g.stroke();
   }
+}
+
+/** Small status chip (PIT / DRS) left-aligned at x, centred on cy. Leaves textAlign right. */
+function chip(g, x, cy, label, bg, fg) {
+  g.font = dfont(18, 700);
+  const w = g.measureText(label).width + 16;
+  g.fillStyle = rgba(bg, 0.3);
+  roundRect(g, x - 3, cy - 16, w + 6, 32, 8);
+  g.fill();
+  g.fillStyle = bg;
+  roundRect(g, x, cy - 13, w, 26, 6);
+  g.fill();
+  g.fillStyle = fg;
+  g.textAlign = 'left';
+  g.fillText(label, x + 8, cy + 1);
+  g.textAlign = 'right';
 }

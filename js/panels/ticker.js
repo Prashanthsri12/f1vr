@@ -32,8 +32,8 @@ export function flagStyle(msg) {
   switch (flag) {
     case 'GREEN':
     case 'CLEAR': return { kind: 'solid', bg: '#14823c', fg: LIGHT_TEXT };
-    case 'YELLOW': return { kind: 'solid', bg: '#f5c400', fg: DARK_TEXT };
-    case 'DOUBLE YELLOW': return { kind: 'double', bg: '#f5c400', fg: DARK_TEXT };
+    case 'YELLOW': return { kind: 'solid', bg: '#ffd21f', fg: DARK_TEXT };
+    case 'DOUBLE YELLOW': return { kind: 'double', bg: '#ffd21f', fg: DARK_TEXT };
     case 'RED': return { kind: 'solid', bg: '#d01d16', fg: LIGHT_TEXT };
     case 'BLUE': return { kind: 'solid', bg: '#1f5fd8', fg: LIGHT_TEXT };
     case 'CHEQUERED': return { kind: 'chequered', bg: '#000000', fg: LIGHT_TEXT };

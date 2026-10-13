@@ -39,7 +39,7 @@ export function createTable(parent) {
 
   const rimGeo = new THREE.TorusGeometry(TABLE_RADIUS, 0.005, 6, 64);
   const rimMat = new THREE.MeshStandardMaterial({
-    color: 0x7a0a0a, emissive: 0xe10600, emissiveIntensity: 0.35, roughness: 0.6,
+    color: 0x7a0a0a, emissive: 0xff2d3d, emissiveIntensity: 0.35, roughness: 0.6,
   });
   const rim = new THREE.Mesh(rimGeo, rimMat);
   rim.name = 'tableRim';

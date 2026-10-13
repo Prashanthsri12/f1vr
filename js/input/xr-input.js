@@ -25,7 +25,7 @@ const PROFILES_PATH = 'https://cdn.jsdelivr.net/npm/@webxr-input-profiles/assets
 
 const RAY_LENGTH = 3;          // metres, when nothing is hit
 const RAY_IDLE = 0xdfe6f0;
-const RAY_HOVER = 0xe10600;    // accent red over something selectable
+const RAY_HOVER = 0xff2d3d;    // accent red over something selectable
 const MOVE_EPS = 1e-4;         // matrix element change that counts as "moved"
 const HOVER_SCALE = 1.08;
 const SMALL_PANEL = 0.2;       // panels narrower than this get the hover scale (tiles)

@@ -22,30 +22,65 @@ export const MAX_PX_PER_M = 2048; // backing density cap for enlarged panels (te
 
 export const THEME = {
   font: "'Titillium Web', system-ui, sans-serif",
-  bg: '#0d1016',           // opaque panel background (pit wall mode)
-  bgRgb: '13,16,22',       // used with alpha in passthrough mode
-  surface: '#161b24',      // rows, cells
-  surfaceHi: '#202735',    // hover / highlighted row
-  line: '#2a3240',
-  text: '#e8ecf2',
-  muted: '#8a94a6',
-  accent: '#e10600',       // F1-style red: selected state, highlights
-  purple: '#b138dd',       // overall best
-  green: '#2ad36a',        // personal best / gain
-  yellow: '#f5c400',       // slower / yellow flag
-  red: '#ff3b30',          // loss / brake
-  orange: '#ff8a00',       // safety car
-  blue: '#2f7bff',
+  display: "'Chakra Petch', 'Titillium Web', system-ui, sans-serif", // big numbers (9.3)
+  bg: '#0b0f17',           // opaque panel background (pit wall mode)
+  bgTop: '#131927',        // top of the panel's vertical sheen
+  bgRgb: '11,15,23',       // used with alpha in passthrough mode
+  surface: '#151b28',      // rows, cells
+  surfaceHi: '#1f2738',    // hover / highlighted row
+  line: '#242d3f',
+  rim: 'rgba(140,160,200,0.22)', // 2 px panel edge
+  text: '#eef2f8',
+  muted: '#8692a8',
+  accent: '#ff2d3d',       // pit wall red: selected state, highlights
+  purple: '#b84dff',       // overall best
+  green: '#2ee67a',        // personal best / gain
+  yellow: '#ffd21f',       // slower / yellow flag
+  red: '#ff3b3b',          // loss / brake
+  orange: '#ff8a1f',       // safety car
+  blue: '#3d8bff',
 };
 
 export const TYRE_COLOURS = {
-  SOFT: '#ff3b30', MEDIUM: '#f5c400', HARD: '#f2f2f2',
-  INTERMEDIATE: '#2ad36a', WET: '#2f7bff', UNKNOWN: '#8a94a6',
+  SOFT: '#ff3b3b', MEDIUM: '#ffd21f', HARD: '#f2f2f2',
+  INTERMEDIATE: '#2ee67a', WET: '#3d8bff', UNKNOWN: '#8692a8',
 };
 
 /** CSS font string, e.g. font(28, 700) or font(28, 600, true) for tabular numbers. */
 export function font(px, weight = 600) {
   return `${weight} ${px}px ${THEME.font}`;
+}
+
+/** Display face for big numbers and short labels (lap times, speed, gear, positions). */
+export function dfont(px, weight = 700) {
+  return `${weight} ${px}px ${THEME.display}`;
+}
+
+const _rgbaCache = new Map();
+/** '#rrggbb' + alpha -> 'rgba(r,g,b,a)', cached (panels redraw at ≤10 Hz with few distinct colours). */
+export function rgba(hex, a) {
+  const key = hex + a;
+  let v = _rgbaCache.get(key);
+  if (v === undefined) {
+    const n = parseInt(hex.slice(1, 7), 16);
+    v = `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+    if (_rgbaCache.size > 512) _rgbaCache.clear();
+    _rgbaCache.set(key, v);
+  }
+  return v;
+}
+
+/**
+ * Glow without shadowBlur (slow on the Quest): the current path is stroked wide and faint,
+ * then at the given width. Leaves lineWidth / strokeStyle set to the core stroke.
+ */
+export function glowStroke(g, colour, width, glow = 2.6) {
+  g.strokeStyle = rgba(colour, 0.22);
+  g.lineWidth = width * glow;
+  g.stroke();
+  g.strokeStyle = colour;
+  g.lineWidth = width;
+  g.stroke();
 }
 
 /** Rounded rectangle path helper. */
@@ -73,6 +108,7 @@ let fontsReady = false;
 const fontsPromise = (typeof document !== 'undefined' && document.fonts)
   ? Promise.all([
     document.fonts.load(font(32, 400)), document.fonts.load(font(32, 600)), document.fonts.load(font(32, 700)),
+    document.fonts.load(dfont(32, 600)), document.fonts.load(dfont(32, 700)),
   ]).catch(() => {}).then(() => document.fonts.ready).then(() => { fontsReady = true; })
   : Promise.resolve().then(() => { fontsReady = true; });
 export const whenFontsReady = () => fontsPromise;
@@ -120,12 +156,26 @@ export class Panel {
   /** Force a redraw at the next opportunity. */
   invalidate() { this._dirty = true; }
 
-  /** Background fill respecting passthrough opacity (75%). Call first in draw(). */
+  /**
+   * Background respecting passthrough opacity (75%): a dark panel with a faint top sheen
+   * and a thin rim (9.2). Call first in draw(). The gradient is cached per panel.
+   */
   clear(g, w, h, radius = 18) {
     g.clearRect(0, 0, w, h);
-    g.fillStyle = this.passthrough ? `rgba(${THEME.bgRgb},0.75)` : THEME.bg;
+    const pt = this.passthrough;
+    if (!this._sheen || this._sheenKey !== h + (pt ? 'p' : 'o') || this._sheenCtx !== g) {
+      const sheen = g.createLinearGradient(0, 0, 0, Math.min(h, 360));
+      sheen.addColorStop(0, pt ? 'rgba(19,25,39,0.82)' : THEME.bgTop);
+      sheen.addColorStop(1, pt ? `rgba(${THEME.bgRgb},0.75)` : THEME.bg);
+      this._sheen = sheen; this._sheenKey = h + (pt ? 'p' : 'o'); this._sheenCtx = g;
+    }
+    g.fillStyle = this._sheen;
     roundRect(g, 0, 0, w, h, radius);
     g.fill();
+    g.strokeStyle = THEME.rim;
+    g.lineWidth = 2;
+    roundRect(g, 1, 1, w - 2, h - 2, Math.max(0, radius - 1));
+    g.stroke();
   }
 
   /** Register a clickable rect (canvas px) during draw(). */
