@@ -18,7 +18,7 @@ import { stopRadio, sfxStats } from './audio.js';
 import { createMainScreen } from './scene/screen.js';
 import { createVrScreen } from './screen/vr-screen.js';
 import { createSyncControl } from './sync-control.js';
-import { createRain } from './scene/rain.js';
+import { createVrExtras } from './scene/vr-extras.js';
 
 const HUD_INTERVAL = 0.1; // seconds (10 Hz)
 const STYLE_ID = 'f1vr-hud-style';
@@ -99,9 +99,9 @@ export async function startApp({
   let fpsMeter = null;
   let audioEvents = null;
   const unsubs = [];
-  const rain = createRain();
-  world.scene.add(rain.object);
-  unsubs.push(() => rain.dispose());
+  // Phase 9: rain, track colours, race banners, flag ambience, engine hum (scene/vr-extras.js).
+  const extras = createVrExtras({ world, table });
+  unsubs.push(() => extras.dispose());
   let overlay = null;
   let disposed = false;
 
@@ -193,6 +193,7 @@ export async function startApp({
     const transform = await loadTrack(data, table);
     status('Placing cars…');
     cars = new Cars(data.drivers, transform, table);
+    extras.setSession(data, transform);
     playback = new Playback(data);
     const sync = createSyncControl({ data, playback }); // 8.9: playback bar sync row
     status('Building panels…');
@@ -398,8 +399,6 @@ export async function startApp({
     playback.update(dt);
     cars.update(data, playback.time, screenUp() ? vrScreen.camera : world.camera);
     pitWall.update(dt);
-    const wx = data.getWeatherAt(playback.time);
-    rain.update(dt, !!(wx && wx.rainfall > 0), mode !== 'passthrough');
     fpsMeter.update(dt);
     audioEvents.update(playback.time, selected, playback.playing && !playback.waiting);
     input.update(dt);
@@ -426,13 +425,17 @@ export async function startApp({
       hudDirty = false;
       updateHud();
     }
+    extras.update(dt, playback, selected, mode === 'passthrough');
     screen.update(dt);
     if (vrScreen) vrScreen.update(dt);
   }));
 
   // Dev/test hook: ?debug exposes the live objects (used by headless XR tests).
   if (new URLSearchParams(location.search).has('debug')) {
-    window.__f1vr = { world, table, data, playback, pitWall, panelGrab, recenter, sfxStats, screen, vrScreen, getMode: () => mode };
+    window.__f1vr = {
+      world, table, data, playback, pitWall, panelGrab, recenter, sfxStats, screen, vrScreen, getMode: () => mode,
+      banner3d: extras.banner3d, setDebugFlag: extras.setDebugFlag,
+    };
     unsubs.push(() => { if (window.__f1vr && window.__f1vr.table === table) delete window.__f1vr; });
   }
 

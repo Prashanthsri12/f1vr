@@ -12,12 +12,12 @@ const HALF = ROOM / 2;
 const CEILING = 3.4;         // above the ticker (top ≈ 2.5 m)
 const WALL_HEIGHT = 1.2;     // the low pit wall counters
 const WALL_THICK = 0.08;
-const ACCENT_RED = 0xff2d3d;
+export const ACCENT_RED = 0xff2d3d;
 const STRIP_BLUE = 0x8fb3d9;
 
 /**
  * @param {string} theme one of THEMES (unknown names fall back to 'pitwall')
- * @returns {{group: THREE.Group, dispose: () => void, theme: string, background: number,
+ * @returns {{group: THREE.Group, dispose: () => void, theme: string, background: number, accent: THREE.MeshBasicMaterial,
  *   fog: {color: number, near: number, far: number}}}
  */
 export function buildRoom(theme) {
@@ -25,7 +25,11 @@ export function buildRoom(theme) {
   const group = new THREE.Group();
   group.name = `room:${name}`;
   const disposables = [];
+  // One shared accent material (the red light strips) so flag ambience (9.12) can tint it.
+  const accent = new THREE.MeshBasicMaterial({ color: ACCENT_RED });
+  disposables.push(accent);
   const kit = {
+    accent,
     track(o) { disposables.push(o); return o; },
     add(o) { o.updateMatrix(); o.matrixAutoUpdate = false; group.add(o); return o; },
   };
@@ -33,6 +37,7 @@ export function buildRoom(theme) {
   return {
     group,
     theme: name,
+    accent,
     ...look,
     dispose() { for (const d of disposables) d.dispose(); },
   };
@@ -115,7 +120,7 @@ const BUILDERS = {
     lowWalls(kit, new THREE.MeshStandardMaterial({ color: 0x161a21, roughness: 0.8, metalness: 0.1 }));
     const blue = new THREE.MeshBasicMaterial({ color: STRIP_BLUE });
     // Counter-top strips: red on the front wall only, blue elsewhere, plus a low front strip.
-    wallStrips(kit, WALL_HEIGHT - 0.05, HALF - WALL_THICK, 0.025, new THREE.MeshBasicMaterial({ color: ACCENT_RED }), [0]);
+    wallStrips(kit, WALL_HEIGHT - 0.05, HALF - WALL_THICK, 0.025, kit.accent, [0]);
     const r = HALF - WALL_THICK;
     boxes(kit, [
       ...[1, 2, 3].map((i) => {
@@ -159,7 +164,7 @@ const BUILDERS = {
     boxes(kit, [
       { w: ROOM - 0.6, h: 0.012, d: e, x: 0, y: 0.75, z: -r },
       { w: ROOM - 0.6, h: 0.012, d: e, x: 0, y: CEILING - 0.35, z: -r },
-    ], new THREE.MeshBasicMaterial({ color: ACCENT_RED }));
+    ], kit.accent);
     return { background: 0x040507, fog: { color: 0x040507, near: 7, far: 18 } };
   },
 
@@ -229,7 +234,7 @@ const BUILDERS = {
     boxes(kit, lights, new THREE.MeshBasicMaterial({ color: 0xffc77a, fog: false }));
     // Low pit wall counters with a red top strip at the front.
     lowWalls(kit, new THREE.MeshStandardMaterial({ color: 0x14171e, roughness: 0.8, metalness: 0.1 }));
-    wallStrips(kit, WALL_HEIGHT - 0.05, HALF - WALL_THICK, 0.025, new THREE.MeshBasicMaterial({ color: ACCENT_RED }));
+    wallStrips(kit, WALL_HEIGHT - 0.05, HALF - WALL_THICK, 0.025, kit.accent);
     return { background: 0x02030a, fog: { color: 0x05070f, near: 8, far: 45 } };
   },
 };

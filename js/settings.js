@@ -7,12 +7,16 @@ const DEFAULTS = {
   trackView: '2d',       // Screen mode track tile: '2d' top-down | '3d' orbit
   screenShape: 'flat',   // Screen in VR: 'flat' | 'curved'
   vrMode: 'screen',      // VR: 'screen' | 'immersive'
+  trackColours: 'sectors', // 9.8: 'sectors' | 'minis' | 'plain' (scene/track-style.js)
+  banners: true,         // 9.11: race moment banners
+  engine: false,         // 9.13: engine hum pitched by the selected driver's RPM
 };
 /** Allowed values for the string settings that are choices (others only need the right type). */
 const CHOICES = {
   trackView: ['2d', '3d'],
   screenShape: ['flat', 'curved'],
   vrMode: ['screen', 'immersive'],
+  trackColours: ['sectors', 'minis', 'plain'],
 };
 
 let cache = null;
@@ -34,7 +38,8 @@ function load() {
 
 /**
  * @returns {{radio: boolean, sfx: boolean, theme: string, fps: boolean,
- *   trackView: '2d'|'3d', screenShape: 'flat'|'curved', vrMode: 'screen'|'immersive'}}
+ *   trackView: '2d'|'3d', screenShape: 'flat'|'curved', vrMode: 'screen'|'immersive',
+ *   trackColours: 'sectors'|'minis'|'plain', banners: boolean, engine: boolean}}
  *   live settings object (read-only for callers)
  */
 export function getSettings() {

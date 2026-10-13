@@ -4,6 +4,7 @@
 // stays sharp. Mouse clicks and hover map from the element to logical canvas pixels and use
 // the panel's own hit rects (Panel.hitTestPx), exactly like a VR ray does.
 import { containRect } from './screen-layout.js';
+import { uiClick } from '../audio.js';
 
 export class PanelHost {
   /** @param {object} ctx the shared PanelContext (time, playback, selected, actions, …) */
@@ -44,6 +45,7 @@ export class PanelHost {
       const p = toPx(e);
       const hit = panel.hitTestPx(p.x, p.y);
       if (!hit) return;
+      uiClick();
       panel.onHit(hit, this.ctx, { x: p.x, y: p.y });
       panel.invalidate();
     };

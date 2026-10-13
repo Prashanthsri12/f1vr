@@ -15,6 +15,7 @@
 // setDensity(scale) grows the backing canvas and draws through a k× transform, so draw(),
 // hit rects and uvToPx keep working in the same logical pixels.
 import * as THREE from 'three';
+import { uiClick } from '../audio.js';
 
 export const PX_PER_M = 1024;
 export const MAX_HZ = 10;
@@ -327,6 +328,7 @@ export class PanelManager {
   /** Select whatever a raycast result points at. Returns true if a rect was hit. */
   select(result, ctx) {
     if (!result || !result.rect) return false;
+    uiClick();
     result.panel.onHit(result.rect, ctx, result.px);
     result.panel.invalidate();
     return true;

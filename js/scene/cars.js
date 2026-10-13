@@ -1,12 +1,13 @@
 // Cars on the track table (spec §4, CONTRACTS.md `js/scene/cars.js`).
 // Draw calls: cars 1 InstancedMesh per material (wedge: 1; glTF model: one per material),
-// selected-car glow 1, trail 1, labels 1 (see labels.js).
+// selected-car glow 1, trail 1, labels 1 (see labels.js), field trails 1 + halo 1 (car-fx.js).
 // No per-frame allocation: all temporaries are preallocated.
 
 import * as THREE from 'three';
 import { CarLabels } from './labels.js';
 import { headingFromDelta } from './track-math.js';
 import { resolveModelUrl, loadCarModel } from './car-model.js';
+import { CarFx } from './car-fx.js';
 
 const CAR_LENGTH = 0.025;
 const CAR_WIDTH = 0.011;
@@ -108,6 +109,7 @@ export class Cars {
     this.trail.visible = false;
     parent.add(this.trail);
 
+    this.fx = new CarFx(parent, this.count, this.teamColors);
     this.labels = new CarLabels(drivers, parent);
     this.extraMeshes = [];          // glTF model: the untinted parts, sharing this.mesh's instanceMatrix
     this.carHeight = WEDGE_HEIGHT;
@@ -211,6 +213,7 @@ export class Cars {
     } else {
       this.trail.visible = false;
     }
+    this.fx.update(this, data, t, CAR_LENGTH * 0.55 * SELECTED_SCALE * this.carScale);
 
     this._data = data;
     this._t = t;
@@ -326,5 +329,6 @@ export class Cars {
     this.trailGeometry.dispose();
     this.trailMaterial.dispose();
     this.labels.dispose();
+    this.fx.dispose();
   }
 }

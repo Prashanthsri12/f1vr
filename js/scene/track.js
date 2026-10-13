@@ -1,6 +1,6 @@
 // Track table and track ribbon (spec §4, CONTRACTS.md `js/scene/track.js`).
-// Draw calls: table = 2 (top + rim), track = 3 (ribbon, edge lines, start/finish line),
-// + 1 pit lane line when one could be traced (pit-lane.js). A session without usable
+// Draw calls: table = 2 (top + rim), track = 4 (ribbon, edge lines, glow band, start/finish;
+// see track-mesh.js), + 1 pit lane line when one could be traced (pit-lane.js). A session without usable
 // location data gets an empty table with a "no position data" note instead of failing.
 
 import * as THREE from 'three';
@@ -10,11 +10,12 @@ import {
   nearestSampleIndex, TARGET_SIZE,
 } from './track-math.js';
 import { pickPitStop, pitWindow, extractPitLane } from './pit-lane.js';
+import { buildTrackMeshes } from './track-mesh.js';
 
 const TABLE_RADIUS = 0.8;
 const TABLE_THICKNESS = 0.03;
 const SAMPLES = 500;
-const CACHE_VERSION = 1;
+const CACHE_VERSION = 2; // 2: sector boundary samples (9.8)
 
 /**
  * Creates the track table: a group at (0, 0.9, -1.0) with a dark tabletop disc and a red rim.
@@ -139,6 +140,10 @@ export async function loadTrack(data, table) {
     toScene,
     width: built.width,
     mesh: group,
+    outline: built.outline,
+    /** Outline sample indices where S1, S2 and S3 start, or null when unknown. */
+    sectors: built.sectors || null,
+    setSampleColours: group.userData.setSampleColours,
     dispose() {
       group.removeFromParent();
       group.traverse((o) => {
@@ -250,6 +255,7 @@ async function buildTrackData(data) {
   }
   const start = scenePts[0];
   return {
+    sectors: sectorSamples(data, lap, pts, scenePts, outline),
     v: CACHE_VERSION,
     params: {
       scale: params.scale, center: params.center,
@@ -262,94 +268,19 @@ async function buildTrackData(data) {
   };
 }
 
-/** Horizontal unit normal (left of travel) at sample i of a closed flat xyz outline. */
-function normalAt(outline, n, i, out) {
-  const a = ((i - 1 + n) % n) * 3, b = ((i + 1) % n) * 3;
-  let tx = outline[b] - outline[a], tz = outline[b + 2] - outline[a + 2];
-  const len = Math.hypot(tx, tz) || 1;
-  tx /= len; tz /= len;
-  out.x = tz; out.z = -tx; // perpendicular in XZ plane
-  out.tx = tx; out.tz = tz;
-  return out;
-}
-
-/** Ribbon + edge lines + start/finish quad from cached track data. */
-function buildTrackMeshes(built) {
-  const { outline, width } = built;
-  const n = outline.length / 3;
-  const half = width / 2;
-  const group = new THREE.Group();
-  group.name = 'track';
-
-  // --- ribbon: two vertices per sample, indexed strip, closed ---
-  const pos = new Float32Array(n * 2 * 3);
-  const edge = new Float32Array(n * 2 * 2 * 3); // 2 edges x n segments x 2 verts
-  const nrm = { x: 0, z: 0, tx: 0, tz: 0 };
-  const EDGE_LIFT = 0.0004;
-  for (let i = 0; i < n; i++) {
-    normalAt(outline, n, i, nrm);
-    const x = outline[i * 3], y = outline[i * 3 + 1], z = outline[i * 3 + 2];
-    pos[i * 6] = x + nrm.x * half; pos[i * 6 + 1] = y; pos[i * 6 + 2] = z + nrm.z * half;
-    pos[i * 6 + 3] = x - nrm.x * half; pos[i * 6 + 4] = y; pos[i * 6 + 5] = z - nrm.z * half;
-  }
-  const index = [];
-  for (let i = 0; i < n; i++) {
-    const j = (i + 1) % n;
-    const l0 = i * 2, r0 = i * 2 + 1, l1 = j * 2, r1 = j * 2 + 1;
-    index.push(l0, r0, l1, r0, r1, l1);
-    // edge segments (left then right), lifted slightly
-    const e = i * 12;
-    edge[e] = pos[l0 * 3]; edge[e + 1] = pos[l0 * 3 + 1] + EDGE_LIFT; edge[e + 2] = pos[l0 * 3 + 2];
-    edge[e + 3] = pos[l1 * 3]; edge[e + 4] = pos[l1 * 3 + 1] + EDGE_LIFT; edge[e + 5] = pos[l1 * 3 + 2];
-    edge[e + 6] = pos[r0 * 3]; edge[e + 7] = pos[r0 * 3 + 1] + EDGE_LIFT; edge[e + 8] = pos[r0 * 3 + 2];
-    edge[e + 9] = pos[r1 * 3]; edge[e + 10] = pos[r1 * 3 + 1] + EDGE_LIFT; edge[e + 11] = pos[r1 * 3 + 2];
-  }
-  const ribbonGeo = new THREE.BufferGeometry();
-  ribbonGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  ribbonGeo.setIndex(index);
-  ribbonGeo.computeVertexNormals();
-  // Winding may face down depending on travel direction; render both sides.
-  const ribbonMat = new THREE.MeshStandardMaterial({
-    color: 0x3a3d44, roughness: 0.9, metalness: 0.0, side: THREE.DoubleSide,
-    emissive: 0x15171b,
-  });
-  const ribbon = new THREE.Mesh(ribbonGeo, ribbonMat);
-  ribbon.name = 'trackRibbon';
-  group.add(ribbon);
-
-  const edgeGeo = new THREE.BufferGeometry();
-  edgeGeo.setAttribute('position', new THREE.BufferAttribute(edge, 3));
-  const edgeMat = new THREE.LineBasicMaterial({ color: 0xc8ccd4, transparent: true, opacity: 0.55 });
-  const edges = new THREE.LineSegments(edgeGeo, edgeMat);
-  edges.name = 'trackEdges';
-  group.add(edges);
-
-  // --- start/finish: chequered quad across the ribbon ---
-  const si = nearestSampleIndex(outline, built.start.x, built.start.z);
-  normalAt(outline, n, si, nrm);
-  const canvas = document.createElement('canvas');
-  canvas.width = 64; canvas.height = 8;
-  const ctx = canvas.getContext('2d');
-  for (let cx = 0; cx < 16; cx++) {
-    for (let cy = 0; cy < 2; cy++) {
-      ctx.fillStyle = (cx + cy) % 2 ? '#111' : '#fff';
-      ctx.fillRect(cx * 4, cy * 4, 4, 4);
-    }
-  }
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.magFilter = THREE.NearestFilter;
-  tex.colorSpace = THREE.SRGBColorSpace;
-  const sfGeo = new THREE.PlaneGeometry(width * 1.15, width * 0.18);
-  sfGeo.rotateX(-Math.PI / 2); // lie flat; plane's local X spans across the track
-  const sfMat = new THREE.MeshBasicMaterial({
-    map: tex, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
-  });
-  const sf = new THREE.Mesh(sfGeo, sfMat);
-  sf.name = 'startFinish';
-  sf.position.set(outline[si * 3], outline[si * 3 + 1] + 0.0006, outline[si * 3 + 2]);
-  // rotate so local +X aligns with the across-track normal
-  sf.rotation.y = Math.atan2(-nrm.z, nrm.x);
-  group.add(sf);
-
-  return group;
+/**
+ * Outline samples where each sector starts, from the reference lap's sector times and the
+ * location samples' timestamps: [S1 start (= start/finish), S2 start, S3 start], or null.
+ */
+function sectorSamples(data, lap, pts, scenePts, outline) {
+  const l = (data.getDriverLaps(lap.driverNumber) || []).find((x) => x.lap_number === lap.lapNumber);
+  if (!l || !(l.duration_sector_1 > 0) || !(l.duration_sector_2 > 0) || !Number.isFinite(pts[0].t)) return null;
+  const t1 = lap.start + l.duration_sector_1 * 1000;
+  const t2 = t1 + l.duration_sector_2 * 1000;
+  const at = (t) => {
+    let best = 0;
+    for (let i = 0; i < pts.length; i++) if (Math.abs(pts[i].t - t) < Math.abs(pts[best].t - t)) best = i;
+    return nearestSampleIndex(outline, scenePts[best].x, scenePts[best].z);
+  };
+  return [nearestSampleIndex(outline, scenePts[0].x, scenePts[0].z), at(t1), at(t2)];
 }

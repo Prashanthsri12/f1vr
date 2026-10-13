@@ -19,8 +19,10 @@ import { computeScreenLayout, TILE_NAMES } from './screen-layout.js';
 import { PanelHost } from './panel-host.js';
 import { createTrackView } from './track-view.js';
 import { createMainTile } from './main-tile.js';
+import { createDashExtras } from './dash-extras.js';
 
 const KEYS_HELP = 'Space play/pause · ←/→ seek 10 s · ↑/↓ speed · [ ] driver · V 2D/3D · F swap track and screen · Esc exit'
+  + '\nC track colours (sectors / mini-sectors / plain) · E engine hum'
   + '\nSync: L lights out · PgUp/PgDn previous/next lap · , / . nudge −1/+1 s · Shift+, / Shift+. nudge −5/+5 s'
   + '\nTrack: drag pans (2D) or rotates (3D), right-drag pans, wheel zooms, double-click resets';
 
@@ -57,6 +59,7 @@ export async function startDashboard({ data, container, onExit, onStatus }) {
   let trackView = null;
   let mainTile = null;
   let audioEvents = null;
+  let extras = null;
   let disposed = false;
   let raf = 0;
   const unsubs = [];
@@ -104,6 +107,7 @@ export async function startDashboard({ data, container, onExit, onStatus }) {
     cancelAnimationFrame(raf);
     for (const u of unsubs) { try { u(); } catch (_) { /* ignore */ } }
     if (audioEvents) audioEvents.dispose();
+    if (extras) extras.dispose();
     stopRadio();
     if (mainTile) mainTile.dispose();
     if (trackView) trackView.dispose();
@@ -157,6 +161,7 @@ export async function startDashboard({ data, container, onExit, onStatus }) {
       for (const [id, b] of Object.entries(viewBtns)) b.classList.toggle('is-active', id === trackView.getView());
     }
     setView(trackView.getView());
+    extras = createDashExtras({ data, playback, root, trackTile: tiles.track, tools, el });
 
     // --- layout ---
     let focus = 'track';
@@ -213,7 +218,7 @@ export async function startDashboard({ data, container, onExit, onStatus }) {
         case 'PageDown': e.preventDefault(); sync.stepLap(1); return;
         case 'Comma': sync.nudge(e.shiftKey ? -5 : -1); return;
         case 'Period': sync.nudge(e.shiftKey ? 5 : 1); return;
-        default:
+        default: if (!e.repeat) extras.onKey(e.code);
       }
     };
     window.addEventListener('keydown', onKey);
@@ -237,6 +242,7 @@ export async function startDashboard({ data, container, onExit, onStatus }) {
       trackView.update(playback.time);
       mainTile.update(dt);
       audioEvents.update(playback.time, selected, playback.playing && !playback.waiting);
+      extras.update(dt, selected);
       if (ticker.expanded !== tickerOpen) {
         tickerOpen = ticker.expanded;
         tiles.ticker.classList.toggle('is-open', tickerOpen);
@@ -257,7 +263,7 @@ export async function startDashboard({ data, container, onExit, onStatus }) {
     // Dev/test hook: ?debug exposes the live objects (used by headless tests).
     if (new URLSearchParams(location.search).has('debug')) {
       window.__f1vr = {
-        data, playback, sync, host, trackView, mainTile, sfxStats, layout: () => computeScreenLayout(root.clientWidth, root.clientHeight, { focus }),
+        data, playback, sync, host, trackView, mainTile, sfxStats, extras, layout: () => computeScreenLayout(root.clientWidth, root.clientHeight, { focus }),
         toggleFocus, setView, getFocus: () => focus,
       };
       unsubs.push(() => { if (window.__f1vr && window.__f1vr.playback === playback) delete window.__f1vr; });

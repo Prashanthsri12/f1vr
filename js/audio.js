@@ -139,7 +139,7 @@ export function onRadioChange(cb) {
 const SFX_GAIN = 0.06;
 let noise = null;
 /** Counts per effect actually played (dev / tests via ?debug). */
-export const sfxStats = { chime: 0, whoosh: 0, beep: 0 };
+export const sfxStats = { chime: 0, whoosh: 0, beep: 0, click: 0 };
 
 function tone(freq, start, dur, peak, type = 'sine') {
   const o = ctx.createOscillator();
@@ -178,7 +178,7 @@ function whoosh(start) {
 
 /**
  * Short, quiet effect. No-op when the sfx setting is off or audio isn't unlocked.
- * @param {'chime'|'whoosh'|'beep'} name
+ * @param {'chime'|'whoosh'|'beep'|'click'} name
  */
 export function playSfx(name) {
   if (!ctx || !getSettings().sfx) return;
@@ -193,9 +193,16 @@ export function playSfx(name) {
     } else if (name === 'beep') {
       tone(1568, t, 0.12, SFX_GAIN * 0.7, 'triangle');
       tone(1568, t + 0.16, 0.12, SFX_GAIN * 0.7, 'triangle');
+    } else if (name === 'click') {
+      tone(2400, t, 0.035, SFX_GAIN * 0.45, 'triangle'); // 9.13: soft UI tick
     } else {
       return;
     }
     sfxStats[name]++;
   } catch (_) { /* audio unavailable */ }
+}
+
+/** UI tick for buttons and panel clicks (9.13); same sfx setting as the other effects. */
+export function uiClick() {
+  playSfx('click');
 }

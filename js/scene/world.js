@@ -153,7 +153,7 @@ export function createWorld(container) {
 
   return {
     renderer, scene, camera, get roomGroup() { return room.group; }, setMode, setTheme,
-    getTheme: () => room.theme, onFrame, dispose,
+    getTheme: () => room.theme, getRoomAccent: () => room.accent, onFrame, dispose,
   };
 }
 

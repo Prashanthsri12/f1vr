@@ -353,7 +353,7 @@ export function pickReferenceLap(lapsByDriver, pitByDriver, rc) {
 }
 
 /**
- * Raw /location records -> time-sorted {x, y, z} points with (0,0,0) removed.
+ * Raw /location records -> time-sorted {t, x, y, z} points (t in ms) with (0,0,0) removed.
  * @param {object[]} raw
  */
 export function lapPoints(raw) {
@@ -361,5 +361,5 @@ export function lapPoints(raw) {
     .map((r) => ({ t: toMs(r.date), x: Number(r.x), y: Number(r.y), z: Number(r.z) }))
     .filter((p) => p.t != null && Number.isFinite(p.x) && !(p.x === 0 && p.y === 0 && p.z === 0))
     .sort((a, b) => a.t - b.t)
-    .map(({ x, y, z }) => ({ x, y, z }));
+    .map(({ t, x, y, z }) => ({ t, x, y, z }));
 }

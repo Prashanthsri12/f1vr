@@ -7,6 +7,8 @@
 import * as THREE from 'three';
 import { createTable, loadTrack } from '../scene/track.js';
 import { Cars } from '../scene/cars.js';
+import { TrackStyle } from '../scene/track-style.js';
+import { getSettings } from '../settings.js';
 import { VIEWS, fitDistance, labelAngularSize } from './track-camera.js';
 
 const LABEL_PX = 16;          // CSS px label height
@@ -21,6 +23,8 @@ const BG = 0x0b0e13;
  *   setView: (v: '2d'|'3d') => void, getView: () => string, resetView: () => void,
  *   resize: () => void, update: (time: number) => void, dispose: () => void}>}
  */
+const STYLE_MS = 400; // track colours (track-style.js) refresh at ~2.5 Hz
+
 export async function createTrackView({ data, tile, view = '2d' }) {
   const { OrbitControls } = await import('three/addons/controls/OrbitControls.js');
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -41,9 +45,11 @@ export async function createTrackView({ data, tile, view = '2d' }) {
   table.position.set(0, 0, 0);
   let transform = null;
   let cars = null;
+  let style = null;
   try {
     transform = await loadTrack(data, table);
     cars = new Cars(data.drivers, transform, table);
+    style = new TrackStyle(data, transform);
   } catch (err) {
     renderer.dispose();
     canvas.remove();
@@ -108,6 +114,7 @@ export async function createTrackView({ data, tile, view = '2d' }) {
     updateLabelSize();
   }
 
+  let styleAt = -Infinity;
   canvas.addEventListener('dblclick', resetView);
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
@@ -126,6 +133,12 @@ export async function createTrackView({ data, tile, view = '2d' }) {
     update(time) {
       controls.update();
       cars.update(data, time, camera);
+      const now = performance.now();
+      if (now - styleAt > STYLE_MS) {
+        styleAt = now;
+        const sel = cars.drivers[cars.selectedIndex];
+        style.update(time, sel ? sel.number : null, getSettings().trackColours);
+      }
       renderer.render(scene, camera);
     },
     dispose() {

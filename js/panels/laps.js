@@ -7,6 +7,7 @@ import { LapStats, newLapStatsOut } from './lap-stats.js';
 
 const PAD = 28;
 const SECTOR_FILL = { purple: THEME.purple, green: THEME.green, yellow: THEME.yellow };
+const MINI_COLOUR = { 2051: THEME.purple, 2049: THEME.green, 2048: THEME.yellow, 2064: THEME.blue };
 const TYRE_INK = { SOFT: '#ffffff', MEDIUM: '#1d1800', HARD: '#111418', INTERMEDIATE: '#06210f', WET: '#ffffff', UNKNOWN: '#111418' };
 
 /** Running clock: m:ss.s (tenths). */
@@ -213,7 +214,36 @@ export class LapsPanel extends Panel {
       g.fillText(sec.time == null ? '–' : sec.time.toFixed(3), x + sw - 12, sy + 43);
     }
 
+    this._drawMinis(g, ctx.selected, o, PAD - 8, sy + sh + 10, colR + 8 - (PAD - 8));
     this._drawStrip(g, w, o);
+  }
+
+  /**
+   * Mini-sectors of the last completed lap (9.10) from OpenF1 segments_sector_1..3:
+   * 2051 purple, 2049 green, 2048 yellow, 2064 pit lane (blue); 0 and unknown codes grey.
+   */
+  _drawMinis(g, n, o, x, y, w) {
+    if (o.lastLapNumber == null) return;
+    const lap = this.data.getDriverLaps(n).find((l) => l.lap_number === o.lastLapNumber);
+    if (!lap) return;
+    let total = 0;
+    for (let k = 1; k <= 3; k++) { const s = lap[`segments_sector_${k}`]; if (Array.isArray(s)) total += s.length; }
+    if (!total) return;
+    const gap = 3;
+    const sectorGap = 9;
+    const cw = (w - gap * (total - 1) - sectorGap * 2) / total;
+    let cx = x;
+    for (let k = 1; k <= 3; k++) {
+      const s = lap[`segments_sector_${k}`];
+      if (!Array.isArray(s)) continue;
+      for (const code of s) {
+        g.fillStyle = MINI_COLOUR[code] || THEME.line;
+        roundRect(g, cx, y, cw, 12, 3);
+        g.fill();
+        cx += cw + gap;
+      }
+      cx += sectorGap - gap;
+    }
   }
 
   _drawStrip(g, w, o) {
