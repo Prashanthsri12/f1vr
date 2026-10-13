@@ -12,10 +12,11 @@ import { showXrLoading } from './scene/xr-loading.js';
 import { panelStats } from './panels/panel-base.js';
 import { THEMES } from './scene/rooms.js';
 import { FpsMeter } from './scene/fps-meter.js';
-import { setSetting } from './settings.js';
+import { getSettings, setSetting } from './settings.js';
 import { createAudioEvents } from './audio-events.js';
 import { stopRadio, sfxStats } from './audio.js';
 import { createMainScreen } from './scene/screen.js';
+import { createVrScreen } from './screen/vr-screen.js';
 
 const HUD_INTERVAL = 0.1; // seconds (10 Hz)
 const STYLE_ID = 'f1vr-hud-style';
@@ -65,13 +66,17 @@ function el(tag, cls, parent, text) {
  * @param {XRSession} [opts.xrSession] immersive session requested by the start page (in the click gesture)
  * @param {'immersive-ar'|'immersive-vr'} [opts.xrMode] the session's mode; passthrough needs immersive-ar
  * @param {'pitwall'|'passthrough'} [opts.startMode]
+ * @param {boolean} [opts.screenMode] Screen in VR (8.11): the dashboard on one big screen instead of
+ *   floating panels (the room preview shows it with ?vrscreen)
  * @param {HTMLElement} opts.container
  * @param {() => void} [opts.onExit] called after dispose when the user presses Exit
  * @param {(s: string|object) => void} [opts.onStatus] setup step strings ('Building track…'),
  *   then forwarded data.onStatus objects ({loading, pending, error?})
  * @returns {Promise<{playback: Playback, world: object, dispose: () => void}>}
  */
-export async function startApp({ data, loadData, xrSession, xrMode, startMode = 'pitwall', container, onExit, onStatus }) {
+export async function startApp({
+  data, loadData, xrSession, xrMode, startMode = 'pitwall', screenMode = false, container, onExit, onStatus,
+}) {
   let xrLoading = null;
   const status = (m) => {
     if (xrLoading && typeof m === 'string') xrLoading.setText(m);
@@ -87,6 +92,7 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
   let input = null;
   let pitWall = null;
   let screen = null;
+  let vrScreen = null;
   let xrInput = null;
   let fpsMeter = null;
   let audioEvents = null;
@@ -108,6 +114,7 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
     if (fpsMeter) fpsMeter.dispose();
     if (audioEvents) audioEvents.dispose();
     stopRadio();
+    if (vrScreen) vrScreen.dispose();
     if (screen) screen.dispose();
     if (pitWall) pitWall.dispose();
     if (cars) cars.dispose();
@@ -125,18 +132,23 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
   let hudDirty = true;
   let togglePassthrough = () => {};
   const canPassthrough = !xrSession || xrMode === 'immersive-ar';
-  // Moving panels (VR grip / pinch-hold, desktop Shift-drag); saved on release.
+  const screenUp = () => !!(vrScreen && vrScreen.isActive());
+  // Moving panels (VR grip / pinch-hold); saved on release. Screen in VR moves the whole screen.
   const panelGrab = createPanelGrab({
-    getMovable: (panel) => (pitWall ? pitWall.movableFor(panel) : null),
-    onRelease: () => { if (pitWall) pitWall.saveLayout(); },
+    getMovable: (panel) => (screenUp() ? vrScreen.movableFor(panel) : pitWall ? pitWall.movableFor(panel) : null),
+    onRelease: () => {
+      if (screenUp()) vrScreen.saveTransform();
+      else if (pitWall) pitWall.saveLayout();
+    },
   });
-  // Re-centre (XR only): the panel rig and the table follow the user's floor position and facing.
+  // Re-centre (XR only): the panel rig (with the screen) and the table follow the user's floor
+  // position and facing. While the screen is up the table is on its tile, so it stays put.
   const recenterPose = { x: 0, z: 0, yaw: 0 };
   function recenter() {
     if (!pitWall || !world.renderer.xr.isPresenting) return;
     getRecenterPose(world.renderer.xr.getCamera(), recenterPose);
     pitWall.recenter(recenterPose);
-    applyRecenter(table, recenterPose);
+    if (!screenUp()) applyRecenter(table, recenterPose);
   }
   try {
     // XR controllers must exist before the session starts: three.js only sends
@@ -149,6 +161,7 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
       onHover: (r) => { if (pitWall) pitWall.manager.setHover(r); },
       onSelect: (r) => { if (pitWall) pitWall.manager.select(r, pitWall.ctx); },
       panelGrab,
+      canGrabTable: () => !screenUp(),
       actions: {
         togglePlay: () => playback && playback.toggle(),
         togglePassthrough: () => togglePassthrough(),
@@ -192,14 +205,21 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
         togglePassthrough: () => togglePassthrough(),
         exit: () => { dispose(); if (onExit) onExit(); },
         recenter: xrSession ? recenter : undefined,
-        resetLayout: () => pitWall.resetLayout(),
+        resetLayout: () => (screenUp() ? vrScreen.resetTransform() : pitWall.resetLayout()),
         cycleTheme: () => cycleTheme(),
       },
       canPassthrough,
-      driverTiles: !xrSession, // 4b.1: VR picks drivers from the wrist menu / leaderboard
     });
     // Main screen (Phase 5): video / radio tabs, in the panel rig.
     screen = createMainScreen({ manager: pitWall.manager, data, playback });
+    if (screenMode) {
+      const s = getSettings();
+      vrScreen = createVrScreen({
+        manager: pitWall.manager, mainScreen: screen, table, cars, renderer: world.renderer,
+        shape: s.screenShape, view: s.trackView,
+      });
+      vrScreen.apply();
+    }
   } catch (err) {
     dispose();
     throw err;
@@ -272,9 +292,8 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
     pickPanels: (raycaster) => pitWall.manager.raycast(raycaster),
     onPanelHover: (r) => pitWall.manager.setHover(r),
     onPanelSelect: (r) => pitWall.manager.select(r, pitWall.ctx),
-    panelGrab,
-    onResetLayout: () => pitWall.resetLayout(),
-    onCycleTheme: () => cycleTheme(),
+    canUseTable: () => !screenUp(),
+    getOrbitTarget: screenUp() ? (out) => vrScreen.group.getWorldPosition(out) : null,
   });
   // Desktop only: step back from the user's standing spot so the whole pit wall is in view
   // (in XR the headset pose drives the camera; the user never moves).
@@ -299,7 +318,7 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
   const hudPerf = el('div', 'perf', hud);
   const loading = el('div', 'f1vr-loading', overlay, 'Loading data…');
   el('div', 'f1vr-help', overlay,
-    'Click panels · Shift-drag panel move · Shift-wheel panel size · R reset layout · T room theme · Space play/pause · ←/→ seek 10 s · ↑/↓ speed · [ ] driver · P passthrough · drag table rotate · wheel on table scale · right-drag orbit');
+    'Room preview (debug) · Click panels · Space play/pause · ←/→ seek 10 s · ↑/↓ speed · [ ] driver · P passthrough · drag table rotate · wheel on table scale · right-drag orbit');
   const exitBtn = el('button', 'f1vr-exit', overlay, 'Exit');
   exitBtn.type = 'button';
   exitBtn.addEventListener('click', () => {
@@ -367,7 +386,7 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
   // --- frame loop (allocation-free apart from the 10 Hz HUD strings) ---
   unsubs.push(world.onFrame((dt) => {
     playback.update(dt);
-    cars.update(data, playback.time, world.camera);
+    cars.update(data, playback.time, screenUp() ? vrScreen.camera : world.camera);
     pitWall.update(dt);
     fpsMeter.update(dt);
     audioEvents.update(playback.time, selected, playback.playing && !playback.waiting);
@@ -396,11 +415,12 @@ export async function startApp({ data, loadData, xrSession, xrMode, startMode = 
       updateHud();
     }
     screen.update(dt);
+    if (vrScreen) vrScreen.update(dt);
   }));
 
   // Dev/test hook: ?debug exposes the live objects (used by headless XR tests).
   if (new URLSearchParams(location.search).has('debug')) {
-    window.__f1vr = { world, table, data, playback, pitWall, panelGrab, recenter, sfxStats, screen, getMode: () => mode };
+    window.__f1vr = { world, table, data, playback, pitWall, panelGrab, recenter, sfxStats, screen, vrScreen, getMode: () => mode };
     unsubs.push(() => { if (window.__f1vr && window.__f1vr.table === table) delete window.__f1vr; });
   }
 

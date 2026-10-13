@@ -209,6 +209,8 @@ select:focus-visible, input:focus-visible, .btn:focus-visible, .choice:focus-vis
 /* Video screen settings */
 .check { display: flex; align-items: center; gap: 12px; min-height: var(--touch); cursor: pointer; }
 .check input { width: 24px; height: 24px; accent-color: var(--accent); }
+.choice-inline { border: 0; margin: 12px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0 24px; }
+.choice-inline legend { padding: 0; color: var(--text-dim); font-size: 0.9rem; }
 #video-panel .btn { margin-top: 8px; }
 
 /* Debug panel */

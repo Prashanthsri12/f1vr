@@ -8,7 +8,9 @@ Replay real Formula 1 sessions on a pit wall in VR. A WebXR app for the **Meta Q
 - A leaderboard with gaps, intervals, tyres, pit stops and the track status
 - Telemetry for a selected driver: speed, gear, RPM, throttle, brake, DRS, and a live speed trace
 - Laps and tyres (sector colours, personal and session bests, stints), weather, and a race control ticker
+- In VR, **one big screen** (flat or curved) with the whole dashboard, or **floating panels** around a 3D track table
 - **Pit wall** mode (a virtual room) or **passthrough** mode (your real room), switchable in the same session
+- On a desktop, a flat dashboard that fits horizontal and vertical monitors
 - Controllers or hand tracking: point and pinch, and grab the table to move, scale and rotate it
 
 The data comes from the free historical [OpenF1](https://openf1.org) API (2023 onwards). No account or API key is needed.
@@ -17,13 +19,26 @@ The data comes from the free historical [OpenF1](https://openf1.org) API (2023 o
 
 1. Open the **Live** link above in the Quest browser.
 2. Pick a season, race weekend and session. The Race session is selected by default.
-3. Tap **Enter VR** (pit wall room) or **Enter Passthrough** (your room).
+3. Under **In VR, show**, choose **One big screen** (the default: the dashboard on a screen in front of you) or **Floating panels around a 3D table**.
+4. Tap **Enter VR** (pit wall room) or **Enter Passthrough** (your room).
 
 The first load of a session downloads its data, which takes a few seconds. After that it is cached in the browser and loads instantly.
 
 ## Controls
 
-### Quest Touch controllers
+### Big screen (VR)
+
+The dashboard sits on one screen about 4 m wide, 2.3 m in front of you. The track is drawn from above on its tile.
+
+| Input | Action |
+|---|---|
+| Trigger / pinch | Select what the ray points at |
+| Grip on the screen, or pinch and hold on the track | Pick the whole screen up; it follows the ray and keeps facing you. Right stick ↑ / ↓ pushes it away / pulls it closer, ← / → makes it smaller / larger, or grab it with your other hand too and stretch. Saved on the headset |
+| Wrist menu → Reset layout | Screen back to its default place and size |
+
+The other buttons (play, seek, speed, drivers, re-centre, wrist menu) work as below. There is no table to grab in this view.
+
+### Quest Touch controllers (floating panels)
 
 | Input | Action |
 |---|---|

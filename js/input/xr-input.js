@@ -46,12 +46,15 @@ const PINCH_HOLD = 0.35;       // s a title-bar pinch must be held to become a p
  * @param {(result: object|null) => void} o.onHover   hover target changed (null = nothing)
  * @param {(result: object, hand: 'left'|'right'|'none') => void} o.onSelect trigger on a selectable target
  * @param {ReturnType<import('./panel-grab.js').createPanelGrab>} [o.panelGrab] carries panels (4.15)
+ * @param {() => boolean} [o.canGrabTable] false while the table isn't in the room (Screen in VR shows it on a tile)
  * @param {object} [o.actions] button actions (all optional):
  *   togglePlay(), togglePassthrough(), stepDriver(dir: -1|1), seekBy(sec), speedUp(), speedDown(), recenter()
  * @returns {{update: (dt: number) => void, getLeftPalm: (pos: THREE.Vector3, normal: THREE.Vector3) => boolean,
  *   dispose: () => void}}
  */
-export function createXrInput({ renderer, scene, table, pickPanels, onHover, onSelect, panelGrab = null, actions = {} }) {
+export function createXrInput({
+  renderer, scene, table, pickPanels, onHover, onSelect, panelGrab = null, canGrabTable = () => true, actions = {},
+}) {
   const act = (name, ...args) => { if (typeof actions[name] === 'function') actions[name](...args); };
   const raycaster = new THREE.Raycaster();
   const rayMatrix = new THREE.Matrix4();
@@ -155,6 +158,7 @@ export function createXrInput({ renderer, scene, table, pickPanels, onHover, onS
           return;
         }
       }
+      if (!canGrabTable()) return;
       const now = performance.now();
       if (now - h.lastSqueeze < DOUBLE_GRIP_MS) {
         grab.end(h.id);
@@ -245,10 +249,11 @@ export function createXrInput({ renderer, scene, table, pickPanels, onHover, onS
     setResult(h, pickPanels(raycaster));
   }
 
-  /** A hit in the top TITLE_BAND of a movable panel. */
+  /** A hit in the top TITLE_BAND of a movable panel (anywhere on a panel marked grabAnywhere). */
   function inTitleBand(result) {
     const p = result.panel;
     if (!panelGrab || !p || !p.lh) return false;
+    if (p.grabAnywhere) return true;
     return result.px.y < TITLE_BAND * (p.lh / p.height);
   }
 
@@ -261,7 +266,7 @@ export function createXrInput({ renderer, scene, table, pickPanels, onHover, onS
   /** Distance along the current ray to the tabletop's outer band, or -1. Uses the last raycaster pose. */
   function tableEdgeDistance() {
     const top = table.userData && table.userData.hitMesh;
-    if (!top || !table.visible) return -1;
+    if (!top || !table.visible || !canGrabTable()) return -1;
     tableHits.length = 0;
     raycaster.intersectObject(top, false, tableHits);
     if (!tableHits.length) return -1;

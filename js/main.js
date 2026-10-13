@@ -6,6 +6,7 @@ import { cacheClear } from './cache.js';
 import { initDebug } from './start-debug.js';
 import { unlockAudio } from './audio.js';
 import { initVideoSettings } from './video-settings.js';
+import { getSettings, setSetting } from './settings.js';
 
 const FIRST_SEASON = 2023;
 const STORAGE_KEY = 'f1vr.lastChoice';
@@ -22,6 +23,7 @@ const el = {
   btnPt: $('btn-enter-pt'),
   btnPreview: $('btn-preview'),
   btnRoom: $('btn-room'),
+  vrView: $('vr-view'),
   xrStatus: $('xr-status'),
   loadStatus: $('load-status'),
   loadError: $('load-error'),
@@ -376,6 +378,7 @@ async function runXr(sessionPromise, xrMode, startMode) {
       xrSession,
       xrMode,
       startMode,
+      screenMode: getSettings().vrMode === 'screen',
       container: el.appContainer,
       onExit: exitPreview,
       loadData: async (onStep) => {
@@ -451,6 +454,7 @@ async function startPreview(room = false) {
 
     const handle = await start({
       data,
+      screenMode: room && new URLSearchParams(location.search).has('vrscreen'),
       container: el.appContainer,
       onExit: exitPreview,
       // app.js reports setup steps as strings ('Building track…'); tolerate objects too.
@@ -527,6 +531,11 @@ async function boot() {
   el.btnPreview.addEventListener('click', () => startPreview(false));
   el.btnRoom.addEventListener('click', () => startPreview(true));
   el.btnRoom.hidden = !new URLSearchParams(location.search).has('debug');
+  // VR view (8.1): Screen (the dashboard on one big screen, default) or Immersive (floating panels).
+  for (const r of el.vrView.querySelectorAll('input[name="vr-view"]')) {
+    r.checked = r.value === getSettings().vrMode;
+    r.addEventListener('change', () => { if (r.checked) setSetting('vrMode', r.value); });
+  }
   el.btnVr.addEventListener('click', () => startXr('pitwall'));
   el.btnPt.addEventListener('click', () => startXr('passthrough'));
   el.btnClear.addEventListener('click', clearCache);

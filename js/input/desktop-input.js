@@ -1,13 +1,11 @@
-// Desktop mouse + keyboard input.
+// Mouse + keyboard input for the 3D room preview (debug only since Phase 8; the desktop uses
+// Screen mode, js/screen/). Moving and resizing panels and room themes are VR-only (8.10).
 //  - Right-drag: orbit camera around the table (OrbitControls). Middle-drag: dolly.
 //  - Left-click on a panel: select what's under the pointer (hover highlights it).
-//  - Shift + left-drag on a panel: move it (wheel while dragging pushes / pulls). Saved on release.
-//    Shift + wheel over a panel resizes it (0.5x-2.5x). The cursor shows 'move' while Shift is
-//    held over a movable panel.
 //  - Left-drag on the table: rotate the table around Y.
 //  - Wheel over the table: scale the table 0.5x-3x. Wheel elsewhere: dolly the camera.
 //  - Keys: Space play/pause, Left/Right seek -/+10 s, Up/Down speed,
-//    [ / ] previous/next driver by position, P toggle passthrough look, R reset the panel layout, T next room theme.
+//    [ / ] previous/next driver by position, P toggle passthrough look.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
@@ -15,9 +13,6 @@ const MIN_SCALE = 0.5;
 const MAX_SCALE = 3;
 const ROTATE_PER_PX = 0.008;  // radians per pixel of horizontal drag
 const WHEEL_SCALE_STEP = 0.0012;
-const WHEEL_PUSH_STEP = 0.002; // metres per wheel delta unit while dragging a panel
-const WHEEL_PANEL_SCALE_STEP = 0.0015; // Shift + wheel over a panel: log-scale per delta unit
-const MOUSE_ID = 'mouse';
 
 /**
  * @param {object} opts
@@ -32,14 +27,13 @@ const MOUSE_ID = 'mouse';
  * @param {(raycaster: THREE.Raycaster) => ({rect: object|null}|null)} [opts.pickPanels] raycast panels
  * @param {(result: object|null) => void} [opts.onPanelHover]
  * @param {(result: object) => void} [opts.onPanelSelect]
- * @param {ReturnType<import('./panel-grab.js').createPanelGrab>} [opts.panelGrab] Shift-drag moves panels
- * @param {() => void} [opts.onResetLayout] R key
- * @param {() => void} [opts.onCycleTheme] T key: next room theme
+ * @param {() => boolean} [opts.canUseTable] false while the table isn't in the room (Screen in VR preview)
+ * @param {(out: THREE.Vector3) => THREE.Vector3} [opts.getOrbitTarget] what the camera orbits (default: the table)
  * @returns {{update: (dt: number) => void, dispose: () => void}}
  */
 export function createDesktopInput({
   renderer, camera, table, playback, getDriverOrder, onSelectDriver, onTogglePassthrough, getSelectedDriver,
-  pickPanels, onPanelHover, onPanelSelect, panelGrab, onResetLayout, onCycleTheme,
+  pickPanels, onPanelHover, onPanelSelect, canUseTable = () => true, getOrbitTarget = null,
 }) {
   const el = renderer.domElement;
   const raycaster = new THREE.Raycaster();
@@ -79,24 +73,11 @@ export function createDesktopInput({
   let pressX = 0;
   let pressY = 0;
 
-  // --- Shift-drag a panel ---
-  let panelPointer = -1;
-
   function onPointerDown(e) {
     if (e.button !== 0) return;
-    if (e.shiftKey && panelGrab && pickPanels) {
-      setRay(e.clientX, e.clientY);
-      const r = pickPanels(raycaster);
-      if (r && panelGrab.begin(MOUSE_ID, r.panel, r.point, raycaster.ray.origin)) {
-        panelPointer = e.pointerId;
-        try { el.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ }
-        el.style.cursor = 'move';
-        return;
-      }
-    }
     const p = pickPanel(e.clientX, e.clientY);
     if (p) { pressPanel = p; pressX = e.clientX; pressY = e.clientY; return; }
-    if (!table.visible) return;
+    if (!table.visible || !canUseTable()) return;
     if (!pickTable(e.clientX, e.clientY)) return;
     dragging = true;
     dragPointer = e.pointerId;
@@ -104,37 +85,12 @@ export function createDesktopInput({
     try { el.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ }
     el.style.cursor = 'grabbing';
   }
-  /** The movable panel under the pointer (any part of it, not only hit rects), or null. */
-  function movablePanelAt(clientX, clientY) {
-    if (!panelGrab || !pickPanels) return null;
-    setRay(clientX, clientY);
-    const r = pickPanels(raycaster);
-    return r && panelGrab.canMove(r.panel) ? r.panel : null;
-  }
-
-  // --- hover cursor: 'move' while Shift is held over a movable panel (4b.2) ---
-  let pointerX = -1;
-  let pointerY = -1;
-  let shiftDown = false;
-  function refreshCursor() {
-    if (dragging || panelPointer >= 0 || pointerX < 0) return;
-    if (shiftDown && movablePanelAt(pointerX, pointerY)) { el.style.cursor = 'move'; return; }
-    el.style.cursor = pickPanel(pointerX, pointerY) ? 'pointer' : '';
-  }
-
   function onPointerMove(e) {
-    if (panelPointer === e.pointerId) {
-      setRay(e.clientX, e.clientY);
-      panelGrab.update(MOUSE_ID, raycaster.ray.origin, raycaster.ray.direction, camera.position);
-      return;
-    }
     if (!dragging) {
       if (e.buttons === 0 && onPanelHover) {
-        pointerX = e.clientX;
-        pointerY = e.clientY;
-        shiftDown = e.shiftKey;
-        onPanelHover(pickPanel(e.clientX, e.clientY));
-        refreshCursor();
+        const p = pickPanel(e.clientX, e.clientY);
+        onPanelHover(p);
+        el.style.cursor = p ? 'pointer' : '';
       }
       return;
     }
@@ -144,13 +100,6 @@ export function createDesktopInput({
     table.rotation.y += dx * ROTATE_PER_PX;
   }
   function onPointerUp(e) {
-    if (panelPointer === e.pointerId) {
-      panelPointer = -1;
-      panelGrab.end(MOUSE_ID);
-      try { el.releasePointerCapture(e.pointerId); } catch (_) { /* ignore */ }
-      el.style.cursor = '';
-      return;
-    }
     if (pressPanel && e.button === 0) {
       const moved = Math.abs(e.clientX - pressX) + Math.abs(e.clientY - pressY);
       const p = moved < 8 ? pickPanel(e.clientX, e.clientY) : null;
@@ -167,26 +116,7 @@ export function createDesktopInput({
 
   // --- wheel scale (registered BEFORE OrbitControls so it can stop its dolly) ---
   function onWheel(e) {
-    if (panelPointer >= 0) {
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      panelGrab.adjust(MOUSE_ID, -e.deltaY * WHEEL_PUSH_STEP);
-      setRay(e.clientX, e.clientY);
-      panelGrab.update(MOUSE_ID, raycaster.ray.origin, raycaster.ray.direction, camera.position);
-      return;
-    }
-    if (e.shiftKey) {
-      // Shift + wheel over a panel resizes it (4b.12). Chrome may report Shift + wheel as deltaX.
-      const panel = movablePanelAt(e.clientX, e.clientY);
-      const d = e.deltaY !== 0 ? e.deltaY : e.deltaX;
-      if (panel && d !== 0) {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        panelGrab.scaleUnit(panel, Math.exp(-d * WHEEL_PANEL_SCALE_STEP));
-        return;
-      }
-    }
-    if (!table.visible || !pickTable(e.clientX, e.clientY)) return; // let OrbitControls dolly
+    if (!table.visible || !canUseTable() || !pickTable(e.clientX, e.clientY)) return; // let OrbitControls dolly
     e.preventDefault();
     e.stopImmediatePropagation();
     const s = THREE.MathUtils.clamp(table.scale.x * Math.exp(-e.deltaY * WHEEL_SCALE_STEP), MIN_SCALE, MAX_SCALE);
@@ -210,9 +140,13 @@ export function createDesktopInput({
   controls.minDistance = 0.4;
   controls.maxDistance = 6;
   controls.maxPolarAngle = Math.PI * 0.495; // stay above the floor
-  table.getWorldPosition(tableWorld);
+  orbitTarget(tableWorld);
   controls.target.copy(tableWorld);
   controls.update();
+
+  function orbitTarget(out) {
+    return getOrbitTarget ? getOrbitTarget(out) : table.getWorldPosition(out);
+  }
 
   // --- keyboard ---
   function isTyping(t) {
@@ -247,8 +181,6 @@ export function createDesktopInput({
       case 'BracketLeft': stepDriver(-1); return;
       case 'BracketRight': stepDriver(1); return;
       case 'KeyP': if (!e.repeat && onTogglePassthrough) onTogglePassthrough(); return;
-      case 'KeyR': if (!e.repeat && !e.shiftKey && onResetLayout) onResetLayout(); return;
-      case 'KeyT': if (!e.repeat && onCycleTheme) onCycleTheme(); return;
       default:
     }
     // Layout-independent fallbacks for the bracket keys.
@@ -257,33 +189,21 @@ export function createDesktopInput({
   }
   window.addEventListener('keydown', onKeyDown);
 
-  /** Shift pressed / released: update the 'move' cursor without waiting for a mouse move. */
-  function onShiftKey(e) {
-    if (e.key !== 'Shift' || e.repeat) return;
-    shiftDown = e.type === 'keydown';
-    refreshCursor();
-  }
-  window.addEventListener('keydown', onShiftKey);
-  window.addEventListener('keyup', onShiftKey);
-
   /** Per-frame update: keep the orbit target on the table. Allocation-free. */
   function update() {
     if (renderer.xr.isPresenting) return; // never move the camera in XR
-    table.getWorldPosition(tableWorld);
+    orbitTarget(tableWorld);
     if (!controls.target.equals(tableWorld)) controls.target.copy(tableWorld);
     controls.update();
   }
 
   function dispose() {
-    if (panelPointer >= 0) panelGrab.end(MOUSE_ID);
     el.removeEventListener('pointerdown', onPointerDown);
     el.removeEventListener('pointermove', onPointerMove);
     el.removeEventListener('pointerup', onPointerUp);
     el.removeEventListener('pointercancel', onPointerUp);
     el.removeEventListener('wheel', onWheel);
     window.removeEventListener('keydown', onKeyDown);
-    window.removeEventListener('keydown', onShiftKey);
-    window.removeEventListener('keyup', onShiftKey);
     controls.dispose();
     el.style.cursor = '';
   }

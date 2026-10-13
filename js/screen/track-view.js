@@ -7,12 +7,8 @@
 import * as THREE from 'three';
 import { createTable, loadTrack } from '../scene/track.js';
 import { Cars } from '../scene/cars.js';
+import { VIEWS, fitDistance, labelAngularSize } from './track-camera.js';
 
-const VIEWS = {
-  '2d': { fov: 10, polar: 0, minPolar: 0, maxPolar: 0, carScale: 1.8 },
-  '3d': { fov: 40, polar: 0.85, minPolar: 0, maxPolar: 1.35, carScale: 1.3 },
-};
-const FIT_RADIUS = 0.78;      // metres: the track (1.4 m) plus a margin, table-local
 const LABEL_PX = 16;          // CSS px label height
 const BG = 0x0b0e13;
 
@@ -64,21 +60,14 @@ export async function createTrackView({ data, tile, view = '2d' }) {
   let current = '';
   let aspect = 1;
 
-  /** Camera distance that fits the track in the tile at this field of view. */
-  function fitDistance() {
-    const half = THREE.MathUtils.degToRad(camera.fov / 2);
-    return FIT_RADIUS / Math.tan(half) / Math.min(1, aspect);
-  }
-
   function updateLabelSize() {
     const h = Math.max(1, tile.clientHeight);
-    const angular = (LABEL_PX / h) * 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-    cars.labels.setSize(angular, 0, 10);
+    cars.labels.setSize(labelAngularSize(LABEL_PX, h, camera.fov), 0, 10);
   }
 
   function resetView() {
     const v = VIEWS[current];
-    const d = fitDistance();
+    const d = fitDistance(camera.fov, aspect);
     controls.target.set(0, 0, 0);
     // polar 0 = straight down; OrbitControls keeps "up" on screen = -Z (away from the user).
     const p = Math.max(1e-4, v.polar);

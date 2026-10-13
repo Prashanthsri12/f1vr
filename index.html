@@ -57,6 +57,11 @@
         <button type="button" id="btn-preview" class="btn btn--accent-outline" disabled>Open on desktop</button>
         <button type="button" id="btn-room" class="btn" disabled hidden>Room preview (debug)</button>
       </div>
+      <fieldset id="vr-view" class="choice-inline">
+        <legend>In VR, show</legend>
+        <label class="check"><input type="radio" name="vr-view" value="screen"> One big screen</label>
+        <label class="check"><input type="radio" name="vr-view" value="immersive"> Floating panels around a 3D table</label>
+      </fieldset>
       <p id="xr-status" class="hint"></p>
       <p id="load-status" class="status" aria-live="polite"></p>
       <div id="load-error" class="error" role="alert" hidden>

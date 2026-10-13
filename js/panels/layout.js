@@ -30,8 +30,4 @@ export const LAYOUT = {
   },
   // Just below the main screen.
   playbackBar: { width: 1.2, height: 0.16, position: { x: 0, y: SCREEN_BOTTOM - 0.13, z: -2.75 } },
-  // 20 tiles (0.12 m) at waist height near the table's near edge, tilted back 35°
-  // like a console, centred on the user. One arc can't fit 20 tiles (2.7 m of arc vs
-  // 1.3 m at this radius), so DriverPicker uses two rows of 10 (P1–P10 behind/above).
-  driverPicker: { tile: 0.12, gap: 0.015, radius: 0.62, y: 1.0, tiltDeg: 35, spanDeg: 120 },
 };
