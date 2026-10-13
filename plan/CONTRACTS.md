@@ -275,3 +275,18 @@ Panels never mutate `data` or `playback` directly. They go through `ctx.actions`
 ## `js/audio.js` (4.11)
 
 `unlockAudio()` must be called synchronously inside the Enter / Preview click. It creates (or resumes) the shared `AudioContext` and plays one silent buffer. `getAudioContext()` returns that context or null. Phase 6 sound effects and radio use it.
+
+# Phases 4b, 5 and 6: shared contracts (set before the parallel build)
+
+- **Settings** (`js/settings.js`): `radio` (bool, radio autoplay), `sfx` (bool), `theme` ('pitwall' | 'studio' | 'night'), `fps` (bool, in-scene fps counter). Read with `getSettings()` (a cached object, cheap enough to read per frame); write with `setSetting()`.
+- **Wrist menu** already has "Room: <name>" (calls `ctx.actions.cycleTheme()`, greyed when missing) and "FPS ON/OFF" (writes the `fps` setting directly).
+- **Room themes** (`js/scene/rooms.js`): `THEMES = ['pitwall', 'studio', 'night']`, `buildRoom(theme) -> { group, dispose() }`. `world.setTheme(name)` swaps the room and keeps the pit wall / passthrough mode. Every theme is fully enclosed, so in `immersive-ar` nothing transparent shows in pit wall mode.
+- **Audio** (`js/audio.js`):
+  - `playRadio(url)` plays one clip through a shared `<audio>` element (manual play ignores the `radio` setting) and stops any current clip;
+  - `stopRadio()`;
+  - `getRadioState() -> { url, playing }`;
+  - `onRadioChange(cb) -> unsubscribe`;
+  - `playSfx('chime' | 'whoosh' | 'beep')` is a quiet WebAudio effect, a no-op when `sfx` is off or audio is locked.
+- **Audio events** (`js/audio-events.js`): `createAudioEvents(data) -> { update(time, selected, playing), dispose() }`. It autoplays the selected driver's radio when the playhead passes a clip (if `radio` is on and playback is playing, not while seeking), plus the chime, whoosh and beep. Call it at ≤10 Hz or make it cheap per frame.
+- **Main screen** (`js/scene/screen.js`, `js/scene/onboard.js`): created by `app.js` in the layout rig, at `MAIN_SCREEN` from `layout.js`. Clickable parts are `Panel`s added through `pitWall.manager.add(panel, pos, { parent })`, so the shared raycaster and selection work.
+- **Video source settings** (`js/video-settings.js`): `loadVideoSettings() -> { kind: 'none' | 'url' | 'hls' | 'file', url, offsetSec, sync }`, plus the start page section. A local file is kept as an object URL in memory only (it can't be stored).

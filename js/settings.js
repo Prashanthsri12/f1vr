@@ -1,6 +1,6 @@
 // Per-device user settings (localStorage, wrapped: storage may be unavailable).
 const KEY = 'f1vr.settings';
-const DEFAULTS = { radio: true, sfx: true };
+const DEFAULTS = { radio: true, sfx: true, theme: 'pitwall', fps: false };
 
 let cache = null;
 
@@ -14,7 +14,7 @@ function load() {
   return cache;
 }
 
-/** @returns {{radio: boolean, sfx: boolean}} live settings object (read-only for callers) */
+/** @returns {{radio: boolean, sfx: boolean, theme: string, fps: boolean}} live settings object (read-only for callers) */
 export function getSettings() {
   return load();
 }

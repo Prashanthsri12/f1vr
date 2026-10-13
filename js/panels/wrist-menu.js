@@ -1,6 +1,6 @@
 // Left-wrist menu (spec §7): play/pause, speed, compact driver grid, pit wall /
 // passthrough, radio audio, sound effects, re-centre, exit to session picker, plus
-// "Reset layout" for panels the user has moved (4.18).
+// "Reset layout" for panels the user has moved (4.18), the room theme (4b.5) and the fps counter (6.7).
 // Shown while the left palm faces the user's head (controller grip +X, or the
 // hand's wrist joint -Y, per the WebXR specs); operated with the right hand's ray.
 import * as THREE from 'three';
@@ -8,11 +8,12 @@ import { Panel, THEME, font, roundRect } from './panel-base.js';
 import { getSettings, setSetting } from '../settings.js';
 
 const W = 0.22;              // metres
-const H = 0.30;
+const H = 0.33;
 const PX_PER_M = 2048;       // viewed at ~35 cm: twice the usual density
 const SHOW_DOT = 0.6;        // palm-toward-head cosine to show …
 const HIDE_DOT = 0.35;       // … and to hide again (hysteresis)
 const LIFT = 0.07;           // metres in front of the palm
+const THEME_LABELS = { pitwall: 'Pit wall', studio: 'Studio', night: 'Night' };
 
 export class WristMenu extends Panel {
   /** @param {import('../session-data.js').SessionData} data */
@@ -34,7 +35,8 @@ export class WristMenu extends Panel {
     if (lb.length) this._order = lb.map((r) => r.driverNumber);
     const s = getSettings();
     const sig = `${ctx.playback.playing}|${ctx.playback.speed}|${ctx.selected}|${ctx.mode}|${ctx.canPassthrough}|`
-      + `${s.radio}|${s.sfx}|${!!ctx.actions.recenter}|${!!ctx.actions.resetLayout}|${this._order.join(',')}`;
+      + `${s.radio}|${s.sfx}|${s.theme}|${s.fps}|${!!ctx.actions.recenter}|${!!ctx.actions.resetLayout}|${!!ctx.actions.cycleTheme}|`
+      + `${this._order.join(',')}`;
     if (sig === this._sig) return false;
     this._sig = sig;
     return true;
@@ -121,6 +123,12 @@ export class WristMenu extends Panel {
     this._button(g, 'sfx', pad + half + gap, y, half, 50, `Sounds ${s.sfx ? 'ON' : 'OFF'}`, { on: s.sfx });
     y += 50 + gap;
 
+    // Room theme / fps counter
+    const room = THEME_LABELS[s.theme] || s.theme;
+    this._button(g, 'theme', pad, y, half, 50, `Room: ${room}`, { disabled: !ctx.actions.cycleTheme });
+    this._button(g, 'fps', pad + half + gap, y, half, 50, `FPS ${s.fps ? 'ON' : 'OFF'}`, { on: s.fps });
+    y += 50 + gap;
+
     // Re-centre / reset layout, then exit
     this._button(g, 'recenter', pad, y, half, 50, 'Re-centre', { disabled: !ctx.actions.recenter });
     this._button(g, 'layout', pad + half + gap, y, half, 50, 'Reset layout', { disabled: !ctx.actions.resetLayout });
@@ -164,6 +172,8 @@ export class WristMenu extends Panel {
       case 'mode': if (a.togglePassthrough) a.togglePassthrough(); break;
       case 'radio': setSetting('radio', !getSettings().radio); break;
       case 'sfx': setSetting('sfx', !getSettings().sfx); break;
+      case 'theme': if (a.cycleTheme) a.cycleTheme(); break;
+      case 'fps': setSetting('fps', !getSettings().fps); break;
       case 'recenter': if (a.recenter) a.recenter(); break;
       case 'layout': if (a.resetLayout) a.resetLayout(); break;
       case 'exit': if (a.exit) a.exit(); break;

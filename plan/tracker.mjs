@@ -27,7 +27,8 @@ for (const id of ids) {
 }
 
 // Recompute the summary table from the per-phase tables.
-for (let p = 0; p <= 7; p++) {
+const phases = [...s.matchAll(new RegExp(`^\\| (\\w+) \\| [^|]+\\| ${ANY} \\| \\d+ / \\d+ \\|$`, 'gm'))].map(m => m[1]);
+for (const p of phases) {
   const rows = [...s.matchAll(new RegExp(`^\\| ${p}\\.\\d+ \\|.*?\\| ${ANY} \\|.*\\|$`, 'gm'))].map(m => m[1]);
   if (!rows.length) continue;
   const done = rows.filter(x => x === '✅' || x === '⏭️').length;
