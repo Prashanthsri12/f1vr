@@ -11,6 +11,7 @@ Replay real Formula 1 sessions on a pit wall in VR. A WebXR app for the **Meta Q
 - **Insights:** battles within 1 s with their gap trend, head-to-head against any rival, and a driver card
 - A neon track coloured by sectors or mini-sectors, car trails, race moment banners (lights out, safety car, overtakes, pit stops, fastest laps…) and room lighting that follows the flags
 - A race timeline on the playback bar: safety car periods, pit stops and fastest laps, click to jump
+- **Analytics:** gap to leader, lap chart, strategy, lap times, tyre degradation (raw or fuel-corrected), pace and consistency, long runs, pit loss and "if they pitted now", undercuts, and a two-driver speed trace comparison. As a main screen tab or a full Analytics mode, spoiler-free by default
 - In VR, **one big screen** (flat or curved) with the whole dashboard, or **floating panels** around a 3D track table
 - **Pit wall** mode (a virtual room) or **passthrough** mode (your real room), switchable in the same session
 - On a desktop, a flat dashboard that fits horizontal and vertical monitors
@@ -75,6 +76,7 @@ The desktop shows a flat dashboard that fills the window: the track in the middl
 | ⤢ (or F) | Swap the track and the main screen, e.g. to watch your video big |
 | Sectors / Mini / Plain (or C) | Track colours: the selected driver's last lap by sector, each mini-sector in the team colour of whoever last went purple there, or plain |
 | Engine (or E) | Engine hum that follows the selected driver's RPM (off by default) |
+| Analytics (or A) | Analytics mode: six charts with a small track and the leaderboard. Press again for the dashboard |
 | Space | Play / pause |
 | ← / → | Seek 10 s |
 | ↑ / ↓ | Playback speed |
@@ -103,6 +105,14 @@ Team radio for the selected driver also plays automatically as the replay passes
 - **Race timeline:** the playback bar's lap slider shows safety car (orange), VSC (yellow) and red flag periods, the selected driver's pit stops (blue pins, other stops faint) and new fastest laps (purple). Click a mark to jump just before it. Like everything else it only shows what has happened by the playhead.
 - **Banners** announce lights out, the safety car, VSC, red and chequered flags, track clear, fastest laps, retirements, and pit stops and overtakes for the selected driver or the top 3. In VR they fade in ahead of you and stay put; they never follow your head.
 - **Flag lighting:** during a yellow, safety car or red flag, the room's light strips and the table rim (and the dashboard edge on desktop) slowly take the flag colour.
+
+## Analytics
+
+- **Where:** the main screen's **Analytics** tab (one chart, ◀ ▶ to change it), or **Analytics mode** (desktop: the Analytics button or A; VR big screen: wrist menu → Analytics) with six charts at once.
+- **Spoiler-free:** charts only use what has happened by the playhead, and grow as the replay plays. **FULL SESSION** in a chart's header (or the wrist menu) shows everything, including the timeline marks.
+- **Hover** a lap for the values, **click** it to jump there. Selected driver bold, the rival (the car ahead unless you pick another) strong, everyone else faint.
+- **Charts:** gap to leader, lap chart, strategy, lap times with stint pace, tyre degradation, pace and consistency (best, theoretical best, σ), strategy tools (pit loss, rejoin position, undercut / overcut), driver comparison (speed traces on the same lap, gap, sectors, speed traps). Practice and qualifying swap the race charts for long-run pace.
+- **How it's worked out:** a "clean" lap is not lap 1, not an in-lap or out-lap, not under SC / VSC / red flag, and within 107% of that stint's median. Degradation is a straight-line fit of clean lap times (relative to the driver's typical clean lap) against tyre age. **Fuel-corrected** adds back an estimated 0.06 s per lap of fuel burn, a rule of thumb rather than OpenF1 data. Pit loss is in-lap + out-lap minus two typical clean laps.
 
 ## Run locally
 
@@ -135,6 +145,7 @@ Every push to `master` deploys to GitHub Pages through `.github/workflows/pages.
 - Mini-sector colours come from OpenF1's segment codes, which the docs say may not match TV and may be missing in races. Mini-sector positions on the map are approximate (each sector is split evenly).
 - The DRS chips mark DRS *range* (under 1 s with DRS enabled), not the car's own DRS flap.
 - Overtakes are detected from position swaps, ignoring pit stop shuffles; a pass and re-pass inside a few seconds may be missed.
+- Analytics are estimates from timing data: fuel loads, tyre life and pit lane speed limits are not in OpenF1. The comparison downloads car data for the chosen laps (a few requests, then cached).
 
 ## Credits
 

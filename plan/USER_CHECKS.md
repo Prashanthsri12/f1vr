@@ -1,9 +1,9 @@
-# User checks (Phases 1–8, everything built so far)
+# User checks (Phases 1–9, everything built so far)
 
 What to check by hand, on the desktop and on the Quest 3. Tick each box as you go and note anything that fails or feels wrong at the end of its section.
 
 **Before you start**
-- The checks run against the live site, https://prashanthsri12.github.io/f1vr/. The newest work (Phase 8.8–8.12) has to be pushed first.
+- The checks run against the live site, https://prashanthsri12.github.io/f1vr/. The newest work (Phase 9c and 9d) has to be pushed first.
 - After a push, hard-refresh: Ctrl+Shift+R on desktop, reload on the Quest.
 - A good test session: **2024 Bahrain, Race**. It has a full field, team radio and pit stops.
 - A second session for the edge cases: **2023 Australia, Race**, with red flags and retirements (it should show 58 laps).
@@ -23,7 +23,7 @@ What to check by hand, on the desktop and on the Quest 3. Tick each box as you g
 
 ## Phase 1 — Data and start page (desktop or Quest)
 
-- [ ] The start page loads with a dark theme, a red accent and the Titillium font.
+- [ ] The start page loads with a dark theme, a red accent, the Chakra Petch title font and Titillium text.
 - [ ] Season → race weekend → session pickers fill in from the live API, and the Race session is preselected.
 - [ ] Reload the page: the last session you picked is remembered.
 - [ ] The first load shows progress steps. Opening the same session again is near-instant (cached).
@@ -39,7 +39,7 @@ Desktop dashboard track tile, or the VR table / track tile.
 - [ ] All 20 cars move smoothly at 1× and at 10×, with no stutter when new data loads.
 - [ ] Cars are the Kenney race car model in team colours, pointing the way they drive, including through corners.
 - [ ] Cars that are off track or not yet out are hidden.
-- [ ] The selected car is bigger, pulses and leaves a short fading trail.
+- [ ] The selected car is bigger, pulses and leaves a short fading trail (Phase 9 adds a ring under it and short trails for every car).
 - [ ] Car labels (e.g. "VER 1") are readable. When crowded, less important cars show only their position number (4b.7).
 - [ ] Playback starts about 2 minutes before lap 1. While data is loading it pauses ("Loading data…") instead of jumping.
 
@@ -140,7 +140,7 @@ Choose **Floating panels around a 3D table** under "In VR, show" on the start pa
 - [ ] It opens a flat dashboard, not a 3D room:
   - leaderboard and laps on the left;
   - the track in the middle;
-  - telemetry, main screen and weather on the right;
+  - telemetry and Insights on the right, with the main screen and weather side by side below them (Phase 9);
   - race control on top and the playback bar below.
 - [ ] Text is sharp and readable at your monitor's normal zoom.
 - [ ] **Monitor sizes:**
@@ -204,6 +204,75 @@ On the start page, set **In VR, show → One big screen** (the default).
 - [ ] The track view follows the 2D/3D choice made on the desktop.
 - [ ] fps stays around 72 with the fps counter on.
 - [ ] **Immersive still works:** on the start page set **In VR, show → Floating panels**, enter VR, and the Phase 4/4b checks still pass.
+
+## Phase 9 — Style pass and analytics
+
+Use **2024 Bahrain, Race** unless a box says otherwise. For rain and safety cars use **2023 Netherlands, Race** (rain from about 13:04 UTC, a safety car and a VSC) or **2024 Canada, Race** (rain and two safety cars). For practice / qualifying use **2024 Bahrain, Practice 2** or **Qualifying**.
+
+### 9a — New look (desktop, then Quest)
+
+- [ ] **Start page:** darker background with a soft glow, glassy cards, the title in the new sporty font (Chakra Petch), a red glow on the main button.
+- [ ] **Every panel:** darker, with a faint top sheen and a thin edge. Big numbers (lap times, speed, gaps, positions) are in the new font. Nothing is cut off or overlapping.
+- [ ] **Leaderboard:**
+  - each row fades from the team colour, the team strip glows, and the selected driver's row has a glowing outline;
+  - the **+/−** column shows places gained (green ▲) or lost (red ▼) since the grid. Check a few against the real result (e.g. LEC started P2);
+  - a blue **PIT** chip while a car is in the pit lane;
+  - a green **DRS** chip on cars less than 1 s behind the car ahead once DRS is enabled (not on lap 1, not behind the safety car);
+  - the fastest-lap holder has the purple stopwatch.
+- [ ] **Telemetry:** 15 shift lights (green, red, blue) that light up with the revs; a round speed gauge with the RPM inside; a big gear number; tall throttle (green) and brake (red) bars; the DRS light. They move smoothly at 1×.
+- [ ] **Laps and tyres:** sector cards tinted purple / green / yellow with the time in that colour; a row of small **mini-sector** blocks under them once a lap is done; the current tyre ring glows.
+- [ ] **Weather:** a sun icon when dry, a cloud with rain when it rains.
+- [ ] **Rain in the VR room** (Netherlands or Canada, once it starts raining): faint streaks fall in the room, none right in front of your face, and they fade away in passthrough. Note if it's distracting.
+
+### 9b — Track, cars, race moments, sound
+
+- [ ] **Neon track:** the track edges glow. The **Sectors / Mini / Plain** button (or `C`, or wrist menu → **Track:**) cycles:
+  - **Sectors:** the selected driver's last lap, each sector purple, green or yellow (it changes as they finish laps);
+  - **Mini:** short segments in the team colour of whoever last went purple there (positions are approximate);
+  - **Plain:** one colour.
+
+  The choice is remembered.
+- [ ] **Trails:** every car leaves a short fading trail. The selected car keeps its longer trail and has a **pulsing ring** under it (a thin ring, not a big blob). Check in 2D, 3D and in VR.
+- [ ] **Banners** (play from before lights out at 1×):
+  - **LIGHTS OUT** at the start;
+  - **FASTEST LAP** with the driver and time;
+  - **PIT STOP** for the selected driver and the top 3 only (not every stop);
+  - **OVERTAKE** "X passes Y for Pn" for the selected driver or the top 3, and **not** when a car is only pitting;
+  - **CHEQUERED FLAG · VER wins** at the end;
+  - Netherlands / Canada: **SAFETY CAR**, **VIRTUAL SAFETY CAR**, **TRACK CLEAR** (and **RED FLAG** if there is one).
+
+  On desktop the banner slides across the track tile. In VR it fades in ahead of you and does **not** follow your head.
+- [ ] Seeking or jumping around never fires a burst of banners.
+- [ ] **Flag lighting:** during a yellow, safety car or red flag, the dashboard edge (desktop) and, in VR, the room's light strips and the table rim slowly turn yellow / orange / red, then back to red when the track is clear. No flashing.
+- [ ] **Sounds:** a soft click on buttons and panel taps. The **Engine** button (or `E`, or wrist menu → **Engine**) turns on a quiet hum that follows the selected driver's revs. It goes quiet when paused or above 2×. Off by default.
+- [ ] **Wrist menu (VR):** the new rows (Track / Engine and Analytics / Full session) all work and the menu still fits.
+
+### 9c — Insights and race timeline
+
+- [ ] **Layout (desktop, landscape):** Insights sits under telemetry, and the main screen and weather share the bottom row. Nothing overlaps at 1080p, 1440p, ultrawide and 4K. Portrait: Insights and weather share a row. Narrow window: Insights comes after telemetry.
+- [ ] **Battles tab:** pairs less than 1 s apart, the selected driver's battle first, each with the gap, **CLOSING / STEADY / PULLING AWAY**, a gap line over the last laps and a DRS chip. Clicking a name selects that driver. Outside races it says battles are for races.
+- [ ] **Head-to-head tab:** the selected driver vs the car ahead; ◀ ▶ picks another rival. Position, gap, last and best lap, sector differences (green where each was quicker), tyre, stops and top speed. Spot-check a lap time.
+- [ ] **Driver tab:** photo (or number tile), team, RUNNING / IN THE PITS / OUT, position with ▲▼ vs the grid, best lap and its rank, laps led, stops, top speed, laps done and the stints so far.
+- [ ] **Race timeline** on the playback bar's slider: blue pins for the selected driver's pit stops (other stops faint), purple diamonds for new fastest laps, and orange / yellow / red bands for SC / VSC / red flag periods (Netherlands / Canada). Only what has happened so far shows. Clicking a mark jumps the replay to just before it.
+- [ ] **Screen in VR:** the Insights tile is on the big screen and readable, and its tabs work with the ray or a pinch.
+- [ ] **Floating panels (Immersive):** an Insights panel on your left, mirroring the laps panel on the right. It can be moved and resized like the others.
+- [ ] The video tile is now half as wide in landscape: ⤢ / `F` still swaps it into the big tile.
+
+### 9d — Analytics
+
+- [ ] **Analytics tab** (main screen, desktop and VR): Video / Radio / **Analytics**. ◀ ▶ in the chart header cycles the charts. In VR the chart sits in the screen's middle, not hidden behind the side panels.
+- [ ] **Analytics mode** (desktop: **Analytics** button or `A`; VR big screen: wrist menu → **Analytics**): six charts with a small track and the leaderboard on the right, the ticker above and the playback bar below. At 1080p it fits without scrolling. Press again to go back. It's remembered on reload.
+- [ ] **Spoilers:** by default (**UP TO NOW**) the charts only show what has happened, and grow as the replay plays. **FULL SESSION** (chart header or wrist menu) shows the whole race, including the timeline marks. Remembered.
+- [ ] **Hover** (mouse, or the VR ray) over a lap shows a tooltip with the values; **click** jumps the replay to that lap.
+- [ ] **Charts in a race** — each looks sensible:
+  - **Gap to leader** (SC periods shaded), **Lap chart** (positions per lap), **Strategy** (every driver's stints in tyre colours);
+  - **Lap times** (selected vs rival, tyre-coloured dots, dashed stint pace, faint = not a clean lap);
+  - **Tyre degradation** with the **RAW / FUEL-CORRECTED** switch: the corrected slopes are steeper (Bahrain raw: about +0.08 s/lap on softs, +0.07 on hards);
+  - **Pace and consistency** (best, theoretical best, σ, clean laps, last stint pace);
+  - **Strategy tools** (pit loss around 24–25 s at Bahrain, where the selected driver would rejoin if they pitted now, and an undercut / overcut list with sensible numbers);
+  - **Driver comparison** (both speed traces on one lap, the gap strip, sector differences, speed traps; **vs** changes the rival, **FASTEST / LAST LAPS** switches the lap). It says "Loading car data…" briefly the first time.
+- [ ] **Practice / qualifying:** the race-only charts are replaced by Lap times, Pace and consistency, **Long-run pace** (FP2: each driver's longest run, ranked), Tyre degradation, Driver comparison and Strategy.
+- [ ] **Performance:** with Analytics mode on, playing at 1× and at 10×, the desktop stays smooth, and in VR the fps stays around 72 (turn the fps counter on).
 
 ---
 

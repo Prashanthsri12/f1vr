@@ -1,4 +1,4 @@
-// Screen mode main screen tile (8.6, 8.7): Video and Radio tabs.
+// Screen mode main screen tile (8.6, 8.7): Video, Radio and Analytics (9.27) tabs.
 //   Video: the start page's video source in a native <video> element (sharper and smoother
 //          than a texture), with Play / Mute / Sync / Sync here buttons. Same ScreenVideo logic as
 //          VR: with Sync on, the video drives the replay's timing (8.8).
@@ -8,6 +8,7 @@
 import { ScreenVideo, NO_SOURCE } from '../scene/screen-video.js';
 import { ScreenContent } from '../scene/screen-radio.js';
 import { loadVideoSettings } from '../video-settings.js';
+import { AnalyticsPanel } from '../panels/analytics-panel.js';
 
 function el(tag, cls, parent, text) {
   const e = document.createElement(tag);
@@ -31,7 +32,7 @@ function button(parent, text, onClick, cls = '') {
  * @param {import('../playback.js').Playback} o.playback
  * @param {import('./panel-host.js').PanelHost} o.host
  * @param {() => void} o.onToggleFocus
- * @returns {{setTab: (t: 'video'|'radio') => void, getTab: () => string, setFocused: (on: boolean) => void,
+ * @returns {{setTab: (t: 'video'|'radio'|'analytics') => void, getTab: () => string, setFocused: (on: boolean) => void,
  *   video: ScreenVideo, update: (dt: number) => void, dispose: () => void}}
  */
 export function createMainTile({ tile, data, playback, host, onToggleFocus }) {
@@ -41,6 +42,7 @@ export function createMainTile({ tile, data, playback, host, onToggleFocus }) {
   const tabBtns = {
     video: button(bar, 'Video', () => setTab('video')),
     radio: button(bar, 'Radio', () => setTab('radio')),
+    analytics: button(bar, 'Analytics', () => setTab('analytics')),
   };
   el('span', 'f1-dash__spacer', bar);
   const focusBtn = button(bar, '⤢', () => onToggleFocus(), 'f1-dash__btn--icon');
@@ -60,6 +62,10 @@ export function createMainTile({ tile, data, playback, host, onToggleFocus }) {
   // list stays readable in the small tile.
   const radio = host.add(new ScreenContent(data, 1.7, 0.85, { rows: 5 }), radioBox);
   radio.show('radio');
+  // Analytics tab (9.27): one chart at a time, the same panel as the VR screen's tab.
+  const analyticsBox = el('div', 'f1-dash__radio', body);
+  const analytics = host.add(new AnalyticsPanel(data, { name: 'analytics-tab', width: 1.7, height: 0.85, pxPerM: 512 }), analyticsBox);
+  analytics.mesh.visible = false; // skips its refresh while the tab is closed
 
   let tab = '';
   let shown = -1;
@@ -73,9 +79,14 @@ export function createMainTile({ tile, data, playback, host, onToggleFocus }) {
     const isVideo = t === 'video';
     videoBox.hidden = !isVideo;
     controls.hidden = !isVideo;
-    radioBox.hidden = isVideo;
+    radioBox.hidden = t !== 'radio';
+    analyticsBox.hidden = t !== 'analytics';
+    analytics.mesh.visible = t === 'analytics';
+    // A box that was hidden measured 0 × 0: re-fit the canvases now that it shows.
+    if (typeof window !== 'undefined') host.layout(window.devicePixelRatio || 1);
     if (isVideo) { video.open(); changed(); }
-    else radio.invalidate();
+    else if (t === 'radio') radio.invalidate();
+    else analytics.invalidate();
   }
 
   /** Mirror the video state into the DOM when it changes (cheap version check per frame). */

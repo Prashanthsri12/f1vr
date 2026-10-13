@@ -10,6 +10,8 @@ const DEFAULTS = {
   trackColours: 'sectors', // 9.8: 'sectors' | 'minis' | 'plain' (scene/track-style.js)
   banners: true,         // 9.11: race moment banners
   engine: false,         // 9.13: engine hum pitched by the selected driver's RPM
+  fullSession: false,    // 9.29: analytics and the race timeline show the whole session (spoilers)
+  screenView: 'dashboard', // 9.28: Screen mode / Screen in VR: 'dashboard' | 'analytics'
 };
 /** Allowed values for the string settings that are choices (others only need the right type). */
 const CHOICES = {
@@ -17,6 +19,7 @@ const CHOICES = {
   screenShape: ['flat', 'curved'],
   vrMode: ['screen', 'immersive'],
   trackColours: ['sectors', 'minis', 'plain'],
+  screenView: ['dashboard', 'analytics'],
 };
 
 let cache = null;
@@ -39,7 +42,8 @@ function load() {
 /**
  * @returns {{radio: boolean, sfx: boolean, theme: string, fps: boolean,
  *   trackView: '2d'|'3d', screenShape: 'flat'|'curved', vrMode: 'screen'|'immersive',
- *   trackColours: 'sectors'|'minis'|'plain', banners: boolean, engine: boolean}}
+ *   trackColours: 'sectors'|'minis'|'plain', banners: boolean, engine: boolean,
+ *   fullSession: boolean, screenView: 'dashboard'|'analytics'}}
  *   live settings object (read-only for callers)
  */
 export function getSettings() {

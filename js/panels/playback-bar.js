@@ -9,6 +9,7 @@
 // Clicking a mark jumps there (ctx.actions.seekTo, a few seconds before).
 import { Panel, THEME, font, roundRect, rgba } from './panel-base.js';
 import { buildTimeline, visibleTimeline } from './timeline-marks.js';
+import { getSettings } from '../settings.js';
 import { LAYOUT } from './layout.js';
 import { getApiHealth } from '../api.js';
 import { SPEEDS } from '../playback.js';
@@ -84,7 +85,8 @@ export class PlaybackBarPanel extends Panel {
     const lead = sync ? sync.videoLeads : null;
     if (s.playing === pb.playing && s.waiting === pb.waiting && s.speed === pb.speed && s.sec === sec
       && s.down === down && (s.off === off || (off !== off && s.off !== s.off)) && s.lead === lead
-      && s.sel === ctx.selected) return false;
+      && s.sel === ctx.selected && s.full === getSettings().fullSession) return false;
+    s.full = getSettings().fullSession;
     s.playing = pb.playing; s.waiting = pb.waiting; s.speed = pb.speed; s.sec = sec; s.down = down;
     s.off = off; s.lead = lead; s.sel = ctx.selected;
     return true;
@@ -306,7 +308,7 @@ export class PlaybackBarPanel extends Panel {
   /** Bands on the track, marks above it (9.15). Returns the clickable marks. */
   _drawTimeline(g, t, selected, trX, trW, trackY, trackH, total) {
     if (!this._tl) this._tl = buildTimeline(this.data);
-    const v = visibleTimeline(this._tl, t, selected);
+    const v = visibleTimeline(this._tl, getSettings().fullSession ? Infinity : t, selected); // 9.29
     const hits = [];
     for (const b of v.bands) {
       const x0 = this._xAt(b.from, trX, trW, total);

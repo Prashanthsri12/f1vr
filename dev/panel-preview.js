@@ -10,6 +10,7 @@ const MODULES = {
   laps: ['../js/panels/laps.js', 'LapsPanel'],
   weather: ['../js/panels/weather.js', 'WeatherPanel'],
   insights: ['../js/panels/insights.js', 'InsightsPanel'],
+  analytics: ['../js/panels/analytics-panel.js', 'AnalyticsPanel'],
   ticker: ['../js/panels/ticker.js', 'TickerPanel'],
   picker: ['../js/panels/driver-picker.js', 'DriverPicker'],
   playback: ['../js/panels/playback-bar.js', 'PlaybackBarPanel'],
@@ -51,6 +52,8 @@ for (const name of names) {
     const Cls = (await import(path))[exp];
     const obj = new Cls(data);
     if (q.get('tab') && 'tab' in obj) obj.tab = q.get('tab'); // insights: battle | h2h | driver
+    if (q.get('kind') && obj.setKind) obj.setKind(q.get('kind')); // analytics chart
+    if (q.get('fuel') && 'fuel' in obj) obj.fuel = true;
     const list = [];
     if (typeof obj.addTo === 'function') obj.addTo({ group: { add() {} }, add: (p) => { list.push(p); return p; } });
     else list.push(obj);
@@ -72,7 +75,7 @@ for (const name of names) {
 }
 
 // Tick a few times (≥0.1 s apart in panel time) so refresh/draw and any async fetches settle.
-for (let i = 0; i < 30; i++) {
+for (let i = 0; i < Number(q.get('ticks') || 30); i++) {
   for (const p of panels) p.tick(1, ctx);
   await new Promise((r) => setTimeout(r, 100));
 }

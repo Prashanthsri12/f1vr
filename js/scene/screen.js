@@ -1,5 +1,5 @@
 // Main screen (spec §6): a 2.4 m 16:9 screen at MAIN_SCREEN in the layout rig (so re-centre
-// carries it), with two tabs:
+// carries it), with three tabs (Analytics added in 9.27):
 //   Video: the start page's video source (or "Add a video source…"), play / mute / sync strip
 //   Radio: the selected driver's team radio clips with play buttons
 // It opens on Video when a source is set, otherwise on Radio. (The Onboard camera tab was
@@ -7,7 +7,8 @@
 // Placement: everything sits on the screen face, inside its centre band (|x| < 0.8 m): from
 // the user's start position the leaderboard and telemetry panels (±17°–53°) hide the screen's
 // outer 0.35 m on each side. Screen-local, 2 cm in front of the bottom edge:
-//   tab strip 0.54 x 0.10 m at x +0.5 (y -0.615, rig-local y 0.985)
+//   tab strip 0.80 x 0.10 m at x +0.4 (Video / Radio / Analytics) (y -0.615, rig-local y 0.985)
+//   Analytics chart 1.6 m wide above the strips
 //   video controls 0.62 x 0.10 m at x -0.5 (Video tab: play, mute, sync, sync here)
 // The playback bar stays just below the screen and the ticker above it.
 // Draw calls: screen 1 + tabs 1 + content / controls.
@@ -15,6 +16,7 @@ import * as THREE from 'three';
 import { MAIN_SCREEN } from '../panels/layout.js';
 import { ScreenVideo, VideoControls, NO_SOURCE } from './screen-video.js';
 import { ScreenContent, ScreenTabs } from './screen-radio.js';
+import { AnalyticsPanel } from '../panels/analytics-panel.js';
 import { loadVideoSettings } from '../video-settings.js';
 
 const W = MAIN_SCREEN.width;
@@ -22,13 +24,15 @@ const H = MAIN_SCREEN.height;
 const STRIP_Y = -H / 2 + 0.06;   // tab / control strips, screen-local
 const STRIP_X = 0.5;
 const STRIP_Z = 0.008;
+const TABS_X = 0.4;              // the wider 3-tab strip (0.8 m) stays inside the visible band
+const CHART_W = 1.6;             // Analytics tab chart: inside |x| < 0.8 m too
 
 /**
  * @param {object} o
  * @param {import('../panels/panel-base.js').PanelManager} o.manager panels go in its layout rig
  * @param {import('../session-data.js').SessionData} o.data
  * @param {import('../playback.js').Playback} o.playback
- * @returns {{group: THREE.Group, setTab: (t: 'video'|'radio') => void, getTab: () => string,
+ * @returns {{group: THREE.Group, setTab: (t: 'video'|'radio'|'analytics') => void, getTab: () => string,
  *   update: (dt: number) => void, video: ScreenVideo, dispose: () => void}}
  */
 export function createMainScreen({ manager, data, playback }) {
@@ -53,9 +57,12 @@ export function createMainScreen({ manager, data, playback }) {
     panel.mesh.quaternion.identity();
     return panel;
   };
-  const tabs = add(new ScreenTabs((t) => setTab(t)), STRIP_X, STRIP_Y, STRIP_Z);
+  const tabs = add(new ScreenTabs((t) => setTab(t)), TABS_X, STRIP_Y, STRIP_Z);
   const controls = add(new VideoControls(video), -STRIP_X, STRIP_Y, STRIP_Z);
   const content = add(new ScreenContent(data, W, H), 0, 0, 0.004);
+  // Analytics tab (9.27): a chart above the tab strip.
+  const analytics = add(new AnalyticsPanel(data, { name: 'analytics-screen', width: CHART_W, height: H - 0.14, pxPerM: 640 }), 0, 0.07, 0.004);
+  analytics.mesh.visible = false;
 
   let tab = '';
   let videoVersion = -1;
@@ -75,7 +82,9 @@ export function createMainScreen({ manager, data, playback }) {
     tabs.setTab(t);
     controls.mesh.visible = t === 'video';
     content.mesh.visible = t === 'radio';
+    analytics.mesh.visible = t === 'analytics';
     if (t === 'radio') { showMap(null); content.show('radio'); }
+    if (t === 'analytics') { showMap(null); analytics.invalidate(); }
     if (t === 'video') { video.open(); videoVersion = -1; }
     for (const pn of [controls, content]) pn.invalidate();
   }

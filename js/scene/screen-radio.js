@@ -207,12 +207,12 @@ export class ScreenContent extends Panel {
   }
 }
 
-const TABS = [['video', 'Video'], ['radio', 'Radio']];
+const TABS = [['video', 'Video'], ['radio', 'Radio'], ['analytics', 'Analytics']]; // 9.27: Analytics tab
 
 export class ScreenTabs extends Panel {
   /** @param {(tab: string) => void} onTab */
   constructor(onTab) {
-    super({ name: 'screen-tabs', width: 0.54, height: 0.1 });
+    super({ name: 'screen-tabs', width: 0.8, height: 0.1 });
     this.onTab = onTab;
     this.tab = 'video';
   }

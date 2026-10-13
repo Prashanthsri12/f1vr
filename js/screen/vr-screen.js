@@ -6,10 +6,15 @@
 // to a cylinder centred on the user's start position.
 // The whole screen is one movable unit: grab any tile (grip, or pinch-hold; anywhere on the
 // track tile) to carry it, push / pull and resize it with the stick or a two-hand stretch.
+// Analytics view (9.28): the setting screenView 'analytics' swaps the dashboard tiles for six
+// chart panels (AnalyticsPanel) with the track and leaderboard in a side column; tiles that the
+// current view doesn't use are hidden.
 import * as THREE from 'three';
 import { Panel } from '../panels/panel-base.js';
 import { MAIN_SCREEN } from '../panels/layout.js';
-import { computeScreenLayout, containRect } from './screen-layout.js';
+import { computeScreenLayout, containRect, CHART_TILES } from './screen-layout.js';
+import { AnalyticsPanel } from '../panels/analytics-panel.js';
+import { getSettings } from '../settings.js';
 import { frameTrack, labelAngularSize, VIEWS } from './track-camera.js';
 
 export const SCREEN_WIDTH = 4.0;     // metres (about 82° wide flat, 100° curved, at 2.3 m)
@@ -57,9 +62,10 @@ function loadTransform() {
  * @param {THREE.WebGLRenderer} o.renderer
  * @param {'flat'|'curved'} [o.shape]
  * @param {'2d'|'3d'} [o.view]
+ * @param {object} [o.data] SessionData (for the analytics view's charts)
  * @returns {object} see the return statement
  */
-export function createVrScreen({ manager, mainScreen, table, cars, renderer, shape = 'flat', view = '2d' }) {
+export function createVrScreen({ manager, mainScreen, table, cars, renderer, shape = 'flat', view = '2d', data = null }) {
   const group = new THREE.Group();
   group.name = 'vr-screen';
   manager.group.add(group);
@@ -72,6 +78,17 @@ export function createVrScreen({ manager, mainScreen, table, cars, renderer, sha
   const sun = new THREE.DirectionalLight(0xdfe8ff, 1.2);
   sun.position.set(1.5, 4, 1);
 
+  // Chart panels for the analytics view (hidden until it is chosen).
+  const charts = [];
+  if (data) {
+    const slots = data.hasIntervals ? ['gap', 'positions', 'strategy', 'deg', 'compare', 'tools'] : ['laptimes', 'pace', 'longrun', 'deg', 'compare', 'strategy'];
+    CHART_TILES.forEach((name, i) => {
+      const p = manager.add(new AnalyticsPanel(data, { name, width: 0.9, height: 0.42, kind: slots[i] }), { x: 0, y: 0, z: 0 }, { parent: group });
+      p.mesh.visible = false;
+      charts.push(p);
+    });
+  }
+  let screenView = getSettings().screenView;
   const byName = new Map(manager.panels.map((p) => [p.name, p]));
   /** Objects moved onto the screen, with where they came from (restore()). */
   const moved = [];
@@ -109,13 +126,16 @@ export function createVrScreen({ manager, mainScreen, table, cars, renderer, sha
   }
 
   function layout() {
-    const L = computeScreenLayout(VPX_W, VPX_H, { focus });
-    for (const name of SCREEN_PANELS) {
+    const L = computeScreenLayout(VPX_W, VPX_H, { focus: screenView === 'analytics' ? 'track' : focus, view: screenView });
+    for (const name of [...SCREEN_PANELS, ...CHART_TILES]) {
       const p = byName.get(name);
       if (!p) continue;
-      fit(p.mesh, L.tiles[name], p.width, p.height, name === 'ticker' ? { top: true, z: OVERLAY_Z } : {});
+      const tile = L.tiles[name];
+      p.mesh.visible = !!tile;
+      if (tile) fit(p.mesh, tile, p.width, p.height, name === 'ticker' ? { top: true, z: OVERLAY_Z } : {});
     }
-    fit(mainScreen.group, L.tiles.main, MAIN_SCREEN.width, MAIN_SCREEN.height);
+    mainScreen.group.visible = !!L.tiles.main;
+    if (L.tiles.main) fit(mainScreen.group, L.tiles.main, MAIN_SCREEN.width, MAIN_SCREEN.height);
     const t = L.tiles.track;
     track.mesh.scale.set(t.w * M_PER_PX, t.h * M_PER_PX, 1);
     put(track.mesh, t.x + t.w / 2, t.y + t.h / 2, 0);
@@ -193,6 +213,10 @@ export function createVrScreen({ manager, mainScreen, table, cars, renderer, sha
       }
       track.mesh.visible = false;
       group.visible = false;
+      // Immersive shows every pit wall panel again and no charts.
+      for (const name of SCREEN_PANELS) { const p = byName.get(name); if (p) p.mesh.visible = true; }
+      for (const p of charts) p.mesh.visible = false;
+      mainScreen.group.visible = true;
       cars.labels.setSize();
       cars.carScale = 1;
     },
@@ -224,6 +248,7 @@ export function createVrScreen({ manager, mainScreen, table, cars, renderer, sha
      */
     update(dt) {
       if (!active) return false;
+      if (getSettings().screenView !== screenView) { screenView = getSettings().screenView; layout(); }
       acc += dt;
       if (acc < 1 / RT_FPS) return false;
       acc = acc > 2 / RT_FPS ? 0 : acc - 1 / RT_FPS;

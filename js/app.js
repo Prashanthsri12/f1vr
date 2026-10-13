@@ -226,7 +226,7 @@ export async function startApp({
     screen = createMainScreen({ manager: pitWall.manager, data, playback });
     if (screenMode) {
       const s = getSettings();
-      vrScreen = createVrScreen({
+      vrScreen = createVrScreen({ data,
         manager: pitWall.manager, mainScreen: screen, table, cars, renderer: world.renderer,
         shape: s.screenShape, view: s.trackView,
       });

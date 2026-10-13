@@ -16,14 +16,15 @@ import { createAudioEvents } from '../audio-events.js';
 import { createSyncControl } from '../sync-control.js';
 import { stopRadio, sfxStats } from '../audio.js';
 import { getSettings, setSetting } from '../settings.js';
-import { computeScreenLayout, TILE_NAMES } from './screen-layout.js';
+import { computeScreenLayout, TILE_NAMES, CHART_TILES } from './screen-layout.js';
+import { AnalyticsPanel } from '../panels/analytics-panel.js';
 import { PanelHost } from './panel-host.js';
 import { createTrackView } from './track-view.js';
 import { createMainTile } from './main-tile.js';
 import { createDashExtras } from './dash-extras.js';
 
 const KEYS_HELP = 'Space play/pause · ←/→ seek 10 s · ↑/↓ speed · [ ] driver · V 2D/3D · F swap track and screen · Esc exit'
-  + '\nC track colours (sectors / mini-sectors / plain) · E engine hum'
+  + '\nC track colours (sectors / mini-sectors / plain) · E engine hum · A analytics view'
   + '\nSync: L lights out · PgUp/PgDn previous/next lap · , / . nudge −1/+1 s · Shift+, / Shift+. nudge −5/+5 s'
   + '\nTrack: drag pans (2D) or rotates (3D), right-drag pans, wheel zooms, double-click resets';
 
@@ -49,7 +50,8 @@ export async function startDashboard({ data, container, onExit, onStatus }) {
   const root = el('div', 'f1-dash');
   const content = el('div', 'f1-dash__content', root);
   const tiles = {};
-  for (const name of TILE_NAMES) {
+  const ALL_TILES = [...TILE_NAMES, ...CHART_TILES];
+  for (const name of ALL_TILES) {
     tiles[name] = el('div', `f1-dash__tile f1-dash__tile--${name}`, content);
     tiles[name].dataset.tile = name;
   }
@@ -129,6 +131,9 @@ export async function startDashboard({ data, container, onExit, onStatus }) {
     host.add(new LapsPanel(data), tiles.laps);
     host.add(new WeatherPanel(data), tiles.weather);
     host.add(new InsightsPanel(data), tiles.insights);
+    // Analytics view (9.28): six charts, each starting on its own kind (9.30: by session type).
+    const slots = data.hasIntervals ? ['gap', 'positions', 'strategy', 'deg', 'compare', 'tools'] : ['laptimes', 'pace', 'longrun', 'deg', 'compare', 'strategy'];
+    CHART_TILES.forEach((name, i) => host.add(new AnalyticsPanel(data, { name, width: 0.9, height: 0.42, kind: slots[i] }), tiles[name]));
     const ticker = host.add(new TickerPanel(data), tiles.ticker, { anchor: 'top' });
     host.add(new PlaybackBarPanel(data), tiles.playbackBar);
     unsubs.push(() => { tiles.ticker.classList.remove('is-open'); });
@@ -154,6 +159,10 @@ export async function startDashboard({ data, container, onExit, onStatus }) {
       b.addEventListener('click', () => setView(v));
       viewBtns[v] = b;
     }
+    const viewBtn = el('button', 'f1-dash__btn', tools, 'Analytics');
+    viewBtn.type = 'button';
+    viewBtn.title = 'Analytics view: six charts with a small track and the leaderboard (A)';
+    viewBtn.addEventListener('click', () => toggleView());
     const swapBtn = el('button', 'f1-dash__btn f1-dash__btn--icon', tools, '⤢');
     swapBtn.type = 'button';
     swapBtn.addEventListener('click', () => toggleFocus());
@@ -168,17 +177,30 @@ export async function startDashboard({ data, container, onExit, onStatus }) {
 
     // --- layout ---
     let focus = 'track';
+    let screenView = getSettings().screenView;
     function layout() {
-      const l = computeScreenLayout(root.clientWidth, root.clientHeight, { focus });
+      const l = computeScreenLayout(root.clientWidth, root.clientHeight, { focus, view: screenView });
       content.style.height = `${l.height}px`;
       root.dataset.orientation = l.orientation;
-      for (const name of TILE_NAMES) {
+      root.dataset.view = screenView;
+      for (const name of ALL_TILES) {
         const r = l.tiles[name];
+        tiles[name].hidden = !r;
+        if (!r) continue;
         const st = tiles[name].style;
         st.left = `${r.x}px`; st.top = `${r.y}px`; st.width = `${r.w}px`; st.height = `${r.h}px`;
       }
       host.layout(window.devicePixelRatio || 1);
+      // Hidden panels skip their refresh work (AnalyticsPanel checks mesh.visible).
+      for (const e of host.entries) e.panel.mesh.visible = e.tile.offsetParent !== null;
       trackView.resize();
+      viewBtn.classList.toggle('is-on', screenView === 'analytics');
+      swapBtn.hidden = screenView === 'analytics';
+    }
+    function toggleView() {
+      screenView = screenView === 'analytics' ? 'dashboard' : 'analytics';
+      setSetting('screenView', screenView);
+      layout();
     }
     function toggleFocus() {
       focus = focus === 'track' ? 'main' : 'track';
@@ -215,7 +237,8 @@ export async function startDashboard({ data, container, onExit, onStatus }) {
         case 'BracketLeft': stepDriver(-1); return;
         case 'BracketRight': stepDriver(1); return;
         case 'KeyV': if (!e.repeat) setView(trackView.getView() === '2d' ? '3d' : '2d'); return;
-        case 'KeyF': if (!e.repeat) toggleFocus(); return;
+        case 'KeyF': if (!e.repeat && screenView !== 'analytics') toggleFocus(); return;
+        case 'KeyA': if (!e.repeat) toggleView(); return;
         case 'KeyL': if (!e.repeat) sync.lightsOut(); return;
         case 'PageUp': e.preventDefault(); sync.stepLap(-1); return;
         case 'PageDown': e.preventDefault(); sync.stepLap(1); return;

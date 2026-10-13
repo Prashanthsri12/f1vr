@@ -364,6 +364,13 @@ export class SessionData {
     return r ? r.interval : null;
   }
 
+  /** gap_to_leader at t (seconds, "+1 LAP" style string, or null); race / sprint only. Analytics (9.21). */
+  getGapToLeaderAt(driverNumber, t) {
+    if (!this.hasIntervals) return null;
+    const r = itemAt(this._intervals.byDriver.get(driverNumber), t, indexAtOrBefore);
+    return r ? r.gap_to_leader : null;
+  }
+
   /**
    * Race position of a driver at t (latest /position record at or before t).
    * @returns {number|null}

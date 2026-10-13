@@ -90,3 +90,23 @@ test('9.18: insights sits under telemetry; the main screen and weather share the
   const p = computeScreenLayout(1080, 1920).tiles;
   assert.equal(p.insights.y, p.weather.y);
 });
+
+test('9.28: analytics view — six charts, track and leaderboard, nothing overlaps, every size', async () => {
+  const { ANALYTICS_TILES } = await import('../js/screen/screen-layout.js');
+  for (const [name, [w, h]] of Object.entries(SIZES)) {
+    const l = computeScreenLayout(w, h, { view: 'analytics' });
+    for (const t of ANALYTICS_TILES) assert.ok(l.tiles[t] && l.tiles[t].w > 0 && l.tiles[t].h > 0, `${name}: ${t}`);
+    assert.equal(l.tiles.telemetry, undefined);
+    const names = Object.keys(l.tiles);
+    for (let i = 0; i < names.length; i++) {
+      for (let j = i + 1; j < names.length; j++) {
+        assert.ok(!overlaps(l.tiles[names[i]], l.tiles[names[j]]), `${name}: ${names[i]} overlaps ${names[j]}`);
+      }
+      const r = l.tiles[names[i]];
+      assert.ok(r.x >= 0 && r.x + r.w <= w + 1 && r.y + r.h <= l.height + 1, `${name}: ${names[i]} inside`);
+    }
+  }
+  const l = computeScreenLayout(1920, 1080, { view: 'analytics' });
+  assert.equal(l.height, 1080); // fits without scrolling on a 1080p monitor
+  assert.ok(l.tiles.chart2.x > l.tiles.chart1.x && l.tiles.chart3.y > l.tiles.chart1.y);
+});

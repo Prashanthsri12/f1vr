@@ -21,12 +21,25 @@
 // insights | weather.
 // Stack (narrow windows): one column, scrolling.
 // focus 'main' swaps the track and main tiles (8.7 "Video focus").
+// view 'analytics' (9.28, the approved mockup): six chart tiles in a 2 × 3 grid with the ticker
+// above and the playback bar below, and a side column with a small track and the leaderboard:
+//   ┌──── ticker ─────────────┬─ TRACK ─┐
+//   │ CHART1     │ CHART2     │         │
+//   │ CHART3     │ CHART4     ├─────────┤
+//   │ CHART5     │ CHART6     │ LEADER- │
+//   ├──── playback bar ───────┤ BOARD   │
+//   └─────────────────────────┴─────────┘
 import { LAYOUT } from '../panels/layout.js';
 
 export const MIN_SCALE = 0.42;     // smallest panel scale (24 px canvas text -> 10 CSS px)
 export const MAX_SCALE = 1;
 export const LANDSCAPE_MIN = 1.15; // width / height at or above which the landscape layout is used
 export const TILE_NAMES = ['ticker', 'track', 'leaderboard', 'telemetry', 'laps', 'weather', 'main', 'playbackBar', 'insights'];
+/** Chart tiles of the analytics view (9.28). */
+export const CHART_TILES = ['chart1', 'chart2', 'chart3', 'chart4', 'chart5', 'chart6'];
+/** Tiles the analytics view shows. */
+export const ANALYTICS_TILES = ['ticker', 'track', 'leaderboard', 'playbackBar', ...CHART_TILES];
+const CHART_RATIO = LAYOUT.insights.height / LAYOUT.insights.width; // chart panels are 0.9 × 0.42 m too
 
 const PX = 1024;
 const COL_LW = LAYOUT.leaderboard.width * PX;                       // 921.6 logical px
@@ -65,14 +78,15 @@ export function containRect(r, aspect) {
 /**
  * @param {number} width viewport width (CSS px)
  * @param {number} height viewport height (CSS px)
- * @param {{focus?: 'track'|'main', gap?: number}} [opts]
+ * @param {{focus?: 'track'|'main', gap?: number, view?: 'dashboard'|'analytics'}} [opts]
  * @returns {{orientation: 'landscape'|'portrait'|'stack', scale: number, width: number, height: number,
  *   tiles: Record<string, {x:number,y:number,w:number,h:number}>}} height is the content height
  *   (more than the viewport when the dashboard has to scroll)
  */
-export function computeScreenLayout(width, height, { focus = 'track', gap = 8 } = {}) {
+export function computeScreenLayout(width, height, { focus = 'track', gap = 8, view = 'dashboard' } = {}) {
   const W = Math.max(1, width);
   const H = Math.max(1, height);
+  if (view === 'analytics') return analyticsView(W, H, gap);
   let out = null;
   if (W / H >= LANDSCAPE_MIN) out = landscape(W, H, gap);
   if (!out) out = portrait(W, H, gap);
@@ -190,4 +204,53 @@ function stack(W, H, g) {
     y += heights[name] + g;
   }
   return { orientation: 'stack', scale: s, width: W, height: Math.round(Math.max(H, y)), tiles };
+}
+
+function analyticsView(W, H, g) {
+  if (W / H >= LANDSCAPE_MIN) {
+    // Side column: track (4:3) over the leaderboard, as wide as the height allows.
+    let c = Math.min(0.26 * W, (H - 3 * g) / (0.75 + LB_RATIO));
+    c = clamp(c, MIN_SCALE * COL_LW, MAX_SCALE * COL_LW);
+    const mw = W - c - 3 * g;
+    if (mw >= 2 * MIN_SCALE * COL_LW + g) {
+      const trackH = c * 0.75;
+      const lbH = c * LB_RATIO;
+      const side = g + trackH + g + lbH + g;
+      const tickerH = Math.max(36, mw * TICKER_RATIO);
+      const barH = clamp(mw * BAR_RATIO, 56, 0.12 * H);
+      const cw = (mw - g) / 2;
+      const minCharts = 3 * cw * CHART_RATIO * 0.75 + 2 * g; // charts may letterbox a little
+      const Hc = Math.max(H, side, g + tickerH + g + minCharts + g + barH + g);
+      const y0 = g + tickerH + g;
+      const ch = (Hc - y0 - g - barH - g - 2 * g) / 3;
+      const xr = W - g - c;
+      const tiles = {
+        ticker: rect(g, g, mw, tickerH),
+        playbackBar: rect(g, Hc - g - barH, mw, barH),
+        track: rect(xr, g, c, trackH),
+        leaderboard: rect(xr, g + trackH + g, c, Hc - g - (g + trackH + g)),
+      };
+      CHART_TILES.forEach((name, i) => {
+        tiles[name] = rect(g + (i % 2) * (cw + g), y0 + Math.floor(i / 2) * (ch + g), cw, ch);
+      });
+      return { orientation: 'landscape', scale: c / COL_LW, width: W, height: contentHeight(Hc, H), tiles };
+    }
+  }
+  // Portrait / narrow: one scrolling column.
+  const fw = Math.max(1, W - 2 * g);
+  const c = Math.min(fw, MAX_SCALE * COL_LW);
+  const heights = {
+    ticker: Math.max(36, fw * TICKER_RATIO),
+    track: Math.max(200, Math.min(fw * 0.6, H * 0.4)),
+    playbackBar: Math.max(48, fw * BAR_RATIO),
+  };
+  for (const name of CHART_TILES) heights[name] = fw * CHART_RATIO;
+  heights.leaderboard = c * LB_RATIO;
+  const tiles = {};
+  let y = g;
+  for (const name of ['ticker', 'track', 'playbackBar', ...CHART_TILES, 'leaderboard']) {
+    tiles[name] = rect(g, y, fw, heights[name]);
+    y += heights[name] + g;
+  }
+  return { orientation: W / H >= LANDSCAPE_MIN ? 'landscape' : 'stack', scale: c / COL_LW, width: W, height: Math.round(Math.max(H, y)), tiles };
 }
