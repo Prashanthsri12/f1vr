@@ -5,6 +5,7 @@ import { Panel, THEME, font, roundRect } from './panel-base.js';
 import { LAYOUT } from './layout.js';
 import { LapTraceCache } from './lap-trace.js';
 import { lowerBound } from '../interp.js';
+import { getRadioState, onRadioChange } from '../audio.js';
 
 const RPM_MAX = 13000;
 const RPM_SEGMENTS = 26;
@@ -45,12 +46,31 @@ export class TelemetryPanel extends Panel {
     // last drawn snapshot
     this._s = {
       selected: -1, telOk: false, speed: -1, gear: -1, rpm: -1, throttle: -1, brake: -1, drs: -1, hasDrs: undefined,
-      pos: -2, lap: -2, curN: -1, prevN: -1, curLoaded: false, radio: false, headshot: false,
+      pos: -2, lap: -2, curN: -1, prevN: -1, curLoaded: false, radio: 0, headshot: false,
     };
     this._cur = null;      // current lap object
     this._curTrace = null;
     this._prevTrace = null;
     this._curN = 0;        // samples of current trace revealed
+    this._radioUrls = new Map(); // driver -> Set of recording_url (built once per driver)
+    this._offRadio = onRadioChange(() => this.invalidate());
+  }
+
+  /** True while one of driver n's clips is playing (autoplay or the Radio tab). */
+  _radioPlaying(n) {
+    const st = getRadioState();
+    if (!st.playing || !st.url) return false;
+    let urls = this._radioUrls.get(n);
+    if (!urls) {
+      urls = new Set(this.data.getTeamRadioUpTo(n, Infinity).map((r) => r.recording_url));
+      this._radioUrls.set(n, urls);
+    }
+    return urls.has(st.url);
+  }
+
+  dispose() {
+    if (this._offRadio) this._offRadio();
+    super.dispose();
   }
 
   _headshot(n) {
@@ -95,13 +115,15 @@ export class TelemetryPanel extends Panel {
     const ct = this._curTrace;
     this._curN = ct ? lowerBound(ct.time, t + 1e-6) : 0; // samples with time <= t
 
+    // Badge: 2 while the driver's clip plays, 1 for a few seconds after a clip's time, else 0.
     const radios = data.getTeamRadioUpTo(n, t);
-    let radio = false;
+    let radio = 0;
     if (radios.length) {
       const last = radios[radios.length - 1];
       const d = typeof last.date === 'number' ? last.date : Date.parse(last.date);
-      radio = t - d <= RADIO_WINDOW_MS;
+      if (t >= d && t - d <= RADIO_WINDOW_MS) radio = 1;
     }
+    if (this._radioPlaying(n)) radio = 2;
     const hs = this._headshot(n);
     const pos = data.getPositionAt(n, t);
 
@@ -213,7 +235,8 @@ export class TelemetryPanel extends Panel {
     g.fillText(pos ? `P${pos}` : '–', bx + 79, 104);
 
     if (this._s.radio) {
-      const rw = 120;
+      const playing = this._s.radio === 2;
+      const rw = playing ? 170 : 120;
       const rx = w - PAD - rw;
       g.fillStyle = THEME.accent;
       roundRect(g, rx, 144, rw, 40, 8);
@@ -221,7 +244,7 @@ export class TelemetryPanel extends Panel {
       g.fillStyle = '#ffffff';
       g.font = font(26, 700);
       g.textBaseline = 'middle';
-      g.fillText('RADIO', rx + rw / 2, 165);
+      g.fillText(playing ? '◉ RADIO' : 'RADIO', rx + rw / 2, 165);
     }
 
     g.fillStyle = THEME.line;
