@@ -13,6 +13,7 @@ const DEFAULTS = {
   engine: false,         // 9.13: engine hum pitched by the selected driver's RPM
   fullSession: false,    // 9.29: analytics and the race timeline show the whole session (spoilers)
   screenView: 'dashboard', // 9.28: Screen mode / Screen in VR: 'dashboard' | 'analytics'
+  hubTab: 'battle',      // 12.4: desktop hub tile tab
 };
 /** Allowed values for the string settings that are choices (others only need the right type). */
 const CHOICES = {
@@ -21,6 +22,7 @@ const CHOICES = {
   vrMode: ['screen', 'immersive'],
   trackColours: ['sectors', 'minis', 'plain'],
   screenView: ['dashboard', 'analytics'],
+  hubTab: ['battle', 'h2h', 'driver', 'radio', 'video', 'analytics'],
 };
 
 let cache = null;

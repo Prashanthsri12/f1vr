@@ -13,13 +13,17 @@
 //
 // Canvas pixels are *logical*: lw × lh = size × pxPerM. When a panel is enlarged (4b.14)
 // setDensity(scale) grows the backing canvas and draws through a k× transform, so draw(),
-// hit rects and uvToPx keep working in the same logical pixels.
+// hit rects and uvToPx keep working in the same logical pixels. On the desktop (12.1) the
+// density can also be below 1, so the canvas is drawn at exactly its on-screen size instead
+// of being shrunk by the browser (soft text). Desktop panels are frameless (the page tile
+// draws the card) and the playback bar can take any logical width (setLogicalWidth).
 import * as THREE from 'three';
 import { uiClick } from '../audio.js';
 
 export const PX_PER_M = 1024;
 export const MAX_HZ = 10;
 export const MAX_PX_PER_M = 2048; // backing density cap for enlarged panels (texture memory)
+export const MIN_DENSITY = 0.25;  // smallest backing density (desktop panels shown small)
 
 export const THEME = {
   font: "'Titillium Web', system-ui, sans-serif",
@@ -219,6 +223,7 @@ export class Panel {
     this.passthrough = false;
     this.hover = null;          // id of the hovered hit rect, for hover styling
     this.passThroughEmpty = false; // true: rays pass through areas with no hit rect (e.g. collapsed ticker)
+    this.frameless = false;     // desktop (12.2): square, rimless background; the page tile is the card
     this._hits = [];
     this._dirty = true;
     this._since = Infinity;
@@ -233,6 +238,11 @@ export class Panel {
    */
   clear(g, w, h, radius = 18) {
     g.clearRect(0, 0, w, h);
+    if (this.frameless) {
+      g.fillStyle = THEME.bg;
+      g.fillRect(0, 0, w, h);
+      return;
+    }
     g.fillStyle = this.passthrough ? `rgba(${THEME.bgRgb},0.8)` : THEME.bg;
     roundRect(g, 0, 0, w, h, radius);
     g.fill();
@@ -266,20 +276,41 @@ export class Panel {
   /**
    * Backing-canvas density for a panel shown at `scale` × its size (4b.14):
    * k = clamp(scale, 1, MAX_PX_PER_M / pxPerM) in 0.25 steps, so small changes don't reallocate.
+   * With `exact` (desktop, 12.1) k may go below 1 and follows the scale closely (1/50 steps),
+   * so the canvas maps 1:1 to device pixels.
    * Re-allocates the canvas and GPU texture only when k changes; the next tick redraws.
    * @returns {boolean} true if the density changed
    */
-  setDensity(scale) {
+  setDensity(scale, exact = false) {
     const cap = Math.max(1, MAX_PX_PER_M / this.pxPerM);
-    const k = Math.min(cap, Math.max(1, Math.ceil(scale * 4 - 1e-6) / 4));
+    const k = exact
+      ? Math.min(cap, Math.max(MIN_DENSITY, Math.round(scale * 50) / 50))
+      : Math.min(cap, Math.max(1, Math.ceil(scale * 4 - 1e-6) / 4));
     if (k === this.density) return false;
     this.density = k;
-    this.canvas.width = Math.round(this.lw * k);
-    this.canvas.height = Math.round(this.lh * k);
+    this._resizeCanvas();
+    return true;
+  }
+
+  /**
+   * Desktop only (12.2): change the logical width (the playback bar stretches to its tile).
+   * The 3D mesh keeps its size; draw() and hit rects use the new width.
+   * @returns {boolean} true if it changed
+   */
+  setLogicalWidth(lw) {
+    lw = Math.max(1, Math.round(lw));
+    if (lw === this.lw) return false;
+    this.lw = lw;
+    this._resizeCanvas();
+    return true;
+  }
+
+  _resizeCanvas() {
+    this.canvas.width = Math.round(this.lw * this.density);
+    this.canvas.height = Math.round(this.lh * this.density);
     this.texture.dispose(); // new size: three re-creates the GPU texture on the next upload
     this._dirty = true;
     this._since = Infinity;
-    return true;
   }
 
   setPassthrough(on) {

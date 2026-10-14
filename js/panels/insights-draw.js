@@ -20,12 +20,12 @@ export function side(d, n, row, t) {
   };
 }
 
-export function note(g, w, h, msg) {
+export function note(g, w, h, msg, top = TOP) {
   g.fillStyle = THEME.muted;
   g.font = font(24, 600);
   g.textAlign = 'center';
   g.textBaseline = 'middle';
-  g.fillText(msg, w / 2, (TOP + h) / 2);
+  g.fillText(msg, w / 2, (top + h) / 2);
 }
 
 export function chip(g, x, cy, label, bg, fg) {

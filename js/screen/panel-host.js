@@ -1,8 +1,10 @@
 // Screen mode (8.3): shows Panel canvases directly in the page instead of as 3D textures.
 // Each panel's canvas goes into a tile element, fitted to the tile at the panel's aspect
-// ratio, with a backing density that matches the displayed size × devicePixelRatio so text
-// stays sharp. Mouse clicks and hover map from the element to logical canvas pixels and use
-// the panel's own hit rects (Panel.hitTestPx), exactly like a VR ray does.
+// ratio, with a backing density that matches the displayed size × devicePixelRatio exactly
+// (12.1: also below 1) so text stays sharp. Panels are frameless: the tile is the card.
+// 'stretch' panels (the playback bar, 12.2) take the tile's width as their logical width.
+// Mouse clicks and hover map from the element to logical canvas pixels and use the panel's
+// own hit rects (Panel.hitTestPx), exactly like a VR ray does.
 import { containRect } from './screen-layout.js';
 import { uiClick } from '../audio.js';
 
@@ -20,11 +22,13 @@ export class PanelHost {
    * Show `panel` in `tile`.
    * @param {import('../panels/panel-base.js').Panel} panel
    * @param {HTMLElement} tile
-   * @param {{anchor?: 'center'|'top'}} [o] 'top': full tile width, pinned to the top (the
-   *   ticker, whose canvas is taller than its collapsed strip)
+   * @param {{anchor?: 'center'|'top'|'stretch'}} [o] 'top': full tile width, pinned to the top (the
+   *   ticker, whose canvas is taller than its collapsed strip); 'stretch': the tile height sets
+   *   the scale and the logical width grows to fill the tile (the playback bar)
    */
   add(panel, tile, { anchor = 'center' } = {}) {
     const c = panel.canvas;
+    panel.frameless = true;
     c.className = 'f1-dash__canvas';
     tile.appendChild(c);
     const entry = { panel, tile, anchor, off: null };
@@ -69,6 +73,7 @@ export class PanelHost {
     for (const e of this.entries) {
       const w = e.tile.clientWidth;
       const h = e.tile.clientHeight;
+      if (e.anchor === 'stretch' && w > 0 && h > 0) e.panel.setLogicalWidth(w * (e.panel.lh / h));
       const aspect = e.panel.lh / e.panel.lw;
       const r = e.anchor === 'top'
         ? { x: 0, y: 0, w, h: w * aspect }
@@ -78,7 +83,7 @@ export class PanelHost {
       st.top = `${r.y}px`;
       st.width = `${r.w}px`;
       st.height = `${r.h}px`;
-      e.panel.setDensity((r.w / e.panel.lw) * dpr);
+      if (r.w > 0) e.panel.setDensity((r.w / e.panel.lw) * dpr, true);
     }
   }
 

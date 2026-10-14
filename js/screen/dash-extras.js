@@ -3,7 +3,6 @@
 //   - engine hum toggle (key E) and UI click sounds on the toolbar buttons
 //   - race moment banners over the track tile (race-moments.js + banner-dom.js)
 //   - flag ambience: the dashboard edge glows in the track status colour when not green
-//   - circuit / session / night race stickers on the track tile (10.9)
 //   - team radio: Off / Driver / All button (key R) and the radio pop-up (11.1, 11.2)
 // update() runs every frame but does its work at 10 Hz (no per-frame allocation).
 import { getSettings, setSetting } from '../settings.js';
@@ -13,7 +12,6 @@ import { createRaceMoments } from '../race-moments.js';
 import { trackStatusAt } from '../panels/race-status.js';
 import { TRACK_COLOUR_MODES } from '../scene/track-style.js';
 import { createBannerDom } from './banner-dom.js';
-import { isNightSession } from '../session-index.js';
 import { createRadioPop } from './radio-pop.js';
 import { radioMode, cycleRadioMode, RADIO_LABEL } from '../radio-mode.js';
 
@@ -31,40 +29,29 @@ const COLOUR_TITLE = {
  * @param {object} o.playback Playback
  * @param {HTMLElement} o.root .f1-dash
  * @param {HTMLElement} o.trackTile
- * @param {HTMLElement} o.tools track tile toolbar
+ * @param {HTMLElement} o.trackTools the track tile's overlay buttons (track colours go first)
+ * @param {HTMLElement} o.right the top bar's right slot (12.3: Radio and Engine go here)
  * @param {(tag: string, cls: string, parent: HTMLElement, text?: string) => HTMLElement} o.el
  * @param {(n: number) => void} o.selectDriver
  */
-export function createDashExtras({ data, playback, root, trackTile, tools, el, selectDriver }) {
+export function createDashExtras({ data, playback, root, trackTile, trackTools, right, el, selectDriver }) {
   const engine = createEngineSound();
   const moments = createRaceMoments(data);
   const banner = createBannerDom(trackTile);
   const radioPop = createRadioPop({ data, tile: trackTile, selectDriver });
-  // Stickers, bottom left of the track tile: our own tags, never real logos.
-  const stickers = el('div', 'f1-dash__stickers', trackTile);
-  const s = data.session || {};
-  const tags = [[s.circuit || s.country, '#ffffff', '#0a0b10', -3], [s.name, '#e10600', '#ffffff', 2]];
-  if (isNightSession(s)) tags.push([data.hasIntervals ? 'Night race' : 'Night', '#ffd23f', '#0a0b10', -2]);
-  for (const [text, bg, fg, rot] of tags) {
-    if (!text) continue;
-    const t = el('span', 'f1-stk', stickers, text);
-    t.style.cssText = `--tc:${bg};--tx:${fg};--rot:${rot}deg`;
-  }
   const tel = { speed: 0, rpm: 0, gear: 0, throttle: 0, brake: 0, drs: 0 };
   let acc = TICK_MS;
   let flag = '';
 
-  const colourBtn = el('button', 'f1-dash__btn', tools);
+  const colourBtn = el('button', 'f1-dash__btn');
   colourBtn.type = 'button';
-  const engineBtn = el('button', 'f1-dash__btn', tools, 'Engine');
-  engineBtn.type = 'button';
-  engineBtn.title = 'Engine hum from the selected driver\'s RPM (E)';
-  const radioBtn = el('button', 'f1-dash__btn', tools);
+  trackTools.prepend(colourBtn);
+  const radioBtn = el('button', 'f1-dash__btn', right);
   radioBtn.type = 'button';
   radioBtn.title = 'Team radio: off, the selected driver only, or every driver (R)';
-  // Insert before the 2D / 3D buttons: right after the spacer and debug line.
-  const perf = tools.querySelector('.f1-dash__perf');
-  if (perf) { perf.after(colourBtn); colourBtn.after(engineBtn); engineBtn.after(radioBtn); }
+  const engineBtn = el('button', 'f1-dash__btn', right, 'Engine');
+  engineBtn.type = 'button';
+  engineBtn.title = 'Engine hum from the selected driver\'s RPM (E)';
 
   function showColour() {
     const m = getSettings().trackColours;
@@ -133,7 +120,6 @@ export function createDashExtras({ data, playback, root, trackTile, tools, el, s
       engine.dispose();
       banner.dispose();
       radioPop.dispose();
-      stickers.remove();
     },
   };
 }

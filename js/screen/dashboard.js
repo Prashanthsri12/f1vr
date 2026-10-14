@@ -1,22 +1,21 @@
 // Screen mode on desktop (Phase 8): a flat, full-window dashboard instead of the 3D room.
-// Tiles are placed by screen-layout.js (landscape, portrait or a scrolling stack, re-laid
-// out live on resize); panels are shown as page canvases (panel-host.js), the track has its
-// own WebGL view (track-view.js) and the main screen has Video / Radio tabs (main-tile.js).
-// ⤢ swaps the track and main screen tiles ("Video focus").
+// 12.2: tiles are placed by dash-layout.js (landscape, portrait or a scrolling stack, re-laid
+// out live on resize) under a top bar (top-bar.js: Exit, stickers, race control, weather,
+// toggles); panels are shown as page canvases (panel-host.js), the track has its own WebGL
+// view (track-view.js) and the hub tile has the Insights and main screen tabs (main-tile.js).
+// ⤢ swaps the track and the hub ("Video focus").
 import { Playback } from '../playback.js';
 import { LeaderboardPanel } from '../panels/leaderboard.js';
 import { TelemetryPanel } from '../panels/telemetry.js';
 import { LapsPanel } from '../panels/laps.js';
-import { WeatherPanel } from '../panels/weather.js';
-import { TickerPanel } from '../panels/ticker.js';
 import { PlaybackBarPanel } from '../panels/playback-bar.js';
-import { InsightsPanel } from '../panels/insights.js';
 import { panelStats } from '../panels/panel-base.js';
 import { createAudioEvents } from '../audio-events.js';
 import { createSyncControl } from '../sync-control.js';
 import { stopRadio, sfxStats } from '../audio.js';
 import { getSettings, setSetting } from '../settings.js';
-import { computeScreenLayout, TILE_NAMES, CHART_TILES } from './screen-layout.js';
+import { computeDashLayout, DASH_TILES, CHART_TILES } from './dash-layout.js';
+import { createTopBar } from './top-bar.js';
 import { AnalyticsPanel } from '../panels/analytics-panel.js';
 import { PanelHost } from './panel-host.js';
 import { createTrackView } from './track-view.js';
@@ -50,7 +49,8 @@ export async function startDashboard({ data, container, onExit, onStatus }) {
   const root = el('div', 'f1-dash');
   const content = el('div', 'f1-dash__content', root);
   const tiles = {};
-  const ALL_TILES = [...TILE_NAMES, ...CHART_TILES];
+  const ALL_TILES = ['topbar', ...DASH_TILES, ...CHART_TILES];
+  const GAP = 10;
   for (const name of ALL_TILES) {
     tiles[name] = el('div', `f1-dash__tile f1-dash__tile--${name}`, content);
     tiles[name].dataset.tile = name;
@@ -63,6 +63,7 @@ export async function startDashboard({ data, container, onExit, onStatus }) {
   let mainTile = null;
   let audioEvents = null;
   let extras = null;
+  let topBar = null;
   let disposed = false;
   let raf = 0;
   const unsubs = [];
@@ -112,6 +113,7 @@ export async function startDashboard({ data, container, onExit, onStatus }) {
     for (const u of unsubs) { try { u(); } catch (_) { /* ignore */ } }
     if (audioEvents) audioEvents.dispose();
     if (extras) extras.dispose();
+    if (topBar) topBar.dispose();
     stopRadio();
     if (mainTile) mainTile.dispose();
     if (trackView) trackView.dispose();
@@ -129,29 +131,20 @@ export async function startDashboard({ data, container, onExit, onStatus }) {
     host.add(new LeaderboardPanel(data), tiles.leaderboard);
     host.add(new TelemetryPanel(data), tiles.telemetry);
     host.add(new LapsPanel(data), tiles.laps);
-    host.add(new WeatherPanel(data), tiles.weather);
-    host.add(new InsightsPanel(data), tiles.insights);
     // Analytics view (9.28): six charts, each starting on its own kind (9.30: by session type).
     const slots = data.hasIntervals ? ['gap', 'positions', 'strategy', 'deg', 'compare', 'tools'] : ['laptimes', 'pace', 'longrun', 'deg', 'compare', 'strategy'];
     CHART_TILES.forEach((name, i) => host.add(new AnalyticsPanel(data, { name, width: 0.9, height: 0.42, kind: slots[i] }), tiles[name]));
-    const ticker = host.add(new TickerPanel(data), tiles.ticker, { anchor: 'top' });
-    host.add(new PlaybackBarPanel(data), tiles.playbackBar);
-    unsubs.push(() => { tiles.ticker.classList.remove('is-open'); });
+    host.add(new PlaybackBarPanel(data), tiles.playbackBar, { anchor: 'stretch' });
 
     status('Building track…');
     trackView = await createTrackView({ data, tile: tiles.track, view: getSettings().trackView });
-    mainTile = createMainTile({ tile: tiles.main, data, playback, host, onToggleFocus: () => toggleFocus() });
+    mainTile = createMainTile({ tile: tiles.hub, data, playback, host, onToggleFocus: () => toggleFocus() });
 
-    // Track tile toolbar: Exit, help, 2D / 3D, swap.
+    // Top bar (12.3) and the track's own overlay buttons: track colours, 2D / 3D.
+    topBar = createTopBar({ data, parent: tiles.topbar, onExit: exit, help: KEYS_HELP });
+    const perf = topBar.perf;
     const tools = el('div', 'f1-dash__tools', tiles.track);
-    const exitBtn = el('button', 'f1-dash__btn f1-dash__btn--exit', tools, 'Exit');
-    exitBtn.type = 'button';
-    exitBtn.addEventListener('click', exit);
-    const help = el('span', 'f1-dash__help', tools, '?');
-    help.title = KEYS_HELP;
     el('span', 'f1-dash__spacer', tools);
-    const perf = el('span', 'f1-dash__perf', tools);
-    perf.hidden = !new URLSearchParams(location.search).has('debug');
     const viewBtns = {};
     for (const v of ['2d', '3d']) {
       const b = el('button', 'f1-dash__btn', tools, v.toUpperCase());
@@ -159,13 +152,6 @@ export async function startDashboard({ data, container, onExit, onStatus }) {
       b.addEventListener('click', () => setView(v));
       viewBtns[v] = b;
     }
-    const viewBtn = el('button', 'f1-dash__btn', tools, 'Analytics');
-    viewBtn.type = 'button';
-    viewBtn.title = 'Analytics view: six charts with a small track and the leaderboard (A)';
-    viewBtn.addEventListener('click', () => toggleView());
-    const swapBtn = el('button', 'f1-dash__btn f1-dash__btn--icon', tools, '⤢');
-    swapBtn.type = 'button';
-    swapBtn.addEventListener('click', () => toggleFocus());
 
     function setView(v) {
       trackView.setView(v);
@@ -173,13 +159,27 @@ export async function startDashboard({ data, container, onExit, onStatus }) {
       for (const [id, b] of Object.entries(viewBtns)) b.classList.toggle('is-active', id === trackView.getView());
     }
     setView(trackView.getView());
-    extras = createDashExtras({ data, playback, root, trackTile: tiles.track, tools, el, selectDriver });
+    extras = createDashExtras({ data, playback, root, trackTile: tiles.track, trackTools: tools, right: topBar.right, el, selectDriver });
+    const viewBtn = el('button', 'f1-dash__btn', topBar.right, 'Analytics');
+    viewBtn.type = 'button';
+    viewBtn.title = 'Analytics view: six charts with a small track and the leaderboard (A)';
+    viewBtn.addEventListener('click', () => toggleView());
+    const swapBtn = el('button', 'f1-dash__btn f1-dash__btn--icon', topBar.right, '⤢');
+    swapBtn.type = 'button';
+    swapBtn.addEventListener('click', () => toggleFocus());
 
     // --- layout ---
     let focus = 'track';
     let screenView = getSettings().screenView;
+    function currentLayout() {
+      // The top bar wraps on narrow windows: measure it at its width first.
+      const tb = tiles.topbar.style;
+      tb.left = `${GAP}px`; tb.top = `${GAP}px`; tb.width = `${Math.max(1, root.clientWidth - 2 * GAP)}px`; tb.height = 'auto';
+      const top = Math.ceil(tiles.topbar.offsetHeight) || 52;
+      return computeDashLayout(root.clientWidth, root.clientHeight, { top, gap: GAP, focus, view: screenView });
+    }
     function layout() {
-      const l = computeScreenLayout(root.clientWidth, root.clientHeight, { focus, view: screenView });
+      const l = currentLayout();
       content.style.height = `${l.height}px`;
       root.dataset.orientation = l.orientation;
       root.dataset.view = screenView;
@@ -215,6 +215,11 @@ export async function startDashboard({ data, container, onExit, onStatus }) {
     const ro = new ResizeObserver(() => layout());
     ro.observe(root);
     ro.observe(content); // its width changes when the scrollbar comes or goes
+    // The top bar's height changes when it wraps or its text changes (race control, weather).
+    let topH = 0;
+    const roTop = new ResizeObserver(() => { const h = tiles.topbar.firstChild ? tiles.topbar.firstChild.offsetHeight : 0; if (h !== topH) { topH = h; layout(); } });
+    roTop.observe(tiles.topbar.firstChild);
+    unsubs.push(() => roTop.disconnect());
     window.addEventListener('resize', layout); // devicePixelRatio changes (moving between monitors)
     unsubs.push(() => { ro.disconnect(); window.removeEventListener('resize', layout); });
     layout();
@@ -253,7 +258,6 @@ export async function startDashboard({ data, container, onExit, onStatus }) {
 
     // --- frame loop (allocation-free apart from ≤10 Hz panel redraws and the debug line) ---
     let last = -1;
-    let tickerOpen = false;
     let fpsFrames = 0;
     let fpsAcc = 0;
     let redrawBase = panelStats.redraws;
@@ -268,12 +272,9 @@ export async function startDashboard({ data, container, onExit, onStatus }) {
       host.update(dt);
       trackView.update(playback.time);
       mainTile.update(dt);
+      topBar.update(playback.time);
       audioEvents.update(playback.time, selected, playback.playing && !playback.waiting);
       extras.update(dt, selected);
-      if (ticker.expanded !== tickerOpen) {
-        tickerOpen = ticker.expanded;
-        tiles.ticker.classList.toggle('is-open', tickerOpen);
-      }
       if (!perf.hidden) {
         fpsFrames++;
         fpsAcc += dt;
@@ -290,7 +291,7 @@ export async function startDashboard({ data, container, onExit, onStatus }) {
     // Dev/test hook: ?debug exposes the live objects (used by headless tests).
     if (new URLSearchParams(location.search).has('debug')) {
       window.__f1vr = {
-        data, playback, sync, host, trackView, mainTile, sfxStats, extras, layout: () => computeScreenLayout(root.clientWidth, root.clientHeight, { focus }),
+        data, playback, sync, host, trackView, mainTile, sfxStats, extras, topBar, layout: () => currentLayout(),
         toggleFocus, setView, getFocus: () => focus,
       };
       unsubs.push(() => { if (window.__f1vr && window.__f1vr.playback === playback) delete window.__f1vr; });

@@ -23,6 +23,7 @@ Update the item's status as soon as it is created or finished. Add a dated entry
 | 9 | Style pass and analytics | 🟡 | 29 / 30 |
 | 10 | Neon F1 look | 🟡 | 11 / 12 |
 | 11 | Team radio for every driver | 🟡 | 2 / 4 |
+| 12 | Desktop quality and layout | 🟡 | 6 / 7 |
 
 ---
 
@@ -297,6 +298,22 @@ Asked for by the user on 2026-10-14: a toggle so that, during the replay, any dr
 | 11.2 | **Radio pop-up:** a card with the team colour, car-number sticker, name, team, position and lap at the clip time, and a waveform while it plays; hides when the clip ends. Desktop: bottom right of the track tile (click selects the driver). VR: a card spawned ahead and below the gaze, world-fixed, fades only | `js/screen/radio-pop.js` (new), `js/scene/radio-pop-3d.js` (new), `css/dashboard.css`, `js/scene/vr-extras.js`, `js/app.js` | ✅ | Shown for every autoplayed clip (Driver mode too). VR card is 1 draw call, drawn once per clip. Renders checked on 2024 Bahrain (desktop and room preview) |
 | 11.3 | **Radio text (transcripts)** | — | ⛔ | Not possible from OpenF1 alone: `team_radio` has only `recording_url` (no text), and the mp3s on livetiming.formula1.com send no CORS headers (checked 2026-10-14), so the page can play them but cannot read the audio to transcribe it. Options for the user: offline speech-to-text of chosen sessions into JSON files (new tool, and publishing transcripts of F1 audio in a public repo is a copyright question), or a transcription service (paid / new dependency). Waiting for the user's decision |
 | 11.4 | **User test:** All radio on desktop and in VR | — | ⬜ | |
+
+---
+
+## Phase 12: Desktop quality and layout
+
+Asked for by the user on 2026-10-14 after looking at the dashboard in Chrome: "congested", "very low quality", in landscape and portrait. Checked in their Chrome (2048 × 968 CSS px at 125%) and headless portrait (1080 × 1800). Causes: panel canvases drawn at VR size and shrunk by the browser to ~60% (soft text); each tile at its own scale (main screen at 21%: ~5 px text); tiles sized to each panel's aspect (ragged gaps, floating playback bar); a tiny main screen next to a half-empty Insights tile; 9 buttons, a debug line and stickers over the track; a full-height race control strip; the VR table rim circle in the 2D view. The user chose all three fixes (sharp text, layout clean-up, merged Insights + main) and "build directly" (no mockup). Screen in VR keeps screen-layout.js unchanged.
+
+| ID | Item | Files | Status | Notes |
+|---|---|---|---|---|
+| 12.1 | **Sharp text:** panels drawn at their exact on-screen size × devicePixelRatio (density below 1 allowed on desktop) | `js/panels/panel-base.js`, `js/screen/panel-host.js` | ✅ | setDensity(scale, exact): desktop canvases at on-screen size × dpr (min 0.25, 1/50 steps); frameless panels |
+| 12.2 | **Desktop layout:** new pure `dash-layout.js` (landscape, portrait, stack, analytics): aligned card grid, one shared panel scale, playback bar stretched to the track column width | `js/screen/dash-layout.js` (new), `js/screen/dashboard.js`, `tests/` | ✅ | dash-layout.js (pure, tests/dash-layout.test.js): landscape / portrait / stack / analytics, one panel scale, playback bar 'stretch' (setLogicalWidth); top bar height measured (ResizeObserver) |
+| 12.3 | **Top bar:** Exit, help, session stickers, a slim race control line (click for the last 5), a weather readout, Radio / Engine / Analytics / swap | `js/screen/top-bar.js` (new), `js/screen/dash-extras.js`, `css/dashboard.css` | ✅ | top-bar.js: Exit, help, stickers, race control line (click: last 5), weather readout, Radio / Engine / Analytics / swap; narrow windows hide weather details and extra stickers |
+| 12.4 | **Hub tile:** Insights and the main screen merged: Battles, H2H, Driver, Radio, Video, Charts tabs | `js/screen/main-tile.js`, `js/panels/insights.js` | ✅ | main-tile.js hub: Battles / H2H / Driver (InsightsPanel tabs:false) / Radio / Video / Charts; hubTab setting |
+| 12.5 | **Clean track tile:** only Sectors / 2D / 3D over the track, no VR table disc or rim in the desktop view | `js/screen/track-view.js` | ✅ | track-view.js hides tabletop and rim; only Sectors / 2D / 3D over the track |
+| 12.6 | **Checks:** tests, renders in landscape (1920 × 1080, 2048 × 968, 1366 × 768) and portrait (1080 × 1800), Analytics mode | — | ✅ | 235/235 tests. Renders (2024 Bahrain): 1920x1080, 2048x968 @1.25, 1366x768 (two-row top bar, scrolls slightly), 1080x1800 portrait, Analytics 1920x1080; 15 draw calls. Screen in VR unchanged (screen-layout.js) |
+| 12.7 | **User test** | — | ⬜ | |
 
 ---
 

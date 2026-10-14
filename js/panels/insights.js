@@ -29,11 +29,17 @@ const TREND = {
 const sgn = (v, d = 3) => (v == null ? '–' : `${v > 0 ? '+' : v < 0 ? '−' : '±'}${Math.abs(v).toFixed(d)}`);
 
 export class InsightsPanel extends Panel {
-  /** @param {object} data SessionData */
-  constructor(data) {
+  /**
+   * @param {object} data SessionData
+   * @param {{tabs?: boolean}} [o] tabs: false = no tab row (the desktop hub tile has its own
+   *   tabs and calls setTab, 12.4)
+   */
+  constructor(data, { tabs = true } = {}) {
     const L = LAYOUT.insights;
     super({ name: 'insights', width: L.width, height: L.height, maxHz: 2 });
     this.data = data;
+    this.showTabs = tabs;
+    this.top = tabs ? TOP : 30; // content starts here
     this.tab = 'battle';
     this.rivalPick = null;
     this._view = null;
@@ -122,12 +128,20 @@ export class InsightsPanel extends Panel {
     return h;
   }
 
+  /** Show a tab: 'battle' | 'h2h' | 'driver'. */
+  setTab(id) {
+    if (id === this.tab) return;
+    this.tab = id;
+    this._sig = '';
+    this.invalidate();
+  }
+
   // ---------------------------------------------------------------- drawing
   draw(g, w, h) {
     this.clear(g, w, h);
     const v = this._view;
     if (!v) return;
-    this._tabs(g, w);
+    if (this.showTabs) this._tabs(g, w);
     if (v.tab === 'battle') this._battles(g, w, h, v);
     else if (v.tab === 'h2h') this._h2h(g, w, h, v);
     else this._driver(g, w, h, v);
@@ -169,11 +183,11 @@ export class InsightsPanel extends Panel {
   }
 
   _battles(g, w, h, v) {
-    if (!v.race) return note(g, w, h, 'Battles are shown in races and sprints');
-    if (!v.battles.length) return note(g, w, h, 'No cars within 1 s of each other right now');
+    if (!v.race) return note(g, w, h, 'Battles are shown in races and sprints', this.top);
+    if (!v.battles.length) return note(g, w, h, 'No cars within 1 s of each other right now', this.top);
     const rh = 106;
     v.battles.forEach((b, i) => {
-      const y = TOP + i * (rh + 8);
+      const y = this.top + i * (rh + 8);
       const mine = b.ahead === v.sel || b.behind === v.sel;
       g.fillStyle = THEME.surface;
       roundRect(g, PAD, y, w - 2 * PAD, rh, 12);
@@ -208,9 +222,9 @@ export class InsightsPanel extends Panel {
   }
 
   _h2h(g, w, h, v) {
-    if (!v.b) return note(g, w, h, 'No rival to compare with');
+    if (!v.b) return note(g, w, h, 'No rival to compare with', this.top);
     const cx = w / 2;
-    const yh = TOP + 26;
+    const yh = this.top + 26;
     this._driverTag(g, v.sel, PAD + 10, yh, 'left', 32);
     this._driverTag(g, v.rival, w - PAD - 80, yh, 'right', 32);
     for (const [id, dir, x] of [['rival:-1', -1, w - PAD - 74], ['rival:1', 1, w - PAD - 36]]) {
@@ -241,7 +255,7 @@ export class InsightsPanel extends Panel {
     ];
     const rh = 40;
     rows.forEach(([label, va, vb, better], i) => {
-      const y = TOP + 64 + i * rh;
+      const y = this.top + 64 + i * rh;
       if (i % 2 === 0) { g.fillStyle = THEME.surface; roundRect(g, PAD, y - rh / 2 + 2, w - 2 * PAD, rh - 4, 8); g.fill(); }
       g.fillStyle = THEME.muted;
       g.font = font(17, 700);
@@ -258,7 +272,7 @@ export class InsightsPanel extends Panel {
     // Sector deltas of the last laps (left: the selected driver's time minus the rival's;
     // green = the selected driver was quicker there), mirrored on the right for the rival.
     const ds = a.sectors.map((x, k) => (x == null || b.sectors[k] == null ? null : x - b.sectors[k]));
-    const y = TOP + 64 + 4 * rh;
+    const y = this.top + 64 + 4 * rh;
     g.font = dfont(20, 700);
     for (let k = 0; k < 3; k++) {
       const dd = ds[k];
@@ -277,9 +291,9 @@ export class InsightsPanel extends Panel {
   _driver(g, w, h, v) {
     const m = v.me;
     const dr = this.data.driverByNumber.get(v.sel);
-    if (!dr) return note(g, w, h, 'No driver selected');
+    if (!dr) return note(g, w, h, 'No driver selected', this.top);
     const col = dr.teamColour;
-    const tile = 132, tx = PAD, ty = TOP;
+    const tile = 132, tx = PAD, ty = this.top;
     g.save();
     roundRect(g, tx, ty, tile, tile, 14);
     g.clip();

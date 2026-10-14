@@ -3,6 +3,7 @@
 //                 the wheel zooms.
 //   3D: a tilted view. Drag rotates, right-drag pans, the wheel zooms.
 // Double-click resets the view. Labels keep a fixed on-screen height in both views.
+// 12.5: the VR table's disc and red rim are hidden here: the tile card is the background.
 // Uses three's own OrbitControls (three/addons, same pinned version: no new library).
 import * as THREE from 'three';
 import { createTable, loadTrack } from '../scene/track.js';
@@ -12,7 +13,7 @@ import { getSettings } from '../settings.js';
 import { VIEWS, fitDistance, labelAngularSize } from './track-camera.js';
 
 const LABEL_PX = 16;          // CSS px label height
-const BG = 0x0b0e13;
+const BG = 0x0f1016; // the tile card colour (THEME.bg)
 
 /**
  * @param {object} o
@@ -43,6 +44,10 @@ export async function createTrackView({ data, tile, view = '2d' }) {
 
   const table = createTable(scene);
   table.position.set(0, 0, 0);
+  for (const name of ['tabletop', 'tableRim']) {
+    const m = table.getObjectByName(name);
+    if (m) m.visible = false;
+  }
   let transform = null;
   let cars = null;
   let style = null;
