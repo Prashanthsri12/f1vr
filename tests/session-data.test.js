@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { SessionData, SESSION_TYPES_WITH_INTERVALS } from '../js/session-data.js';
-import { normaliseSession, gapValue } from '../js/session-index.js';
+import { normaliseSession, gapValue, offsetMinutes, isNightSession } from '../js/session-index.js';
 import { CHUNK_MS } from '../js/chunk-loader.js';
 import { retimeSeries } from '../js/retime.js';
 
@@ -64,7 +64,7 @@ test('load: requests, progress and static facts (race)', async () => {
   assert.equal(progress.at(-1).total, 11);
 
   assert.deepEqual(d.session, { key: 9472, meetingKey: 1229, name: 'Race', type: 'Race', circuit: 'Sakhir',
-    country: 'Bahrain', year: 2024, start: ms('2024-03-02T15:00:00Z'), end: ms('2024-03-02T17:00:00Z') });
+    country: 'Bahrain', year: 2024, start: ms('2024-03-02T15:00:00Z'), end: ms('2024-03-02T17:00:00Z'), gmtOffsetMin: 180 });
   assert.deepEqual(d.drivers.map((x) => x.number), [1, 2, 11, 16]);
   assert.deepEqual(d.driverByNumber.get(16), { number: 16, acronym: 'LEC', fullName: d.driverByNumber.get(16).fullName,
     teamName: 'Ferrari', teamColour: '#e8002d', headshotUrl: d.driverByNumber.get(16).headshotUrl });
@@ -98,6 +98,24 @@ test('normalisation helpers', () => {
   const s = normaliseSession(undefined, 42);
   assert.equal(s.key, 42);
   assert.equal(s.start, null);
+  assert.equal(s.gmtOffsetMin, null);
+});
+
+test('gmt_offset and night sessions (10.6)', () => {
+  assert.equal(offsetMinutes('03:00:00'), 180);
+  assert.equal(offsetMinutes('-04:00:00'), -240);
+  assert.equal(offsetMinutes('05:30:00'), 330);
+  assert.equal(offsetMinutes(null), null);
+  // Real records: Bahrain 2024 race 15:00Z +3 (18:00 local), Singapore 2023 12:00Z +8, a 13:00 local race.
+  const bahrain = normaliseSession({ session_key: 9472, date_start: '2024-03-02T15:00:00+00:00', gmt_offset: '03:00:00' });
+  const singapore = normaliseSession({ session_key: 9165, date_start: '2023-09-17T12:00:00+00:00', gmt_offset: '08:00:00' });
+  const day = normaliseSession({ session_key: 1, date_start: '2024-03-24T04:00:00+00:00', gmt_offset: '11:00:00' });
+  const vegas = normaliseSession({ session_key: 2, date_start: '2023-11-19T06:00:00+00:00', gmt_offset: '-08:00:00' });
+  assert.equal(isNightSession(bahrain), true);
+  assert.equal(isNightSession(singapore), true);
+  assert.equal(isNightSession(day), false);
+  assert.equal(isNightSession(vegas), true);
+  assert.equal(isNightSession(normaliseSession({}, 3)), false);
 });
 
 test('leaderboard at race start + ~9 min matches raw data', async () => {

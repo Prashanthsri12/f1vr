@@ -1,7 +1,7 @@
 // Race control ticker (spec §5): the latest race control message on a flag-coloured
 // strip above the main screen. Long messages scroll (marquee). A tap expands the
 // last 5 messages downward over the transparent lower part of the mesh.
-import { Panel, THEME, font, roundRect, PX_PER_M } from './panel-base.js';
+import { Panel, THEME, font, dfont, roundRect, PX_PER_M } from './panel-base.js';
 import { LAYOUT } from './layout.js';
 
 const L = LAYOUT.ticker;
@@ -38,7 +38,7 @@ export function flagStyle(msg) {
     case 'BLUE': return { kind: 'solid', bg: '#1f5fd8', fg: LIGHT_TEXT };
     case 'CHEQUERED': return { kind: 'chequered', bg: '#000000', fg: LIGHT_TEXT };
     case 'BLACK AND WHITE': return { kind: 'blackwhite', bg: '#000000', fg: LIGHT_TEXT };
-    default: return { kind: 'neutral', bg: '#1b2130', fg: THEME.text };
+    default: return { kind: 'neutral', bg: '#15161d', fg: THEME.text };
   }
 }
 
@@ -180,7 +180,7 @@ export class TickerPanel extends Panel {
       g.fillStyle = fg;
       g.textBaseline = 'alphabetic';
       g.textAlign = 'left';
-      g.font = font(40, 700);
+      g.font = dfont(40, 700);
       g.fillText(msg.lap_number != null ? `LAP ${msg.lap_number}` : 'LAP –', metaX, 66);
       g.globalAlpha = 0.8;
       g.font = font(32, 600);

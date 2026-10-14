@@ -23,28 +23,29 @@ export const MAX_PX_PER_M = 2048; // backing density cap for enlarged panels (te
 
 export const THEME = {
   font: "'Titillium Web', system-ui, sans-serif",
-  display: "'Chakra Petch', 'Titillium Web', system-ui, sans-serif", // big numbers (9.3)
-  bg: '#0b0f17',           // opaque panel background (pit wall mode)
-  bgTop: '#131927',        // top of the panel's vertical sheen
-  bgRgb: '11,15,23',       // used with alpha in passthrough mode
-  surface: '#151b28',      // rows, cells
-  surfaceHi: '#1f2738',    // hover / highlighted row
-  line: '#242d3f',
-  rim: 'rgba(140,160,200,0.22)', // 2 px panel edge
-  text: '#eef2f8',
-  muted: '#8692a8',
-  accent: '#ff2d3d',       // pit wall red: selected state, highlights
-  purple: '#b84dff',       // overall best
-  green: '#2ee67a',        // personal best / gain
-  yellow: '#ffd21f',       // slower / yellow flag
-  red: '#ff3b3b',          // loss / brake
+  display: "'Titillium Web', system-ui, sans-serif", // big numbers: heavy italic via dfont() (10.2)
+  bg: '#0f1016',           // matte panel (pit wall mode)
+  bgTop: '#0f1016',        // kept for older callers: panels have no sheen since 10.2
+  bgRgb: '15,16,22',       // used with alpha in passthrough mode
+  surface: '#171922',      // rows, cells
+  surfaceHi: '#20232e',    // hover / highlighted row
+  line: '#22252f',
+  rim: 'rgba(255,255,255,0.08)', // 2 px panel edge
+  text: '#f6f7fa',
+  muted: '#8a8fa0',
+  accent: '#e10600',       // race red: titles, primary buttons, moments
+  select: '#2de2ff',       // neon cyan: the selected driver
+  purple: '#b26bff',       // overall best
+  green: '#39ff88',        // personal best / gain
+  yellow: '#ffd23f',       // slower / yellow flag
+  red: '#ff3355',          // loss / brake
   orange: '#ff8a1f',       // safety car
   blue: '#3d8bff',
 };
 
 export const TYRE_COLOURS = {
-  SOFT: '#ff3b3b', MEDIUM: '#ffd21f', HARD: '#f2f2f2',
-  INTERMEDIATE: '#2ee67a', WET: '#3d8bff', UNKNOWN: '#8692a8',
+  SOFT: '#ff3355', MEDIUM: '#ffd23f', HARD: '#f2f2f2',
+  INTERMEDIATE: '#39ff88', WET: '#3d8bff', UNKNOWN: '#8a8fa0',
 };
 
 /** CSS font string, e.g. font(28, 700) or font(28, 600, true) for tabular numbers. */
@@ -52,9 +53,78 @@ export function font(px, weight = 600) {
   return `${weight} ${px}px ${THEME.font}`;
 }
 
-/** Display face for big numbers and short labels (lap times, speed, gear, positions). */
+/**
+ * Display face for big numbers and short labels (lap times, speed, gear, positions):
+ * Titillium Web italic, 700 asks for the heavy (900) cut, lighter weights for the bold one.
+ */
 export function dfont(px, weight = 700) {
-  return `${weight} ${px}px ${THEME.display}`;
+  return `italic ${weight >= 700 ? 900 : 700} ${px}px ${THEME.display}`;
+}
+
+/** True when dark text reads better than white on this '#rrggbb' fill. */
+export function isLight(hex) {
+  const n = parseInt(hex.slice(1, 7), 16);
+  return 0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255) > 150;
+}
+
+/**
+ * Panel title (10.2): a slanted red slash, then the text in heavy italic caps.
+ * y is the text's middle. Returns the x just after the title.
+ */
+export function panelTitle(g, x, y, text, px = 32) {
+  g.fillStyle = THEME.accent;
+  g.beginPath();
+  g.moveTo(x + 6, y - 5); g.lineTo(x + 24, y - 5); g.lineTo(x + 18, y + 5); g.lineTo(x, y + 5);
+  g.fill();
+  g.fillStyle = THEME.text;
+  g.font = dfont(px, 700);
+  g.textAlign = 'left';
+  g.textBaseline = 'middle';
+  const t = String(text).toUpperCase();
+  g.fillText(t, x + 36, y + 1);
+  return x + 36 + g.measureText(t).width;
+}
+
+/** Size of sticker(g, x, y, text, {px}) without drawing it (leaves g.font set). */
+export function stickerSize(g, text, px = 22) {
+  g.font = dfont(px, 700);
+  return { w: Math.ceil(g.measureText(String(text).toUpperCase()).width + px * 1.1), h: Math.round(px * 1.55) };
+}
+
+/**
+ * Sticker (10.3): our own decal (never a real logo): a filled tag with a white border,
+ * a faint glow in its colour and a hard offset shadow (no shadowBlur, slow on the Quest).
+ * (x, y) is the top-left before the tilt; rot in degrees. Returns the sticker's width.
+ * @param {{bg?: string, fg?: string, px?: number, rot?: number, round?: boolean}} [o]
+ */
+export function sticker(g, x, y, text, o = {}) {
+  const bg = o.bg || THEME.accent;
+  const px = o.px || 22;
+  const t = String(text).toUpperCase();
+  const { w, h } = stickerSize(g, t, px);
+  const r = o.round ? h / 2 : Math.round(px * 0.3);
+  const bw = Math.max(2, Math.round(px / 9));
+  g.save();
+  g.translate(x + w / 2, y + h / 2);
+  if (o.rot) g.rotate(o.rot * Math.PI / 180);
+  g.fillStyle = rgba(bg, 0.28);
+  roundRect(g, -w / 2 - 5, -h / 2 - 5, w + 10, h + 10, r + 5);
+  g.fill();
+  g.fillStyle = 'rgba(0,0,0,0.55)';
+  roundRect(g, -w / 2, -h / 2 + 3, w, h, r);
+  g.fill();
+  g.fillStyle = '#ffffff';
+  roundRect(g, -w / 2, -h / 2, w, h, r);
+  g.fill();
+  g.fillStyle = bg;
+  roundRect(g, -w / 2 + bw, -h / 2 + bw, w - 2 * bw, h - 2 * bw, Math.max(1, r - bw));
+  g.fill();
+  g.fillStyle = o.fg || (isLight(bg) ? '#0a0b10' : '#ffffff');
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText(t, 0, 1);
+  g.restore();
+  return w;
 }
 
 const _rgbaCache = new Map();
@@ -158,19 +228,12 @@ export class Panel {
   invalidate() { this._dirty = true; }
 
   /**
-   * Background respecting passthrough opacity (75%): a dark panel with a faint top sheen
-   * and a thin rim (9.2). Call first in draw(). The gradient is cached per panel.
+   * Background respecting passthrough opacity (80%): a matte dark panel with a thin rim
+   * (10.2, no sheen). Call first in draw().
    */
   clear(g, w, h, radius = 18) {
     g.clearRect(0, 0, w, h);
-    const pt = this.passthrough;
-    if (!this._sheen || this._sheenKey !== h + (pt ? 'p' : 'o') || this._sheenCtx !== g) {
-      const sheen = g.createLinearGradient(0, 0, 0, Math.min(h, 360));
-      sheen.addColorStop(0, pt ? 'rgba(19,25,39,0.82)' : THEME.bgTop);
-      sheen.addColorStop(1, pt ? `rgba(${THEME.bgRgb},0.75)` : THEME.bg);
-      this._sheen = sheen; this._sheenKey = h + (pt ? 'p' : 'o'); this._sheenCtx = g;
-    }
-    g.fillStyle = this._sheen;
+    g.fillStyle = this.passthrough ? `rgba(${THEME.bgRgb},0.8)` : THEME.bg;
     roundRect(g, 0, 0, w, h, radius);
     g.fill();
     g.strokeStyle = THEME.rim;

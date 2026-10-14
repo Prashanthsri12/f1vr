@@ -1,6 +1,7 @@
 // Weather panel (spec §5): air and track temperature (big), humidity, wind speed with a
 // direction arrow, and a rain chip. Uses the latest sample at or before the playhead.
-import { Panel, THEME, font, dfont, rgba, roundRect } from './panel-base.js';
+import { Panel, THEME, font, dfont, rgba, roundRect, panelTitle, sticker, stickerSize } from './panel-base.js';
+import { isNightSession } from '../session-index.js';
 import { LAYOUT } from './layout.js';
 
 const PAD = 22;
@@ -30,13 +31,11 @@ export class WeatherPanel extends Panel {
     const s = this.sample;
     g.textBaseline = 'alphabetic';
 
-    // Header: accent bar, title, rain chip.
-    g.fillStyle = THEME.accent;
-    g.fillRect(0, 16, 7, 36);
-    g.textAlign = 'left';
-    g.fillStyle = THEME.muted;
-    g.font = font(24, 700);
-    g.fillText('WEATHER', PAD, 44);
+    // Header: title, rain chip, then the sun / cloud icon, or after dark (10.6) a
+    // "Night race" sticker in its place (no sun at night).
+    panelTitle(g, PAD - 6, 34, 'Weather', 26);
+    g.textBaseline = 'alphabetic';
+    const night = isNightSession(this.data.session);
     const rain = !!(s && s.rainfall > 0);
     const chipW = rain ? 96 : 84;
     const cx = w - PAD - chipW;
@@ -47,7 +46,11 @@ export class WeatherPanel extends Panel {
     g.fillStyle = rain ? '#ffffff' : THEME.muted;
     g.font = font(24, 700);
     g.fillText(s ? (rain ? 'RAIN' : 'DRY') : '–', cx + chipW / 2, 43);
-    if (s) drawIcon(g, cx - 40, 34, rain);
+    if (night) {
+      const label = this.data.hasIntervals ? 'Night race' : 'Night';
+      sticker(g, cx - 12 - stickerSize(g, label, 16).w, 20, label, { bg: THEME.yellow, px: 16, rot: -4 });
+    } else if (s) drawIcon(g, cx - 40, 34, rain);
+    g.textBaseline = 'alphabetic';
 
     // No weather records at all (6.11), or none yet before the first sample.
     if (!s) {

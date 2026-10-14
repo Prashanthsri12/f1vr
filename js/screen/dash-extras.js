@@ -3,6 +3,7 @@
 //   - engine hum toggle (key E) and UI click sounds on the toolbar buttons
 //   - race moment banners over the track tile (race-moments.js + banner-dom.js)
 //   - flag ambience: the dashboard edge glows in the track status colour when not green
+//   - circuit / session / night race stickers on the track tile (10.9)
 // update() runs every frame but does its work at 10 Hz (no per-frame allocation).
 import { getSettings, setSetting } from '../settings.js';
 import { uiClick } from '../audio.js';
@@ -11,6 +12,7 @@ import { createRaceMoments } from '../race-moments.js';
 import { trackStatusAt } from '../panels/race-status.js';
 import { TRACK_COLOUR_MODES } from '../scene/track-style.js';
 import { createBannerDom } from './banner-dom.js';
+import { isNightSession } from '../session-index.js';
 
 const TICK_MS = 100;
 const COLOUR_LABEL = { sectors: 'Sectors', minis: 'Mini', plain: 'Plain' };
@@ -33,6 +35,16 @@ export function createDashExtras({ data, playback, root, trackTile, tools, el })
   const engine = createEngineSound();
   const moments = createRaceMoments(data);
   const banner = createBannerDom(trackTile);
+  // Stickers, bottom left of the track tile: our own tags, never real logos.
+  const stickers = el('div', 'f1-dash__stickers', trackTile);
+  const s = data.session || {};
+  const tags = [[s.circuit || s.country, '#ffffff', '#0a0b10', -3], [s.name, '#e10600', '#ffffff', 2]];
+  if (isNightSession(s)) tags.push([data.hasIntervals ? 'Night race' : 'Night', '#ffd23f', '#0a0b10', -2]);
+  for (const [text, bg, fg, rot] of tags) {
+    if (!text) continue;
+    const t = el('span', 'f1-stk', stickers, text);
+    t.style.cssText = `--tc:${bg};--tx:${fg};--rot:${rot}deg`;
+  }
   const tel = { speed: 0, rpm: 0, gear: 0, throttle: 0, brake: 0, drs: 0 };
   let acc = TICK_MS;
   let flag = '';
@@ -101,6 +113,7 @@ export function createDashExtras({ data, playback, root, trackTile, tools, el })
       root.removeEventListener('click', onClick);
       engine.dispose();
       banner.dispose();
+      stickers.remove();
     },
   };
 }

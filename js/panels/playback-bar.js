@@ -7,7 +7,7 @@
 // Race timeline (9.15): SC / VSC / red flag bands on the lap slider, the selected driver's
 // pit stops (other stops faint) and fastest-lap marks above it, up to the playhead only.
 // Clicking a mark jumps there (ctx.actions.seekTo, a few seconds before).
-import { Panel, THEME, font, roundRect, rgba } from './panel-base.js';
+import { Panel, THEME, font, dfont, roundRect, rgba } from './panel-base.js';
 import { buildTimeline, visibleTimeline } from './timeline-marks.js';
 import { getSettings } from '../settings.js';
 import { LAYOUT } from './layout.js';
@@ -192,8 +192,19 @@ export class PlaybackBarPanel extends Panel {
     // --- play / pause ---
     let x = PAD;
     const playW = 150;
-    this._button(g, 'play', x, PAD, playW, bh, true);
-    g.fillStyle = pb.playing ? THEME.text : THEME.accent;
+    // Race-red play button with a white rim and a soft red halo (10.7).
+    g.fillStyle = rgba(THEME.accent, this.hover === 'play' ? 0.4 : 0.25);
+    roundRect(g, x - 5, PAD - 5, playW + 10, bh + 10, 19);
+    g.fill();
+    g.fillStyle = THEME.accent;
+    roundRect(g, x, PAD, playW, bh, 14);
+    g.fill();
+    g.strokeStyle = '#ffffff';
+    g.lineWidth = 4;
+    roundRect(g, x + 2, PAD + 2, playW - 4, bh - 4, 12);
+    g.stroke();
+    this.addHit('play', x, PAD, playW, bh);
+    g.fillStyle = '#ffffff';
     if (pb.playing) {
       g.fillRect(x + playW / 2 - 24, cy - 32, 16, 64);
       g.fillRect(x + playW / 2 + 8, cy - 32, 16, 64);
@@ -219,7 +230,7 @@ export class PlaybackBarPanel extends Panel {
     g.fillRect(x + sbW / 2 - 22, cy - 4, 44, 8);
     x += sbW;
     g.fillStyle = THEME.text;
-    g.font = font(48, 700);
+    g.font = dfont(52, 700);
     g.fillText(fmtSpeed(pb.speed), x + 64, cy - 8);
     g.fillStyle = THEME.muted;
     g.font = font(24, 600);
@@ -236,7 +247,7 @@ export class PlaybackBarPanel extends Panel {
     const tx = w - PAD - timeW;
     g.textAlign = 'right';
     g.fillStyle = THEME.text;
-    g.font = font(48, 700);
+    g.font = dfont(52, 700);
     g.fillText(fmtElapsed(t - d.raceStartTime), w - PAD - 8, cy - 18);
     g.fillStyle = THEME.muted;
     g.font = font(28, 600);
@@ -281,13 +292,21 @@ export class PlaybackBarPanel extends Panel {
       g.fillRect(trX + (lap / total) * trW - 2, trackY + trackH / 2 + 4, 4, 14);
     }
     const fx = trX + Math.min(1, p.value / total) * trW;
+    const doneW = Math.max(trackH, fx - trX);
+    g.fillStyle = rgba(THEME.accent, 0.3);
+    roundRect(g, trX - 5, trackY - trackH / 2 - 5, doneW + 10, trackH + 10, trackH / 2 + 5);
+    g.fill();
     g.fillStyle = THEME.accent;
-    roundRect(g, trX, trackY - trackH / 2, Math.max(trackH, fx - trX), trackH, trackH / 2);
+    roundRect(g, trX, trackY - trackH / 2, doneW, trackH, trackH / 2);
     g.fill();
     const markHits = this._drawTimeline(g, t, ctx.selected, trX, trW, trackY, trackH, total);
     g.beginPath();
+    g.arc(fx, trackY, hov ? 30 : 26, 0, Math.PI * 2);
+    g.fillStyle = rgba(THEME.accent, 0.35);
+    g.fill();
+    g.beginPath();
     g.arc(fx, trackY, hov ? 22 : 18, 0, Math.PI * 2);
-    g.fillStyle = THEME.text;
+    g.fillStyle = '#ffffff';
     g.fill();
     if (hov) {
       g.strokeStyle = THEME.accent;

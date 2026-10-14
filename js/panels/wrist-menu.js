@@ -105,7 +105,7 @@ export class WristMenu extends Panel {
       g.fillStyle = d ? d.teamColour : THEME.muted;
       g.fillRect(x, ty + 6, 6, th - 12);
       if (sel || this.hover === id) {
-        g.strokeStyle = sel ? THEME.accent : THEME.text;
+        g.strokeStyle = sel ? THEME.select : THEME.text;
         g.lineWidth = 3;
         roundRect(g, x + 1.5, ty + 1.5, tw - 3, th - 3, 8);
         g.stroke();

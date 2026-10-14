@@ -6,6 +6,7 @@
 // Declutter (4b.7, ≤4 Hz): overlapping labels collapse to a short cell with only the
 // position number; the selected driver, the top 3 and the cars directly ahead of and
 // behind the selected one always stay full (label-layout.js).
+// 10.10: labels are team-colour tags with a white rim and heavy italic text (sticker look).
 
 import * as THREE from 'three';
 import { declutterLabels, MODE_FULL } from './label-layout.js';
@@ -21,6 +22,25 @@ const MAX_HEIGHT = 0.05;
 const GAP = 0.15;              // gap between anchor and label bottom, in label heights
 const REDRAW_INTERVAL_MS = 250; // <= 4 Hz
 const NO_RANK = 999;
+const RIM = 5;                 // white rim, px
+
+/** Dark text on light team colours (Mercedes teal, Williams blue), white otherwise. */
+function inkOn(hex) {
+  const n = parseInt(String(hex).slice(1, 7), 16) || 0;
+  return 0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255) > 150 ? '#0a0b10' : '#ffffff';
+}
+
+/** Team-colour tag with a white rim filling (x, y, w, h). */
+function tag(ctx, x, y, w, h, r, colour) {
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h);
+  ctx.fill();
+  ctx.fillStyle = colour;
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(x + RIM, y + RIM, w - 2 * RIM, h - 2 * RIM, Math.max(2, r - RIM)); else ctx.rect(x + RIM, y + RIM, w - 2 * RIM, h - 2 * RIM);
+  ctx.fill();
+}
 
 const vertexShader = /* glsl */`
 attribute vec4 cellRect;
@@ -136,7 +156,7 @@ export class CarLabels {
     this._disposed = false;
     this._drawAll();
     if (typeof document !== 'undefined' && document.fonts && document.fonts.ready) {
-      const load = document.fonts.load ? document.fonts.load(`700 48px "Titillium Web"`).catch(() => {}) : null;
+      const load = document.fonts.load ? document.fonts.load(`italic 900 48px "Titillium Web"`).catch(() => {}) : null;
       Promise.all([document.fonts.ready, load]).then(() => {
         if (this._disposed) return;
         this._fontReady = true;
@@ -264,38 +284,33 @@ export class CarLabels {
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'center';
 
-    // Full cell: team bar + "ACR 3"
+    const colour = d.teamColour || '#888888';
+    const ink = inkOn(colour);
+    const italic = this._fontReady ? 'italic 900' : '700';
+    // Full cell: team-colour tag "ACR 3"
     {
       const x0 = (i % COLS) * CELL_W, y0 = Math.floor(i / COLS) * CELL_H;
       ctx.clearRect(x0, y0, CELL_W, CELL_H);
       const pad = 6, r = 14;
       const w = CELL_W - pad * 2, h = CELL_H - pad * 2, x = x0 + pad, y = y0 + pad;
-      ctx.fillStyle = 'rgba(12,14,18,1)';
-      ctx.beginPath();
-      if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h);
-      ctx.fill();
-      ctx.fillStyle = d.teamColour || '#888888';
-      ctx.fillRect(x, y + 8, 10, h - 16);
+      tag(ctx, x, y, w, h, r, colour);
       const text = pos > 0 ? `${d.acronym || d.number} ${pos}` : `${d.acronym || d.number}`;
-      ctx.fillStyle = '#ffffff';
-      ctx.font = `700 48px ${family}`;
-      ctx.fillText(text, x + 5 + w / 2, y + h / 2 + 2, w - 24);
+      ctx.fillStyle = ink;
+      ctx.font = `${italic} 46px ${family}`;
+      ctx.fillText(text, x + w / 2, y + h / 2 + 2, w - 24);
     }
-    // Short cell: position number over a team-colour underline
+    // Short cell: position number on a team-colour tag
     {
       const x0 = (i % this.shortCols) * SHORT, y0 = (this.rows + Math.floor(i / this.shortCols)) * CELL_H;
       ctx.clearRect(x0, y0, SHORT, CELL_H);
       const pad = 6, r = 14;
       const w = SHORT - pad * 2, h = CELL_H - pad * 2, x = x0 + pad, y = y0 + pad;
-      ctx.fillStyle = 'rgba(12,14,18,1)';
-      ctx.beginPath();
-      if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h);
-      ctx.fill();
-      ctx.fillStyle = d.teamColour || '#888888';
-      ctx.fillRect(x + 8, y + h - 9, w - 16, 6);
-      ctx.fillStyle = pos > 0 ? '#ffffff' : '#a0a8b8';
-      ctx.font = `700 ${pos >= 10 || pos < 0 ? 40 : 48}px ${family}`;
-      ctx.fillText(pos > 0 ? String(pos) : String(d.number), x + w / 2, y + h / 2 - 2, w - 8);
+      tag(ctx, x, y, w, h, r, colour);
+      ctx.fillStyle = ink;
+      ctx.globalAlpha = pos > 0 ? 1 : 0.7;
+      ctx.font = `${italic} ${pos >= 10 || pos < 0 ? 38 : 46}px ${family}`;
+      ctx.fillText(pos > 0 ? String(pos) : String(d.number), x + w / 2, y + h / 2 + 1, w - 14);
+      ctx.globalAlpha = 1;
     }
   }
 

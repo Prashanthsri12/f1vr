@@ -2,6 +2,7 @@
 // texture. It appears 1.7 m ahead of where the user is looking when it fires (then stays
 // put: it never follows the head), fades and grows in, holds, and fades out. No sliding
 // across the view, for comfort. One draw call; update() only sets opacity and scale.
+// 10.8: a slanted tag in the moment's colour with a white border and a soft halo.
 import * as THREE from 'three';
 import { bannerStyle, BANNER_MS } from '../banner-style.js';
 
@@ -10,8 +11,7 @@ const WIDTH_M = 1.3;
 const DIST = 1.7;
 const RISE = 0.3;      // above eye height
 const IN_MS = 260, OUT_MS = 420;
-const FONT = "'Chakra Petch', 'Titillium Web', system-ui, sans-serif";
-const BODY = "'Titillium Web', system-ui, sans-serif";
+const FONT = "'Titillium Web', system-ui, sans-serif";
 
 export function createBanner3d(scene) {
   const canvas = document.createElement('canvas');
@@ -35,10 +35,22 @@ export function createBanner3d(scene) {
     g.clearRect(0, 0, W, H);
     g.save();
     g.translate(W / 2, H / 2);
-    g.transform(1, -0.05, 0, 1, 0, 0); // slant
-    const sw = W * 0.96, sh = H * 0.74;
+    g.transform(1, 0, -0.2, 1, 0, 0); // slant (skewX)
+    const sw = W * 0.86, sh = H * 0.66;
+    const glow = st.bg === 'check' ? '#ffffff' : st.bg;
+    g.fillStyle = glow;
+    g.globalAlpha = 0.25;
+    g.beginPath();
+    g.roundRect(-sw / 2 - 18, -sh / 2 - 18, sw + 36, sh + 36, 30);
+    g.fill();
+    g.globalAlpha = 1;
+    g.fillStyle = '#ffffff';
     g.beginPath();
     g.roundRect(-sw / 2, -sh / 2, sw, sh, 14);
+    g.fill();
+    const b = 9; // white border
+    g.beginPath();
+    g.roundRect(-sw / 2 + b, -sh / 2 + b, sw - 2 * b, sh - 2 * b, 8);
     g.clip();
     if (st.bg === 'check') {
       const c = 30;
@@ -53,22 +65,16 @@ export function createBanner3d(scene) {
     } else {
       g.fillStyle = st.bg;
       g.fillRect(-sw / 2, -sh / 2, sw, sh);
-      g.fillStyle = 'rgba(0,0,0,0.16)';
-      for (let x = -sw; x < sw; x += 56) {
-        g.beginPath();
-        g.moveTo(x, sh / 2); g.lineTo(x + 28, sh / 2); g.lineTo(x + 28 + sh * 0.7, -sh / 2); g.lineTo(x + sh * 0.7, -sh / 2);
-        g.fill();
-      }
     }
     g.restore();
     g.fillStyle = st.fg;
     g.textAlign = 'center';
     g.textBaseline = 'alphabetic';
-    g.font = `700 104px ${FONT}`;
-    g.fillText(String(ev.title).toUpperCase(), W / 2, H / 2 + 14);
-    g.font = `600 40px ${BODY}`;
+    g.font = `italic 900 92px ${FONT}`;
+    g.fillText(String(ev.title).toUpperCase(), W / 2, H / 2 + 8);
+    g.font = `700 36px ${FONT}`;
     g.globalAlpha = 0.92;
-    g.fillText(String(ev.sub).toUpperCase(), W / 2, H / 2 + 74);
+    g.fillText(String(ev.sub).toUpperCase(), W / 2, H / 2 + 60);
     g.globalAlpha = 1;
     tex.needsUpdate = true;
   }

@@ -7,7 +7,8 @@
 // (race only), and PIT / DRS chips (rules in leaderboard-flags.js). The DRS chip means the
 // interval is under 1 s while race control has DRS enabled and the track is green or yellow:
 // DRS range from timing, not the car's own DRS flag (car_data is loaded for one driver only).
-import { Panel, THEME, TYRE_COLOURS, font, dfont, rgba, glowStroke, roundRect, fmtLap, fmtGap } from './panel-base.js';
+// 10.4: car-number badges in team colour, a neon cyan outline on the selected driver, red-slash title.
+import { Panel, THEME, TYRE_COLOURS, font, dfont, rgba, glowStroke, roundRect, fmtLap, fmtGap, panelTitle, isLight } from './panel-base.js';
 import { LAYOUT } from './layout.js';
 import { trackStatusAt } from './race-status.js';
 import { RowAnimator } from './row-anim.js';
@@ -23,7 +24,7 @@ const ROW_GAP = 3;
 
 // Column anchors (canvas px). R = right-aligned, C = centre, L = left.
 const X = {
-  posR: 66, bar: 78, acr: 98, fl: 196, chip: 234,
+  posR: 64, badge: 76, badgeW: 48, acr: 136, fl: 212, chip: 250,
   gapR: 462, intR: 618,            // race
   bestR: 470, bestGapR: 618,       // practice / qualifying
   tyreC: 664, ageL: 690, pitR: 790, chgR: 898,
@@ -139,23 +140,13 @@ export class LeaderboardPanel extends Panel {
 
   _drawHeader(g, w) {
     const s = this.data.session || {};
-    // Red accent strip with a soft glow, top left.
-    g.fillStyle = rgba(THEME.accent, 0.25);
-    roundRect(g, PAD - 3, 19, 14, 76, 6);
-    g.fill();
-    g.fillStyle = THEME.accent;
-    roundRect(g, PAD, 22, 8, 70, 4);
-    g.fill();
-
+    const title = [s.country || s.circuit || '', s.year || ''].join(' ').trim() || 'Session';
+    panelTitle(g, PAD + 4, 44, title, 40);
     g.textBaseline = 'alphabetic';
     g.textAlign = 'left';
-    g.fillStyle = THEME.text;
-    g.font = dfont(40, 700);
-    const title = [s.country || s.circuit || '', s.year || ''].join(' ').trim().toUpperCase() || 'SESSION';
-    g.fillText(title, PAD + 22, 58);
     g.fillStyle = THEME.muted;
-    g.font = font(28, 600);
-    g.fillText((s.name || '').toUpperCase(), PAD + 22, 94);
+    g.font = font(28, 700);
+    g.fillText((s.name || '').toUpperCase(), PAD + 40, 96);
 
     // Status pill, top right.
     const st = this.status;
@@ -200,6 +191,8 @@ export class LeaderboardPanel extends Panel {
     g.textBaseline = 'middle';
     g.textAlign = 'right';
     g.fillText('POS', X.posR, y);
+    g.textAlign = 'center';
+    g.fillText('NO', X.badge + X.badgeW / 2, y);
     g.textAlign = 'left';
     g.fillText('DRIVER', X.acr, y);
     g.textAlign = 'right';
@@ -249,7 +242,7 @@ export class LeaderboardPanel extends Panel {
     g.restore();
     if (selected) {
       roundRect(g, PAD + 1.5, y + 1.5, w - PAD * 2 - 3, rh - 3, 8);
-      glowStroke(g, team, 3);
+      glowStroke(g, THEME.select, 3);
     } else if (hover) {
       g.strokeStyle = THEME.rim;
       g.lineWidth = 2;
@@ -275,13 +268,17 @@ export class LeaderboardPanel extends Panel {
     g.font = dfont(30, 700);
     g.fillText(r.position != null ? String(r.position) : '–', X.posR, cy + 1);
 
-    // Team rim (with a soft glow) + acronym.
-    g.fillStyle = rgba(team, 0.28);
-    roundRect(g, X.bar - 4, y + 5, 15, rh - 10, 5);
+    // Car-number badge in team colour (with a soft glow) + acronym.
+    g.fillStyle = rgba(team, 0.3);
+    roundRect(g, X.badge - 3, y + 4, X.badgeW + 6, rh - 8, 9);
     g.fill();
     g.fillStyle = team;
-    roundRect(g, X.bar, y + 9, 7, rh - 18, 3);
+    roundRect(g, X.badge, y + 7, X.badgeW, rh - 14, 7);
     g.fill();
+    g.fillStyle = isLight(team) ? '#0a0b10' : '#ffffff';
+    g.textAlign = 'center';
+    g.font = dfont(24, 700);
+    g.fillText(String(n), X.badge + X.badgeW / 2, cy + 1);
     g.textAlign = 'left';
     g.fillStyle = THEME.text;
     g.font = dfont(30, 700);

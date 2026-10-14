@@ -99,7 +99,23 @@ export function normaliseSession(raw, sessionKey) {
     year: num(r.year) ?? (toMs(r.date_start) != null ? new Date(toMs(r.date_start)).getUTCFullYear() : null),
     start: toMs(r.date_start),
     end: toMs(r.date_end),
+    gmtOffsetMin: offsetMinutes(r.gmt_offset),
   };
+}
+
+/** OpenF1 gmt_offset ("03:00:00", "-04:00:00") in minutes, or null. */
+export function offsetMinutes(v) {
+  const m = typeof v === 'string' ? /^([+-]?)(\d{1,2}):(\d{2})/.exec(v.trim()) : null;
+  if (!m) return null;
+  const min = Number(m[2]) * 60 + Number(m[3]);
+  return m[1] === '-' ? -min : min;
+}
+
+/** True when the session starts after dark local time (18:00–04:59), e.g. Bahrain, Singapore, Las Vegas. */
+export function isNightSession(session) {
+  if (!session || session.start == null || session.gmtOffsetMin == null) return false;
+  const h = new Date(session.start + session.gmtOffsetMin * 60000).getUTCHours();
+  return h >= 18 || h < 5;
 }
 
 /**

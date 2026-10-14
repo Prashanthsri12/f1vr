@@ -1,15 +1,15 @@
-/* Start page styles. Dark pit wall theme (9.2), red accent, 48px minimum touch targets.
-   Colours match THEME in js/panels/panel-base.js. */
+/* Start page styles. Neon F1 look (10.9): near-black, matte cards, race red, a kerb stripe
+   along the top, 48px minimum touch targets. Colours match THEME in js/panels/panel-base.js. */
 :root {
-  --bg: #05070c;
-  --bg-elev: rgba(17, 22, 33, 0.78);
-  --bg-elev-2: #1a2131;
-  --border: rgba(140, 160, 200, 0.18);
-  --text: #eef2f8;
-  --text-dim: #8692a8;
-  --accent: #ff2d3d;
-  --accent-hover: #ff5260;
-  --ok: #2ee67a;
+  --bg: #07080c;
+  --bg-elev: #0f1016;
+  --bg-elev-2: #171922;
+  --border: rgba(255, 255, 255, 0.09);
+  --text: #f6f7fa;
+  --text-dim: #8a8fa0;
+  --accent: #e10600;
+  --accent-hover: #ff2a1f;
+  --ok: #39ff88;
   --warn: #ffb020;
   --error-bg: #3a1214;
   --error-border: #a3262a;
@@ -17,7 +17,7 @@
   --gap: 16px;
   --touch: 48px;
   --font: 'Titillium Web', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --display: 'Chakra Petch', 'Titillium Web', system-ui, sans-serif;
+  --display: 'Titillium Web', system-ui, sans-serif; /* used heavy italic */
   --mono: ui-monospace, 'Cascadia Mono', Consolas, monospace;
   color-scheme: dark;
 }
@@ -27,12 +27,7 @@
 html, body {
   margin: 0;
   min-height: 100%;
-  background:
-    radial-gradient(1100px 560px at 15% -10%, rgba(61, 139, 255, 0.10), transparent 60%),
-    radial-gradient(900px 500px at 100% 0%, rgba(255, 45, 61, 0.09), transparent 60%),
-    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.012) 0 2px, transparent 2px 6px),
-    var(--bg);
-  background-attachment: fixed;
+  background: var(--bg);
   color: var(--text);
   font-family: var(--font);
   font-size: 18px;
@@ -42,6 +37,12 @@ html, body {
 
 [hidden] { display: none !important; }
 
+/* Red-and-white kerb stripe across the top of the start page */
+.start::before {
+  content: '';
+  position: fixed; left: 0; right: 0; top: 0; height: 6px; z-index: 5; pointer-events: none;
+  background: repeating-linear-gradient(90deg, var(--accent) 0 28px, #fff 28px 56px);
+}
 .start {
   max-width: 820px;
   margin: 0 auto;
@@ -56,8 +57,9 @@ html, body {
   margin: 0;
   font-family: var(--display);
   font-size: clamp(2rem, 6vw, 3rem);
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: 0.01em;
   text-transform: uppercase;
   display: flex;
   align-items: center;
@@ -75,15 +77,19 @@ html, body {
 .start__subtitle { margin: 4px 0 0; color: var(--text-dim); }
 
 .card {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 40%), var(--bg-elev);
+  background: var(--bg-elev);
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 16px;
   min-width: 0;
-  backdrop-filter: blur(10px);
+  box-shadow: 0 14px 30px -20px #000;
 }
 .card--quiet { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
-.card__heading { margin: 0 0 12px; font-family: var(--display); font-size: 1.05rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+.card__heading { margin: 0 0 12px; font-family: var(--display); font-size: 1.1rem; font-weight: 900; font-style: italic; letter-spacing: 0.06em; text-transform: uppercase; }
+.card__heading::before {
+  content: ''; display: inline-block; width: 14px; height: 5px; margin-right: 10px; vertical-align: middle;
+  background: var(--accent); transform: skewX(-30deg);
+}
 
 .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
 .field label, .field__label { font-weight: 600; color: var(--text-dim); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.06em; }
@@ -130,11 +136,11 @@ select:focus-visible, input:focus-visible, .btn:focus-visible, .choice:focus-vis
   min-width: 0;
 }
 .choice { transition: border-color .15s, background .15s; }
-.choice:hover { border-color: var(--text-dim); background: #212a3d; }
+.choice:hover { border-color: var(--text-dim); background: #20232e; }
 .choice[aria-selected="true"] {
   border-color: var(--accent);
   box-shadow: inset 4px 0 0 var(--accent), 0 0 18px -6px var(--accent);
-  background: #2a141a;
+  background: #24100f;
 }
 .choice__flag {
   width: 32px;
@@ -172,8 +178,11 @@ select:focus-visible, input:focus-visible, .btn:focus-visible, .choice:focus-vis
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .btn { transition: border-color .15s, background .15s, transform .1s; }
 .btn:active:not(:disabled) { transform: scale(0.98); }
-.btn--primary { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 22px -6px var(--accent); }
-.btn--primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn--primary {
+  background: var(--accent); border: 2px solid #fff; box-shadow: 0 0 22px -6px var(--accent);
+  font-style: italic; font-weight: 900; letter-spacing: 0.04em; text-transform: uppercase;
+}
+.btn--primary:hover:not(:disabled) { background: var(--accent-hover); }
 .btn--accent-outline { border-color: var(--accent); }
 .btn--small { padding: 8px 14px; font-size: 0.95rem; }
 
@@ -234,7 +243,7 @@ select:focus-visible, input:focus-visible, .btn:focus-visible, .choice:focus-vis
 .debug__out {
   margin: 0;
   padding: 10px;
-  background: #070a10;
+  background: #07080c;
   border: 1px solid var(--border);
   border-radius: 8px;
   font-family: var(--mono);

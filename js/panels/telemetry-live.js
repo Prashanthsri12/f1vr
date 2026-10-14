@@ -2,6 +2,7 @@
 // speed and RPM inside, a big gear digit, vertical throttle / brake bars and a DRS light.
 // Draws into the panel's canvas between y0 and y0 + LIVE_H (canvas px, panel 922 px wide).
 // Only called from TelemetryPanel.draw (≤10 Hz, on change); gradients are cached per context.
+// 10.5: green → yellow → red speed arc, a glowing cyan gear, segmented throttle / brake bars.
 import { THEME, font, dfont, rgba, glowStroke, roundRect } from './panel-base.js';
 
 export const LIVE_H = 410;
@@ -25,7 +26,7 @@ function gaugeGradient(g, cx, cy, r) {
   if (!c || c.key !== key) {
     const grad = g.createLinearGradient(cx - r, 0, cx + r, 0);
     grad.addColorStop(0, THEME.green);
-    grad.addColorStop(0.6, THEME.blue);
+    grad.addColorStop(0.55, THEME.yellow);
     grad.addColorStop(1, THEME.accent);
     c = { key, grad };
     _grads.set(g, c);
@@ -75,7 +76,7 @@ export function drawLive(g, w, y0, pad, tel, s, hasDrs) {
   if (f > 0.002) {
     g.beginPath();
     g.arc(cx, cy, r, ARC_START, ARC_START + ARC_SWEEP * f);
-    g.strokeStyle = rgba(THEME.blue, 0.22);
+    g.strokeStyle = rgba(THEME.orange, 0.2);
     g.lineWidth = 50;
     g.stroke();
     g.strokeStyle = gaugeGradient(g, cx, cy, r);
@@ -99,9 +100,15 @@ export function drawLive(g, w, y0, pad, tel, s, hasDrs) {
   g.fillStyle = THEME.muted;
   g.font = font(24, 700);
   g.fillText('GEAR', gx, y0 + 96);
-  g.fillStyle = THEME.text;
+  // Neon glow without shadowBlur: a wide faint stroke under the fill.
+  const gearTxt = tel.gear > 0 ? String(s.gear) : 'N';
   g.font = dfont(190, 700);
-  g.fillText(tel.gear > 0 ? String(s.gear) : 'N', gx, y0 + 270);
+  g.strokeStyle = rgba(THEME.select, 0.22);
+  g.lineWidth = 18;
+  g.lineJoin = 'round';
+  g.strokeText(gearTxt, gx, y0 + 270);
+  g.fillStyle = THEME.select;
+  g.fillText(gearTxt, gx, y0 + 270);
 
   // DRS light under the gear.
   if (hasDrs === true) {
@@ -135,17 +142,24 @@ export function drawLive(g, w, y0, pad, tel, s, hasDrs) {
   bar(g, w - pad - barW, barTop, barW, barH, s.brake ? 1 : 0, THEME.red, 'BRK', s.brake ? 'ON' : '–');
 }
 
+const SEGS = 20;
+
+/** Vertical bar of SEGS ticks lit from the bottom; lit ticks get a soft halo. */
 function bar(g, x, y, w, h, frac, colour, label, value) {
-  g.fillStyle = THEME.surface;
-  roundRect(g, x, y, w, h, 12);
-  g.fill();
-  const f = Math.max(0, Math.min(1, frac));
-  if (f > 0) {
-    const fh = Math.max(14, f * h);
-    roundRect(g, x, y + h - fh, w, fh, 12);
-    g.fillStyle = colour;
+  const gap = 4;
+  const sh = (h - gap * (SEGS - 1)) / SEGS;
+  const lit = Math.round(Math.max(0, Math.min(1, frac)) * SEGS);
+  if (lit > 0) {
+    const top = y + h - lit * (sh + gap) + gap;
+    g.fillStyle = rgba(colour, 0.22);
+    roundRect(g, x - 5, top - 5, w + 10, y + h - top + 10, 8);
     g.fill();
-    glowStroke(g, colour, 2, 5);
+  }
+  for (let i = 0; i < SEGS; i++) {
+    const sy = y + h - (i + 1) * sh - i * gap;
+    g.fillStyle = i < lit ? colour : THEME.surface;
+    roundRect(g, x, sy, w, sh, 3);
+    g.fill();
   }
   g.textAlign = 'center';
   g.textBaseline = 'alphabetic';

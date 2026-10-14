@@ -1,7 +1,7 @@
 // Telemetry panel (spec §5): selected driver header, live speed / gear / RPM /
 // throttle / brake / DRS, and a speed-vs-distance trace of the current lap
 // (revealed up to the playhead) over the previous lap.
-import { Panel, THEME, font, dfont, rgba, roundRect } from './panel-base.js';
+import { Panel, THEME, font, dfont, rgba, roundRect, sticker } from './panel-base.js';
 import { LAYOUT } from './layout.js';
 import { LapTraceCache } from './lap-trace.js';
 import { lowerBound } from '../interp.js';
@@ -197,17 +197,16 @@ export class TelemetryPanel extends Panel {
     g.textAlign = 'left';
     g.textBaseline = 'alphabetic';
     g.fillStyle = THEME.text;
-    g.font = font(40, 700);
+    g.font = dfont(42, 700);
     const name = d ? (d.fullName || d.acronym) : `#${ctx.selected}`;
-    g.fillText(fitText(g, name, w - x - 190), x, 78);
-    g.fillStyle = colour;
-    g.font = dfont(34, 700);
-    const num = d ? String(d.number) : '';
-    g.fillText(num, x, 126);
-    const nw = g.measureText(num).width;
+    g.fillText(fitText(g, name.toUpperCase(), w - x - 190), x, 76);
+    // Car-number sticker in team colour (10.5), then the team name.
+    const nw = d ? sticker(g, x, 94, String(d.number), { bg: colour, px: 26, rot: -4 }) : 0;
+    g.textAlign = 'left';
+    g.textBaseline = 'alphabetic';
     g.fillStyle = THEME.muted;
-    g.font = font(28, 600);
-    g.fillText(fitText(g, d ? d.teamName || '' : '', w - x - nw - 210), x + nw + 16, 126);
+    g.font = font(28, 700);
+    g.fillText(fitText(g, d ? (d.teamName || '').toUpperCase() : '', w - x - nw - 210), x + nw + 18, 126);
 
     // lap
     if (this._cur) {

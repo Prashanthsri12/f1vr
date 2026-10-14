@@ -8,7 +8,7 @@
 //                best lap and its rank, stops, top speed, stints so far
 // 0.9 × 0.42 m → 922 × 430 px. Redraws at most 2 Hz, only when the shown values change.
 // All numbers come from insights-data.js and are as of the playhead.
-import { Panel, THEME, TYRE_COLOURS, font, dfont, rgba, glowStroke, roundRect, fmtLap } from './panel-base.js';
+import { Panel, THEME, TYRE_COLOURS, font, dfont, glowStroke, roundRect, fmtLap, sticker, stickerSize } from './panel-base.js';
 import { LAYOUT } from './layout.js';
 import { trackStatusAt } from './race-status.js';
 import { gridPositions, drsTimeline, drsEnabledAt, pitLaneAt } from './leaderboard-flags.js';
@@ -156,24 +156,16 @@ export class InsightsPanel extends Panel {
     g.fillText('INSIGHTS', w - PAD, 42);
   }
 
+  /** Driver acronym as a team-colour sticker (10.6), tilted outwards; clicking selects. */
   _driverTag(g, n, x, y, align, size = 34) {
     const dr = this.data.driverByNumber.get(n);
     const col = dr ? dr.teamColour : THEME.muted;
-    g.font = dfont(size, 700);
     const txt = dr ? dr.acronym : `#${n}`;
-    const tw = g.measureText(txt).width;
-    const x0 = align === 'right' ? x - tw - 18 : x;
-    g.fillStyle = rgba(col, 0.3);
-    roundRect(g, x0 - 3, y - size / 2 - 2, 13, size + 4, 4);
-    g.fill();
-    g.fillStyle = col;
-    roundRect(g, x0, y - size / 2 + 1, 7, size - 2, 3);
-    g.fill();
-    g.fillStyle = THEME.text;
-    g.textAlign = 'left';
-    g.textBaseline = 'middle';
-    g.fillText(txt, x0 + 18, y + 1);
-    this.addHit(`drv:${n}`, x0 - 4, y - size / 2 - 4, tw + 26, size + 8, n);
+    const px = Math.round(size * 0.72);
+    const { w: sw, h: sh } = stickerSize(g, txt, px);
+    const x0 = align === 'right' ? x - sw : x;
+    sticker(g, x0, y - sh / 2, txt, { bg: col, px, rot: align === 'right' ? 3 : -3 });
+    this.addHit(`drv:${n}`, x0 - 4, y - sh / 2 - 4, sw + 8, sh + 8, n);
   }
 
   _battles(g, w, h, v) {
@@ -189,7 +181,7 @@ export class InsightsPanel extends Panel {
       if (mine) {
         const dr = this.data.driverByNumber.get(v.sel);
         roundRect(g, PAD + 1.5, y + 1.5, w - 2 * PAD - 3, rh - 3, 12);
-        glowStroke(g, dr ? dr.teamColour : THEME.accent, 3);
+        glowStroke(g, THEME.select, 3);
       }
       const cy = y + 36;
       g.fillStyle = THEME.muted;
@@ -311,10 +303,8 @@ export class InsightsPanel extends Panel {
     g.textBaseline = 'alphabetic';
     g.fillStyle = THEME.text;
     g.font = dfont(34, 700);
-    g.fillText(dr.fullName || dr.acronym, x, ty + 34);
-    g.font = font(22, 600);
-    g.fillStyle = col;
-    g.fillText(`${dr.number}  ${dr.teamName || ''}`, x, ty + 64);
+    g.fillText((dr.fullName || dr.acronym).toUpperCase(), x, ty + 32);
+    sticker(g, x, ty + 44, dr.teamName || String(dr.number), { bg: col, px: 18, rot: -2 });
     const status = m.out ? ['OUT', THEME.muted, '#ffffff'] : m.pit ? ['IN THE PITS', THEME.blue, '#ffffff'] : ['RUNNING', THEME.green, '#04140a'];
     chip(g, x, ty + 92, status[0], status[1], status[2]);
     // Stats grid (3 × 2) to the right of the photo.

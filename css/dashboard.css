@@ -1,19 +1,21 @@
 /* Screen mode dashboard (Phase 8). Tiles are absolutely placed by js/screen/screen-layout.js;
    panel canvases are sized inside them by js/screen/panel-host.js.
-   9.2 style pass: deep blue-black ground, glassy cards with a thin rim, pill buttons with a
-   red accent (colours match THEME in js/panels/panel-base.js). */
+   10.9 neon F1 look: near-black ground with a red-and-white kerb stripe along the top, matte
+   cards with a thin rim, race-red primary buttons and white active chips (colours match THEME
+   in js/panels/panel-base.js). */
 .f1-dash {
   position: absolute;
   inset: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  background:
-    radial-gradient(1200px 600px at 20% -10%, rgba(61, 139, 255, 0.09), transparent 60%),
-    radial-gradient(900px 500px at 100% 0%, rgba(255, 45, 61, 0.07), transparent 60%),
-    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.012) 0 2px, transparent 2px 6px),
-    #05070c;
-  color: #eef2f8;
+  background: #07080c;
+  color: #f6f7fa;
   font-family: var(--font);
+}
+.f1-dash::before {
+  content: '';
+  position: absolute; left: 0; right: 0; top: 0; height: 4px; z-index: 6; pointer-events: none;
+  background: repeating-linear-gradient(90deg, #e10600 0 28px, #fff 28px 56px);
 }
 .f1-dash__content { position: relative; width: 100%; }
 
@@ -25,9 +27,9 @@
 .f1-dash__tile--main {
   overflow: hidden;
   border-radius: 14px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 35%), #0b0f17;
-  border: 1px solid rgba(140, 160, 200, 0.16);
-  box-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.6);
+  background: radial-gradient(70% 60% at 50% 55%, #141626, #0f1016);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 14px 30px -20px #000;
 }
 .f1-dash__gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
 
@@ -51,27 +53,26 @@
 .f1-dash__spacer { flex: 1; pointer-events: none !important; }
 
 .f1-dash__btn {
-  font: 700 13px/1 var(--display, var(--font));
+  font: italic 900 13px/1 var(--display, var(--font));
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #eef2f8;
-  background: rgba(17, 22, 33, 0.82);
-  border: 1px solid rgba(140, 160, 200, 0.2);
+  color: #f6f7fa;
+  background: #171922;
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 999px;
   padding: 8px 14px;
   min-height: 32px;
   cursor: pointer;
-  backdrop-filter: blur(8px);
   transition: border-color .15s, background .15s, box-shadow .15s, transform .1s;
 }
-.f1-dash__btn:hover:not(:disabled) { background: #1f2738; border-color: #ff2d3d; }
+.f1-dash__btn:hover:not(:disabled) { background: #20232e; border-color: #e10600; }
 .f1-dash__btn:active:not(:disabled) { transform: scale(0.97); }
 .f1-dash__btn:disabled { opacity: 0.45; cursor: default; }
-.f1-dash__btn:focus-visible { outline: 2px solid #ff2d3d; outline-offset: 2px; }
-.f1-dash__btn.is-active { background: #1f2738; box-shadow: inset 0 -3px 0 #ff2d3d; }
-.f1-dash__btn.is-on { background: #ff2d3d; border-color: #ff2d3d; box-shadow: 0 0 18px -4px #ff2d3d; }
-.f1-dash__btn--icon { font-size: 17px; padding: 4px 11px; letter-spacing: 0; }
-.f1-dash__btn--exit:hover { background: #ff2d3d; }
+.f1-dash__btn:focus-visible { outline: 2px solid #2de2ff; outline-offset: 2px; }
+.f1-dash__btn.is-active { background: #fff; border-color: #fff; color: #0a0b10; }
+.f1-dash__btn.is-on { background: #e10600; border-color: #fff; box-shadow: 0 0 18px -4px #e10600; }
+.f1-dash__btn--icon { font-size: 17px; padding: 4px 11px; letter-spacing: 0; font-style: normal; }
+.f1-dash__btn--exit:hover { background: #e10600; }
 
 .f1-dash__help {
   display: inline-grid;
@@ -79,26 +80,26 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: rgba(17, 22, 33, 0.82);
-  border: 1px solid rgba(140, 160, 200, 0.2);
+  background: #171922;
+  border: 1px solid rgba(255, 255, 255, 0.1);
   font: 700 15px/1 var(--font);
   cursor: help;
   white-space: pre-line;
 }
 .f1-dash__perf {
   font: 12px/1.2 var(--mono);
-  color: #8692a8;
-  background: rgba(8, 11, 18, 0.75);
+  color: #8a8fa0;
+  background: rgba(7, 8, 12, 0.8);
   padding: 4px 8px;
   border-radius: 6px;
 }
 
 /* Main screen tile */
-.f1-dash__tile--main { background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 35%), #0b0f17; }
+.f1-dash__tile--main { background: #0f1016; }
 .f1-dash__body { position: absolute; inset: 48px 0 0 0; }
 .f1-dash__video { position: absolute; inset: 0 0 52px 0; background: #04060a; display: grid; place-items: center; }
 .f1-dash__videoel { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; }
-.f1-dash__msg { position: relative; max-width: 80%; text-align: center; color: #8692a8; font-size: 15px; line-height: 1.4; }
+.f1-dash__msg { position: relative; max-width: 80%; text-align: center; color: #8a8fa0; font-size: 15px; line-height: 1.4; }
 .f1-dash__vctl {
   position: absolute;
   left: 8px;
@@ -114,40 +115,54 @@
   .f1-dash__btn { transition: none; }
 }
 
-/* Race moment banner over the track tile (9.11, js/screen/banner-dom.js) */
+/* Race moment banner over the track tile (9.11, js/screen/banner-dom.js). 10.8: a compact
+   slanted tag in the moment's colour with a white border and a soft glow, near the top. */
 .f1-banner {
-  position: absolute; left: 0; right: 0; top: 50%; z-index: 4;
-  transform: translateY(-50%); pointer-events: none;
-  display: grid; place-items: center; overflow: hidden; height: 140px;
+  position: absolute; left: 0; right: 0; top: 54px; z-index: 4; pointer-events: none;
+  display: grid; place-items: center; padding: 0 16px;
 }
 .f1-banner__slab {
-  --c: #e8790f;
-  position: relative; width: 112%; padding: 16px 0 14px; text-align: center;
-  background:
-    repeating-linear-gradient(-55deg, rgba(0, 0, 0, 0.16) 0 14px, transparent 14px 28px),
-    linear-gradient(90deg, transparent, var(--c) 14%, var(--c) 86%, transparent);
-  transform: skewY(-3deg);
-  animation: f1-banner-slab 3.4s cubic-bezier(.2, .8, .2, 1) both;
+  --c: #e10600;
+  position: relative; max-width: 100%; padding: 10px 30px 9px; text-align: center;
+  background: var(--c); border: 3px solid #fff; border-radius: 6px;
+  box-shadow: 0 0 34px -6px var(--c), 0 4px 0 rgba(0, 0, 0, 0.55);
+  transform: skewX(-12deg);
+  animation: f1-banner-slab 3.4s cubic-bezier(.2, 1.4, .4, 1) both;
 }
+.f1-banner__slab > * { transform: skewX(12deg); }
 .f1-banner__slab--check {
-  background: conic-gradient(#fff 25%, #0b0b0b 0 50%, #fff 0 75%, #0b0b0b 0) 0 0 / 28px 28px;
+  background: conic-gradient(#fff 25%, #0b0b0b 0 50%, #fff 0 75%, #0b0b0b 0) 0 0 / 22px 22px;
+  box-shadow: 0 0 34px -8px #fff, 0 4px 0 rgba(0, 0, 0, 0.55);
 }
 .f1-banner__slab--check .f1-banner__title,
 .f1-banner__slab--check .f1-banner__sub { display: inline-block; background: #0b0b0b; padding: 0 14px; }
 .f1-banner__title {
-  font: 700 clamp(26px, 3.6vw, 52px)/1 var(--display, var(--font));
-  letter-spacing: 0.06em; text-transform: uppercase; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.25);
+  font: italic 900 clamp(22px, 2.6vw, 40px)/1.05 var(--display, var(--font));
+  letter-spacing: 0.03em; text-transform: uppercase;
 }
 .f1-banner__sub {
-  margin-top: 6px; font: 600 clamp(13px, 1.3vw, 17px)/1.2 var(--font);
+  margin-top: 4px; font: 700 clamp(12px, 1.1vw, 15px)/1.2 var(--font);
   letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.92;
 }
 .f1-banner__slab--check .f1-banner__sub { display: block; width: max-content; margin: 6px auto 0; }
 @keyframes f1-banner-slab {
-  0% { transform: skewY(-3deg) translateX(-110%); }
-  14% { transform: skewY(-3deg) translateX(0); }
-  84% { transform: skewY(-3deg) translateX(0); opacity: 1; }
-  100% { transform: skewY(-3deg) translateX(110%); opacity: 0; }
+  0% { opacity: 0; transform: skewX(-12deg) translateY(-12px) scale(0.85); }
+  10% { opacity: 1; transform: skewX(-12deg) translateY(0) scale(1); }
+  88% { opacity: 1; transform: skewX(-12deg) translateY(0) scale(1); }
+  100% { opacity: 0; transform: skewX(-12deg) translateY(-8px) scale(0.96); }
+}
+
+/* Stickers (10.3, 10.9): our own decals in team / race colours (never real logos) */
+.f1-stk {
+  --tc: #e10600; --tx: #fff; --rot: 0deg;
+  display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 6px;
+  background: var(--tc); color: var(--tx); border: 2px solid #fff;
+  font: italic 900 12px/1.2 var(--display, var(--font)); letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap;
+  transform: rotate(var(--rot)); box-shadow: 0 4px 14px -4px var(--tc), 0 2px 0 rgba(0, 0, 0, 0.5);
+}
+.f1-dash__stickers {
+  position: absolute; left: 14px; bottom: 14px; z-index: 3; pointer-events: none;
+  display: flex; flex-wrap: wrap; gap: 8px; max-width: calc(100% - 28px);
 }
 
 /* Flag ambience (9.12): the dashboard edge glows in the track status colour (not when green) */
@@ -156,9 +171,9 @@
 
 @media (prefers-reduced-motion: reduce) {
   @keyframes f1-banner-slab {
-    0% { opacity: 0; transform: skewY(-3deg); }
-    10%, 85% { opacity: 1; transform: skewY(-3deg); }
-    100% { opacity: 0; transform: skewY(-3deg); }
+    0% { opacity: 0; transform: skewX(-12deg); }
+    10%, 85% { opacity: 1; transform: skewX(-12deg); }
+    100% { opacity: 0; transform: skewX(-12deg); }
   }
   .f1-dash { transition: none; }
 }

@@ -1,7 +1,7 @@
 // Laps and tyres panel (spec §5): running lap clock, last / personal best / session best,
 // last-lap sectors (purple / green / yellow), speed trap and the tyre stint strip,
 // all for ctx.selected. Statistics come from the pure LapStats index (lap-stats.js).
-import { Panel, THEME, TYRE_COLOURS, font, dfont, rgba, glowStroke, roundRect, fmtLap } from './panel-base.js';
+import { Panel, THEME, TYRE_COLOURS, font, dfont, rgba, glowStroke, roundRect, fmtLap, panelTitle, sticker } from './panel-base.js';
 import { LAYOUT } from './layout.js';
 import { LapStats, newLapStatsOut } from './lap-stats.js';
 
@@ -52,24 +52,10 @@ export class LapsPanel extends Panel {
     const drv = this.data.driverByNumber?.get(ctx.selected);
     g.textBaseline = 'alphabetic';
 
-    // Header: accent bar, title, driver tag, lap counter.
-    g.fillStyle = rgba(THEME.accent, 0.25);
-    g.fillRect(0, 16, 14, 52);
-    g.fillStyle = THEME.accent;
-    g.fillRect(0, 20, 8, 44);
-    g.fillStyle = THEME.muted;
-    g.font = font(26, 700);
-    g.textAlign = 'left';
-    g.fillText('LAPS & TYRES', PAD, 52);
-    const titleW = g.measureText('LAPS & TYRES').width;
-    if (drv) {
-      const x = PAD + titleW + 24;
-      g.fillStyle = drv.teamColour;
-      g.fillRect(x, 26, 6, 32);
-      g.fillStyle = THEME.text;
-      g.font = dfont(30, 700);
-      g.fillText(drv.acronym, x + 16, 53);
-    }
+    // Header: title, driver sticker (10.6), lap counter.
+    const titleEnd = panelTitle(g, PAD - 6, 42, 'Laps & tyres', 28);
+    if (drv) sticker(g, titleEnd + 18, 24, drv.acronym, { bg: drv.teamColour, px: 22, rot: -3 });
+    g.textBaseline = 'alphabetic';
     g.textAlign = 'right';
     g.font = font(26, 600);
     g.fillStyle = THEME.muted;
