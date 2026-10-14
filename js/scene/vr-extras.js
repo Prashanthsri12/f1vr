@@ -1,10 +1,12 @@
 // Phase 9 additions to the VR / room app, kept out of app.js: rain in the room (9.7),
 // track colours (9.8, 9.10), race moment banners (9.11), flag ambience (9.12) and the
-// engine hum (9.13). update() runs every frame; the data work happens at 10 Hz (track
-// colours at ~2.5 Hz). No per-frame allocation.
+// engine hum (9.13) and the team radio pop-up (11.2). update() runs every frame; the data
+// work happens at 10 Hz (track colours at ~2.5 Hz). No per-frame allocation.
 import { createRain } from './rain.js';
 import { TrackStyle } from './track-style.js';
 import { createBanner3d } from './banner-3d.js';
+import { createRadioPop3d } from './radio-pop-3d.js';
+import { currentLap } from '../session-index.js';
 import { createFlagAmbience } from './flag-ambience.js';
 import { createRaceMoments } from '../race-moments.js';
 import { createEngineSound } from '../engine-sound.js';
@@ -23,6 +25,7 @@ export function createVrExtras({ world, table }) {
   const rain = createRain();
   world.scene.add(rain.object);
   const banner3d = createBanner3d(world.scene);
+  const radioPop = createRadioPop3d(world.scene);
   const flagFx = createFlagAmbience();
   const engine = createEngineSound();
   const rimMat = table.getObjectByName('tableRim')?.material || null;
@@ -33,6 +36,26 @@ export function createVrExtras({ world, table }) {
 
   return {
     banner3d,
+    /**
+     * A team radio clip started (audio-events onRadio): show who is talking.
+     * @param {{driver_number: number, date: number, recording_url: string}} clip
+     * @param {THREE.Camera} camera the viewing camera (XR camera when presenting)
+     */
+    showRadio(clip, camera) {
+      if (!data) return;
+      const n = clip.driver_number;
+      const d = data.driverByNumber.get(n);
+      const pos = data.getPositionAt(n, clip.date);
+      const lap = currentLap(data.getDriverLaps(n), clip.date);
+      radioPop.show({
+        colour: d ? d.teamColour : '#8a8fa0',
+        number: String(d ? d.number : n),
+        name: d ? d.fullName || d.acronym : `Car ${n}`,
+        team: d ? d.teamName || '' : '',
+        meta: [pos ? `P${pos}` : '', lap ? `Lap ${lap.lap_number}` : ''].filter(Boolean).join(' · '),
+        url: clip.recording_url,
+      }, camera);
+    },
     /** ?debug hook: force a flag colour ('#rrggbb') or null. */
     setDebugFlag(c) { debugFlag = c; },
     /** Once the track and data exist. */
@@ -73,10 +96,12 @@ export function createVrExtras({ world, table }) {
       rain.update(dt, raining, !passthrough);
       flagFx.update(dt, passthrough ? null : (debugFlag ?? flagColour), world.getRoomAccent(), rimMat);
       banner3d.update();
+      radioPop.update();
     },
     dispose() {
       rain.dispose();
       banner3d.dispose();
+      radioPop.dispose();
       engine.dispose();
     },
   };

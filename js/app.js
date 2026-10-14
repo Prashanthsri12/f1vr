@@ -236,7 +236,10 @@ export async function startApp({
     dispose();
     throw err;
   }
-  audioEvents = createAudioEvents(data); // team radio autoplay + sound effects
+  // Team radio autoplay (+ the pop-up, 11.2) and sound effects.
+  audioEvents = createAudioEvents(data, {
+    onRadio: (clip) => extras.showRadio(clip, world.renderer.xr.isPresenting ? world.renderer.xr.getCamera() : world.camera),
+  });
 
   // --- room theme (4b.5) and in-scene fps counter (6.7) ---
   function cycleTheme() {
@@ -435,7 +438,7 @@ export async function startApp({
   if (new URLSearchParams(location.search).has('debug')) {
     window.__f1vr = {
       world, table, data, playback, pitWall, panelGrab, recenter, sfxStats, screen, vrScreen, getMode: () => mode,
-      banner3d: extras.banner3d, setDebugFlag: extras.setDebugFlag,
+      banner3d: extras.banner3d, setDebugFlag: extras.setDebugFlag, showRadio: (clip) => extras.showRadio(clip, world.camera),
     };
     unsubs.push(() => { if (window.__f1vr && window.__f1vr.table === table) delete window.__f1vr; });
   }

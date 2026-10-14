@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import { Panel, THEME, font, roundRect } from './panel-base.js';
 import { getSettings, setSetting } from '../settings.js';
 import { TRACK_COLOUR_MODES } from '../scene/track-style.js';
+import { radioMode, cycleRadioMode, RADIO_LABEL } from '../radio-mode.js';
 
 const W = 0.22;              // metres
 const H = 0.39;
@@ -38,7 +39,7 @@ export class WristMenu extends Panel {
     if (lb.length) this._order = lb.map((r) => r.driverNumber);
     const s = getSettings();
     const sig = `${ctx.playback.playing}|${ctx.playback.speed}|${ctx.selected}|${ctx.mode}|${ctx.canPassthrough}|`
-      + `${s.radio}|${s.sfx}|${s.theme}|${s.fps}|${s.trackColours}|${s.engine}|${s.screenView}|${s.fullSession}|${!!ctx.actions.recenter}|${!!ctx.actions.resetLayout}|${!!ctx.actions.cycleTheme}|`
+      + `${s.radio}|${s.radioAll}|${s.sfx}|${s.theme}|${s.fps}|${s.trackColours}|${s.engine}|${s.screenView}|${s.fullSession}|${!!ctx.actions.recenter}|${!!ctx.actions.resetLayout}|${!!ctx.actions.cycleTheme}|`
       + `${this._order.join(',')}`;
     if (sig === this._sig) return false;
     this._sig = sig;
@@ -122,7 +123,8 @@ export class WristMenu extends Panel {
     // Radio / sound toggles
     const s = getSettings();
     const half = (w - 2 * pad - gap) / 2;
-    this._button(g, 'radio', pad, y, half, 50, `Radio ${s.radio ? 'ON' : 'OFF'}`, { on: s.radio });
+    const rm = radioMode(s); // 11.1: Off → Driver → All
+    this._button(g, 'radio', pad, y, half, 50, `Radio ${RADIO_LABEL[rm].toUpperCase()}`, { on: rm !== 'off' });
     this._button(g, 'sfx', pad + half + gap, y, half, 50, `Sounds ${s.sfx ? 'ON' : 'OFF'}`, { on: s.sfx });
     y += 50 + gap;
 
@@ -183,7 +185,7 @@ export class WristMenu extends Panel {
       case 'slower': a.speedDown(); break;
       case 'faster': a.speedUp(); break;
       case 'mode': if (a.togglePassthrough) a.togglePassthrough(); break;
-      case 'radio': setSetting('radio', !getSettings().radio); break;
+      case 'radio': cycleRadioMode(getSettings(), setSetting); break;
       case 'sfx': setSetting('sfx', !getSettings().sfx); break;
       case 'theme': if (a.cycleTheme) a.cycleTheme(); break;
       case 'fps': setSetting('fps', !getSettings().fps); break;

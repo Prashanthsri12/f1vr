@@ -131,3 +131,53 @@ test('sound effects still fire at 10x, but a jump beyond 10x counts as a seek', 
   r.run(2, 200);               // too fast: treated as seeking
   assert.deepEqual(r.log, ['chime']);
 });
+
+/** Rig for all radio (11.1): a fake radio that stays busy for `clipMs` of real time per clip. */
+function allRig(data, clipMs = 2000) {
+  const played = [];
+  const shown = [];
+  let wall = 0;
+  let busyUntil = -1;
+  const ev = createAudioEvents(data, {
+    playRadio: (url) => { played.push(url.slice(10, -4)); busyUntil = wall + clipMs; },
+    playSfx: () => {},
+    getSettings: () => ({ radio: true, radioAll: true, sfx: false }),
+    now: () => wall,
+    isRadioBusy: () => wall < busyUntil,
+    onRadio: (c) => shown.push(c.driver_number),
+  });
+  const st = { time: T0, selected: 1 };
+  return {
+    played, shown,
+    run(seconds, rate = 1) {
+      for (let i = 0; i < seconds * 10; i++) { wall += 100; st.time += 100 * rate; ev.update(st.time, st.selected, true); }
+    },
+    seek(ms) { st.time += ms; },
+  };
+}
+
+test('all radio: plays every driver\'s clips, not only the selected one, and reports each start', () => {
+  const r = allRig(fakeData({ radio: [clip(1, 3 * S, 'a'), clip(16, 8 * S, 'b')] }));
+  r.run(12);
+  assert.deepEqual(r.played, ['a', 'b']);
+  assert.deepEqual(r.shown, [1, 16]);
+});
+
+test('all radio: a clip that arrives while another plays waits for it, then plays', () => {
+  const r = allRig(fakeData({ radio: [clip(1, 3 * S, 'a'), clip(16, 4 * S, 'b')] }), 3000);
+  r.run(4.5);
+  assert.deepEqual(r.played, ['a']);
+  r.run(3);
+  assert.deepEqual(r.played, ['a', 'b']);
+});
+
+test('all radio: queued clips older than 20 s are dropped, and a seek clears the queue', () => {
+  const long = allRig(fakeData({ radio: [clip(1, 2 * S, 'a'), clip(16, 3 * S, 'b')] }), 30000);
+  long.run(28);
+  assert.deepEqual(long.played, ['a']);
+  const r = allRig(fakeData({ radio: [clip(1, 2 * S, 'a'), clip(16, 3 * S, 'b'), clip(16, 60 * S, 'c')] }), 3000);
+  r.run(3.5);
+  r.seek(50 * S);
+  r.run(12);
+  assert.deepEqual(r.played, ['a', 'c']);
+});

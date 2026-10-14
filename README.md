@@ -76,6 +76,7 @@ The desktop shows a flat dashboard that fills the window: the track in the middl
 | ⤢ (or F) | Swap the track and the main screen, e.g. to watch your video big |
 | Sectors / Mini / Plain (or C) | Track colours: the selected driver's last lap by sector, each mini-sector in the team colour of whoever last went purple there, or plain |
 | Engine (or E) | Engine hum that follows the selected driver's RPM (off by default) |
+| Radio (or R) | Team radio: Off, Driver (the selected driver only) or All (every driver) |
 | Analytics (or A) | Analytics mode: six charts with a small track and the leaderboard. Press again for the dashboard |
 | Space | Play / pause |
 | ← / → | Seek 10 s |
@@ -97,7 +98,7 @@ The main screen (the big screen ahead of you in VR, a tile on the desktop) has t
 
 **Watching a broadcast in another window** (e.g. F1 TV, which can't play inside the app): the playback bar's second row has **Lights out**, **◀ Lap / Lap ▶** and a **±1 s / ±5 s** nudge. Start both at lights out, then nudge until they match. The nudge is saved for each race on this device, so Lights out lands on the same moment next time. While a synced video leads, the nudge moves the video's sync point instead.
 
-Team radio for the selected driver also plays automatically as the replay passes each clip (up to 2.5× speed), and quiet sound effects mark race control messages, the selected driver's overtakes and new fastest laps. Turn either off in the wrist menu. There is no commentary: OpenF1 has none, and broadcast commentary is copyrighted.
+Team radio for the selected driver also plays automatically as the replay passes each clip (up to 2.5× speed), and quiet sound effects mark race control messages, the selected driver's overtakes and new fastest laps. Turn either off in the wrist menu. Set Radio to **All** (R on desktop, the Radio button in the wrist menu) to hear every driver's radio whatever driver is selected; clips that overlap wait their turn. While a clip plays, a card shows who is talking, their position and lap (click it on desktop to select that driver). There are no transcripts: OpenF1 has only the audio. There is no commentary: OpenF1 has none, and broadcast commentary is copyrighted.
 
 ## Insights, timeline and race moments
 

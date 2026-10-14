@@ -4,6 +4,7 @@
 const KEY = 'f1vr.settings';
 const DEFAULTS = {
   radio: true, sfx: true, theme: 'pitwall', fps: false,
+  radioAll: false,       // 11.1: autoplay every driver's team radio, not only the selected driver's
   trackView: '2d',       // Screen mode track tile: '2d' top-down | '3d' orbit
   screenShape: 'flat',   // Screen in VR: 'flat' | 'curved'
   vrMode: 'screen',      // VR: 'screen' | 'immersive'
@@ -40,7 +41,7 @@ function load() {
 }
 
 /**
- * @returns {{radio: boolean, sfx: boolean, theme: string, fps: boolean,
+ * @returns {{radio: boolean, radioAll: boolean, sfx: boolean, theme: string, fps: boolean,
  *   trackView: '2d'|'3d', screenShape: 'flat'|'curved', vrMode: 'screen'|'immersive',
  *   trackColours: 'sectors'|'minis'|'plain', banners: boolean, engine: boolean,
  *   fullSession: boolean, screenView: 'dashboard'|'analytics'}}

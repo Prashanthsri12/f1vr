@@ -24,7 +24,7 @@ import { createMainTile } from './main-tile.js';
 import { createDashExtras } from './dash-extras.js';
 
 const KEYS_HELP = 'Space play/pause · ←/→ seek 10 s · ↑/↓ speed · [ ] driver · V 2D/3D · F swap track and screen · Esc exit'
-  + '\nC track colours (sectors / mini-sectors / plain) · E engine hum · A analytics view'
+  + '\nC track colours (sectors / mini-sectors / plain) · E engine hum · R team radio (off / driver / all) · A analytics view'
   + '\nSync: L lights out · PgUp/PgDn previous/next lap · , / . nudge −1/+1 s · Shift+, / Shift+. nudge −5/+5 s'
   + '\nTrack: drag pans (2D) or rotates (3D), right-drag pans, wheel zooms, double-click resets';
 
@@ -173,7 +173,7 @@ export async function startDashboard({ data, container, onExit, onStatus }) {
       for (const [id, b] of Object.entries(viewBtns)) b.classList.toggle('is-active', id === trackView.getView());
     }
     setView(trackView.getView());
-    extras = createDashExtras({ data, playback, root, trackTile: tiles.track, tools, el });
+    extras = createDashExtras({ data, playback, root, trackTile: tiles.track, tools, el, selectDriver });
 
     // --- layout ---
     let focus = 'track';
@@ -221,7 +221,8 @@ export async function startDashboard({ data, container, onExit, onStatus }) {
 
     const lb0 = data.getLeaderboardAt(playback.time);
     selectDriver((lb0 && lb0[0] && lb0[0].driverNumber) ?? (data.drivers[0] && data.drivers[0].number));
-    audioEvents = createAudioEvents(data); // team radio autoplay + sound effects
+    // Team radio autoplay (+ the pop-up, 11.2) and sound effects.
+    audioEvents = createAudioEvents(data, { onRadio: (clip) => extras.showRadio(clip) });
 
     // --- keyboard (Esc is handled by the start page) ---
     const onKey = (e) => {
