@@ -21,6 +21,8 @@ Update the item's status as soon as it is created or finished. Add a dated entry
 | 7 | Deploy | 🟡 | 3 / 7 |
 | 8 | Screen mode | 🟡 | 12 / 17 |
 | 9 | Style pass and analytics | 🟡 | 29 / 30 |
+| 10 | Neon F1 look | 🟡 | 11 / 12 |
+| 11 | Team radio for every driver | 🟡 | 2 / 4 |
 
 ---
 
@@ -264,6 +266,40 @@ Analytics decisions: all four groups (race story, pace and tyres, strategy tools
 
 ---
 
+## Phase 10: Neon F1 look
+
+Asked for by the user on 2026-10-14: the Phase 9 look "is not sporty and fun". Three directions were shown, then a neon glass mockup inspired by `plan/sample dashboards/`. The user then asked to drop the glass and frosting and use neon, more F1 colours and team stickers: "neat and clean, not too dramatic but flashy and cool". They approved `plan/mockups/neon-f1.html` ("build it"). The layout does not change. Real F1 and team logos are not allowed (no copyrighted media, and the repo is public), so the stickers are our own decals in team colours with team names. Quest budget unchanged: no shadowBlur, canvases ≤10 Hz, no per-frame allocation.
+
+| ID | Item | Files | Status | Notes |
+|---|---|---|---|---|
+| 10.1 | **Mockup:** neon F1 dashboard in the current layout, approved by the user | `plan/mockups/neon-f1.html` (new) | ✅ | Approved 2026-10-14 ("build it") |
+| 10.2 | **Theme:** matte panels (no sheen or glass), near-black neutrals, F1 red accent, cyan for the selected driver, neon green / purple / yellow for data; Titillium Web heavy italic replaces Chakra Petch for numbers; red slash before panel titles | `js/panels/panel-base.js`, `index.html` | ✅ | THEME: matte near-black, race red #e10600 accent, cyan #2de2ff select, neon green/purple/yellow; clear() has no sheen; dfont() = Titillium Web italic 900/700 (Chakra Petch dropped); panelTitle() red slash; isLight() |
+| 10.3 | **Stickers:** a canvas `sticker()` helper and a DOM `.f1-stk` class: team-colour decal, white border, slight tilt, offset shadow (no blur) | `js/panels/panel-base.js`, `css/` | ✅ | sticker()/stickerSize() in panel-base (white border, colour halo, hard offset shadow, no shadowBlur); .f1-stk in dashboard.css |
+| 10.4 | **Leaderboard:** car-number badges in team colour, cyan selected outline, red-slash header | `js/panels/leaderboard.js` | ✅ | Car-number badges in team colour (dark text on light colours), cyan selected outline, red-slash title, NO column |
+| 10.5 | **Telemetry:** car-number and team stickers in the header, green → yellow → red speed arc, glowing cyan gear, segmented throttle / brake bars | `js/panels/telemetry.js`, `js/panels/telemetry-live.js` | ✅ | Car-number sticker + team name, heavy italic name, green-yellow-red speed arc, cyan gear with stroke glow, 20-segment throttle/brake bars |
+| 10.6 | **Other panels:** laps, weather, ticker, insights (team stickers in battles, head-to-head and driver card), analytics charts and wrist menu in the new theme; a "Night race" sticker on weather when the session starts after dark | `js/panels/` | ✅ | Laps/weather titles + driver sticker; insights driver tags are team stickers, cyan selection, team sticker on the driver card; wrist menu cyan selection; ticker neutral darker. Night: session.gmtOffsetMin from OpenF1 gmt_offset ('03:00:00'), isNightSession() local start 18:00-04:59 (tested); weather sticker replaces the sun icon after dark |
+| 10.7 | **Playback bar:** red play button, red progress with a white playhead, white active speed chip | `js/panels/playback-bar.js` | ✅ | Red play button with white rim and halo, red progress with glow, white playhead with red ring, heavy italic speed and clock |
+| 10.8 | **Race banners:** F1 red slanted banner with a white border, desktop and VR | `js/banner-style.js`, `js/screen/banner-dom.js`, `js/scene/banner-3d.js`, `css/dashboard.css` | ✅ | Compact slanted tag with white border and colour glow near the top of the track tile (pops in, fades out); VR canvas banner matches; overtakes and starts in race red, flags keep real colours |
+| 10.9 | **Desktop and start page:** matte tiles, red-and-white kerb stripe, white active chips, red primary buttons; circuit and round stickers on the track tile | `css/dashboard.css`, `css/start.css`, `js/screen/` | ✅ | dashboard.css + start.css: matte, kerb stripe, white active chips, red primary buttons, red-slash card headings; circuit / session / night race stickers bottom-left of the track tile (dash-extras.js) |
+| 10.10 | **Car labels:** team-colour tags with a white rim on the 2D / 3D track | `js/scene/`, `js/screen/track-view.js` | ✅ | labels.js: team-colour tags with a white rim, italic 900, dark ink on light team colours; same atlas, still 1 draw call |
+| 10.11 | **Checks:** unit tests, real-data renders of the desktop dashboard, Analytics mode and Screen in VR, draw calls and triangles unchanged | — | ✅ | 228/228 tests (with three 0.160.0). Real-data renders (2024 Bahrain): panels, desktop dashboard (17 calls / 36k tris, as before), Analytics mode, Screen in VR (16 calls), banner, passthrough + wrist menu |
+| 10.12 | **User test:** desktop and Quest | — | ⬜ | |
+
+---
+
+## Phase 11: Team radio for every driver
+
+Asked for by the user on 2026-10-14: a toggle so that, during the replay, any driver's radio plays whatever driver is selected, with a pop-up showing the conversation, and its text "like the real race" if possible.
+
+| ID | Item | Files | Status | Notes |
+|---|---|---|---|---|
+| 11.1 | **All radio mode:** `radioAll` setting; Radio cycles Off / Driver / All (desktop button and R key, VR wrist menu); every driver's clips autoplay, overlapping clips queue instead of cutting each other off | `js/settings.js`, `js/audio-events.js`, `js/radio-mode.js` (new), `js/screen/dash-extras.js`, `js/panels/wrist-menu.js` | ✅ | Queue ≤4 clips, a clip is dropped 20 s (session time) after its date; seek or pause clears it; still only up to 2.5× speed. Tests: 3 new in audio-events.test.js, radio-mode.test.js |
+| 11.2 | **Radio pop-up:** a card with the team colour, car-number sticker, name, team, position and lap at the clip time, and a waveform while it plays; hides when the clip ends. Desktop: bottom right of the track tile (click selects the driver). VR: a card spawned ahead and below the gaze, world-fixed, fades only | `js/screen/radio-pop.js` (new), `js/scene/radio-pop-3d.js` (new), `css/dashboard.css`, `js/scene/vr-extras.js`, `js/app.js` | ✅ | Shown for every autoplayed clip (Driver mode too). VR card is 1 draw call, drawn once per clip. Renders checked on 2024 Bahrain (desktop and room preview) |
+| 11.3 | **Radio text (transcripts)** | — | ⛔ | Not possible from OpenF1 alone: `team_radio` has only `recording_url` (no text), and the mp3s on livetiming.formula1.com send no CORS headers (checked 2026-10-14), so the page can play them but cannot read the audio to transcribe it. Options for the user: offline speech-to-text of chosen sessions into JSON files (new tool, and publishing transcripts of F1 audio in a public repo is a copyright question), or a transcription service (paid / new dependency). Waiting for the user's decision |
+| 11.4 | **User test:** All radio on desktop and in VR | — | ⬜ | |
+
+---
+
 ## Open questions and API differences
 
 _(Record anything that differs from the spec, especially from OpenF1 docs verification in 1.1.)_
@@ -332,3 +368,5 @@ _(Record anything that differs from the spec, especially from OpenF1 docs verifi
 - **2026-10-13**: 9b done (9.8–9.13): neon track edges and glow coloured by the selected driver's sectors, by mini-sector holder or plain (C key, wrist menu); short trails for every car and a halo ring under the selected car; race moment banners (desktop slab, VR fade) for lights out, SC / VSC / red / chequered / track clear, fastest laps, pit stops and overtakes for the selected driver or the top 3, and retirements; flag ambience on the room strips, table rim and dashboard edge; UI clicks and an optional engine hum (E key, wrist menu). On the real 2024 Bahrain race the detector finds 1 start, 8 fastest laps, 10 shown pit stops, 4 overtakes (pit cycles excluded) and the chequered flag. Checks: 213/213 unit tests; desktop dashboard 17 draw calls / 36k tris, room preview 33 calls / 36k tris.
 - **2026-10-13**: 9c done (9.14–9.19); 9.20 docs done, user test pending. The user chose a new **Insights** tile (9.18): under telemetry in the landscape dashboard and Screen in VR (the main screen and weather now share the last row), a panel at −72° in Immersive. Tabs: Battles (pairs < 1 s with gap trend and DRS-range chip), Head-to-head (vs the car ahead, ◀ ▶ to change), Driver card. The playback bar gains a spoiler-free race timeline (SC / VSC / red bands, pit pins, fastest-lap marks, click to jump). Checks: 220/220 unit tests; real-data renders of all three Insights tabs, the 1080p dashboard (17 calls / 36k tris), Immersive room preview (33 calls) and Screen in VR.
 - **2026-10-13**: 9d done (9.21–9.30): analytics engine in js/analytics/ (pure, tested), chart kit, eight chart kinds (gap, lap chart, strategy, lap times, degradation with a fuel-corrected switch, pace and consistency, strategy tools, driver comparison; long-run pace for practice), an Analytics tab on the main screen (desktop and VR) and the Analytics mode from the approved mockup (desktop A key, VR wrist menu), spoiler-free by default with Full session. Only 9.20 (the user test) is left in Phase 9; plan/USER_CHECKS.md now covers every Phase 9 check. Checks: 227/227 unit tests; real-data renders of every chart (2024 Bahrain race and FP2), the desktop Analytics mode and tab, Screen in VR analytics view and the Immersive tab.
+- **2026-10-14**: Phase 10 (neon F1 look) built from the approved mockup `plan/mockups/neon-f1.html` (10.1–10.11): the user found the Phase 9 look not sporty or fun, saw three directions and a neon glass version, then asked for no glass, neon, more F1 colours and team stickers. Matte theme, race red, cyan selection, heavy italic Titillium Web (Chakra Petch dropped), team stickers on panels, car labels and the track tile, kerb stripe, compact race banners, Night race sticker from `gmt_offset`. Layout unchanged, draw calls unchanged. Only the user test (10.12) is left.
+- **2026-10-14**: Phase 11 (team radio for every driver): All radio mode (Off / Driver / All, R key, wrist menu) with a queue so clips don't cut each other off, and a radio pop-up on desktop and in VR. Transcripts are blocked (11.3): OpenF1 has no text and the radio mp3s have no CORS headers, so they can't be transcribed in the browser.

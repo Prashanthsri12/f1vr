@@ -276,6 +276,21 @@ Use **2024 Bahrain, Race** unless a box says otherwise. For rain and safety cars
 
 ---
 
+## Phase 10 — Neon F1 look
+
+Open the 2024 Bahrain race on desktop ("Open on desktop"), then in the headset (Screen in VR).
+
+- [ ] A red-and-white kerb stripe runs along the top of the start page and the dashboard.
+- [ ] Panels are matte dark (no glass), titles have a red slash, and big numbers are heavy italic.
+- [ ] Leaderboard rows show a car-number badge in the team colour; your selected driver has a cyan outline.
+- [ ] Telemetry shows a car-number sticker, a speed arc going green → yellow → red, a glowing cyan gear and segmented throttle / brake bars.
+- [ ] Laps, Insights (battles, head-to-head, driver card) and Weather use team stickers; Weather shows "Night race" for Bahrain (no sun icon).
+- [ ] The track tile shows Sakhir / Race / Night race stickers bottom left, and car labels are team-colour tags with a white rim.
+- [ ] The play button is red with a white rim; the lap slider fills red with a white playhead.
+- [ ] Race banners (overtakes, flags, pit stops) pop in as a slanted tag near the top of the track and fade out; in VR the same look appears ahead of you.
+- [ ] Analytics mode (A) and the Quest still run smoothly (debug HUD: about 17 draw calls on desktop).
+- [ ] It feels sporty and fun, but not too dramatic. Note anything that is too much or too little.
+
 ## Notes
 
 Write what failed or felt wrong here, with the section and box, and I'll turn it into the next fixes.
