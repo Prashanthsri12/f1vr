@@ -219,19 +219,15 @@ export async function startApp({
         stepLap: (dir) => sync.stepLap(dir),
         nudge: (sec) => sync.nudge(sec),
         getSync: () => sync,
+        toggleVrMode: () => toggleVrMode(),
+        toggleScreenShape: () => toggleScreenShape(),
+        getVrMode: () => (screenUp() ? 'screen' : 'immersive'),
       },
       canPassthrough,
     });
     // Main screen (Phase 5): video / radio tabs, in the panel rig.
     screen = createMainScreen({ manager: pitWall.manager, data, playback });
-    if (screenMode) {
-      const s = getSettings();
-      vrScreen = createVrScreen({ data,
-        manager: pitWall.manager, mainScreen: screen, table, cars, renderer: world.renderer,
-        shape: s.screenShape, view: s.trackView,
-      });
-      vrScreen.apply();
-    }
+    if (screenMode) ensureVrScreen().apply();
   } catch (err) {
     dispose();
     throw err;
@@ -240,6 +236,29 @@ export async function startApp({
   audioEvents = createAudioEvents(data, {
     onRadio: (clip) => extras.showRadio(clip, world.renderer.xr.isPresenting ? world.renderer.xr.getCamera() : world.camera),
   });
+
+  // --- Screen in VR ⇄ Immersive and flat / curved (8.13, wrist menu), both saved ---
+  function ensureVrScreen() {
+    if (!vrScreen) {
+      const s = getSettings();
+      vrScreen = createVrScreen({ data,
+        manager: pitWall.manager, mainScreen: screen, table, cars, renderer: world.renderer,
+        shape: s.screenShape, view: s.trackView,
+      });
+    }
+    return vrScreen;
+  }
+  function toggleVrMode() {
+    const toScreen = !screenUp();
+    if (toScreen) ensureVrScreen().apply(); else vrScreen.restore();
+    setSetting('vrMode', toScreen ? 'screen' : 'immersive');
+    hudDirty = true;
+  }
+  function toggleScreenShape() {
+    const next = getSettings().screenShape === 'curved' ? 'flat' : 'curved';
+    setSetting('screenShape', next);
+    if (vrScreen) vrScreen.setShape(next);
+  }
 
   // --- room theme (4b.5) and in-scene fps counter (6.7) ---
   function cycleTheme() {
@@ -437,7 +456,7 @@ export async function startApp({
   // Dev/test hook: ?debug exposes the live objects (used by headless XR tests).
   if (new URLSearchParams(location.search).has('debug')) {
     window.__f1vr = {
-      world, table, data, playback, pitWall, panelGrab, recenter, sfxStats, screen, vrScreen, getMode: () => mode,
+      world, table, data, playback, pitWall, panelGrab, recenter, sfxStats, screen, get vrScreen() { return vrScreen; }, getMode: () => mode,
       banner3d: extras.banner3d, setDebugFlag: extras.setDebugFlag, showRadio: (clip) => extras.showRadio(clip, world.camera),
     };
     unsubs.push(() => { if (window.__f1vr && window.__f1vr.table === table) delete window.__f1vr; });

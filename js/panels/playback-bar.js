@@ -153,15 +153,19 @@ export class PlaybackBarPanel extends Panel {
     this._textButton(g, 'lapPrev', x, y, 136, bh, '◀ LAP', on);
     x += 148;
     this._textButton(g, 'lapNext', x, y, 136, bh, 'LAP ▶', on);
-    // Nudge, right-aligned: −5 −1 [offset] +1 +5
-    const nw = 92;
-    const vw = 190;
+    x += 136;
+    // Nudge, right-aligned: −5 −1 [offset] +1 +5. On a narrow bar (the desktop's stretched bar
+    // in a short window) the buttons shrink to fit after the lap buttons, and SYNC is dropped.
+    const room = w - PAD - x - 12;
+    const k = Math.min(1, room / (4 * 92 + 190 + 4 * 8));
+    const nw = Math.round(92 * Math.max(0.78, k));
+    const vw = Math.max(110, Math.round(room - 4 * nw - 4 * 8 > 190 ? 190 : room - 4 * nw - 4 * 8));
     let nx = w - PAD - (4 * nw + vw + 4 * 8);
     g.fillStyle = THEME.muted;
     g.font = font(24, 700);
     g.textAlign = 'right';
     g.textBaseline = 'middle';
-    g.fillText('SYNC', nx - 14, y + bh / 2);
+    if (nx - 14 - g.measureText('SYNC').width > x + 8) g.fillText('SYNC', nx - 14, y + bh / 2);
     for (let i = 0; i < NUDGES.length; i++) {
       const [id, sec, label] = NUDGES[i];
       if (i === 2) {
@@ -170,7 +174,7 @@ export class PlaybackBarPanel extends Panel {
         roundRect(g, nx, y, vw, bh, 14);
         g.fill();
         g.fillStyle = lead ? THEME.accent : on && sync.offsetMs ? THEME.yellow : THEME.text;
-        g.font = font(lead ? 26 : 32, 700);
+        g.font = font(lead || vw < 160 ? 26 : 32, 700);
         g.textAlign = 'center';
         g.fillText(!on ? '–' : lead ? 'VIDEO SYNC' : fmtOffset(sync.offsetMs), nx + vw / 2, y + bh / 2 + 1);
         nx += vw + 8;

@@ -49,3 +49,16 @@ test('analytics layout: charts, track, leaderboard and bar without overlaps', ()
     check(computeDashLayout(w, h, { view: 'analytics' }), ANALYTICS_TILES, `analytics ${w}x${h}`);
   }
 });
+
+test('8.14: short landscape windows (Quest browser): track and playback bar stay inside the window', () => {
+  for (const [w, h] of [[1280, 720], [1366, 768], [1280, 600]]) {
+    const l = computeDashLayout(w, h);
+    assert.equal(l.orientation, 'landscape');
+    const b = l.tiles.playbackBar;
+    assert.ok(b.y + b.h <= h - 10 + 1, `${w}x${h}: playback bar ends at ${b.y + b.h}`);
+    assert.ok(l.tiles.track.h >= 200, `${w}x${h}: track ${l.tiles.track.h}`);
+  }
+  // Tall enough windows keep the bottoms aligned.
+  const t = computeDashLayout(1920, 1080).tiles;
+  assert.equal(t.playbackBar.y + t.playbackBar.h, t.laps.y + t.laps.h);
+});

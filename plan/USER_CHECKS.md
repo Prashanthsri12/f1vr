@@ -1,4 +1,4 @@
-# User checks (Phases 1–9, everything built so far)
+# User checks (Phases 1–12, everything built so far)
 
 What to check by hand, on the desktop and on the Quest 3. Tick each box as you go and note anything that fails or feels wrong at the end of its section.
 
@@ -204,6 +204,20 @@ On the start page, set **In VR, show → One big screen** (the default).
 - [ ] The track view follows the 2D/3D choice made on the desktop.
 - [ ] fps stays around 72 with the fps counter on.
 - [ ] **Immersive still works:** on the start page set **In VR, show → Floating panels**, enter VR, and the Phase 4/4b checks still pass.
+
+### Wrist menu switches (8.13) — Quest
+
+- [ ] Wrist menu → **View: Screen** switches to the floating panels and the 3D table straight away (no exit). Pressing it again brings the big screen back.
+- [ ] After switching back to Immersive, the panels and table are where they were before.
+- [ ] **Screen: Flat / Curved** changes the screen's shape while in Screen view. It is greyed out in Immersive.
+- [ ] Exit and re-enter VR: it opens in the view and shape you chose last, and the start page's **In VR, show** choice matches.
+
+### Quest 2D page (8.14) — Quest browser, without entering VR
+
+- [ ] Open the Live link in the Quest browser and tap **Open on desktop**. The dashboard fits the window: the track and the playback bar are visible without scrolling (the side columns may scroll).
+- [ ] The controller pointer and hand pinch click leaderboard rows, playback bar buttons, the hub tabs and the top bar buttons. Hover highlights follow the pointer.
+- [ ] Text is readable at the normal window size. Note the window size if anything is too small.
+- [ ] Put F1TV (or another video) in a second browser window next to it. Does F1TV play in the Quest browser? Use Lights out and the ±1 s / ±5 s nudge to line them up.
 
 ## Phase 9 — Style pass and analytics
 

@@ -76,6 +76,9 @@ function landscape(W, H, g, y0) {
   const lbH = c * LB, telH = c * TEL;
   const Hc = Math.max(H, y0 + lbH + g + c * LAPS + g, y0 + telH + g + c * HUB + HUB_TABS_H + g);
   const bottom = Hc - g;
+  // 8.14: when the side columns scroll (short windows such as a Quest browser window), the track
+  // and playback bar still end at the window's bottom, so the controls are on screen.
+  const midBottom = Math.max(Math.min(bottom, H - g), y0 + MIN_MIDDLE * 0.5 + BAR_LH * s + g);
   const barH = BAR_LH * s;
   const xl = g, xm = g + c + g, xr = W - g - c;
   return {
@@ -83,8 +86,8 @@ function landscape(W, H, g, y0) {
     tiles: {
       leaderboard: rect(xl, y0, c, lbH),
       laps: rect(xl, y0 + lbH + g, c, bottom - (y0 + lbH + g)),
-      track: rect(xm, y0, mw, bottom - barH - g - y0),
-      playbackBar: rect(xm, bottom - barH, mw, barH),
+      track: rect(xm, y0, mw, midBottom - barH - g - y0),
+      playbackBar: rect(xm, midBottom - barH, mw, barH),
       telemetry: rect(xr, y0, c, telH),
       hub: rect(xr, y0 + telH + g, c, bottom - (y0 + telH + g)),
     },

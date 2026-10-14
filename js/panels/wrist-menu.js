@@ -1,7 +1,8 @@
 // Left-wrist menu (spec §7): play/pause, speed, compact driver grid, pit wall /
 // passthrough, radio audio, sound effects, re-centre, exit to session picker, plus
 // "Reset layout" for panels the user has moved (4.18), the room theme (4b.5), the fps counter (6.7),
-// the track colours and engine hum (9b), and the analytics view and full-session switch (9d).
+// the track colours and engine hum (9b), the analytics view and full-session switch (9d), and the
+// Screen ⇄ Immersive and Flat / Curved switches (8.13).
 // Shown while the left palm faces the user's head (controller grip +X, or the
 // hand's wrist joint -Y, per the WebXR specs); operated with the right hand's ray.
 import * as THREE from 'three';
@@ -11,7 +12,7 @@ import { TRACK_COLOUR_MODES } from '../scene/track-style.js';
 import { radioMode, cycleRadioMode, RADIO_LABEL } from '../radio-mode.js';
 
 const W = 0.22;              // metres
-const H = 0.39;
+const H = 0.42;
 const PX_PER_M = 2048;       // viewed at ~35 cm: twice the usual density
 const SHOW_DOT = 0.6;        // palm-toward-head cosine to show …
 const HIDE_DOT = 0.35;       // … and to hide again (hysteresis)
@@ -39,7 +40,7 @@ export class WristMenu extends Panel {
     if (lb.length) this._order = lb.map((r) => r.driverNumber);
     const s = getSettings();
     const sig = `${ctx.playback.playing}|${ctx.playback.speed}|${ctx.selected}|${ctx.mode}|${ctx.canPassthrough}|`
-      + `${s.radio}|${s.radioAll}|${s.sfx}|${s.theme}|${s.fps}|${s.trackColours}|${s.engine}|${s.screenView}|${s.fullSession}|${!!ctx.actions.recenter}|${!!ctx.actions.resetLayout}|${!!ctx.actions.cycleTheme}|`
+      + `${s.radio}|${s.radioAll}|${s.sfx}|${s.theme}|${s.fps}|${s.trackColours}|${s.engine}|${s.screenView}|${s.fullSession}|${!!ctx.actions.recenter}|${!!ctx.actions.resetLayout}|${!!ctx.actions.cycleTheme}|${s.screenShape}|${this._vrMode(ctx)}|`
       + `${this._order.join(',')}`;
     if (sig === this._sig) return false;
     this._sig = sig;
@@ -144,11 +145,22 @@ export class WristMenu extends Panel {
     this._button(g, 'full', pad + half + gap, y, half, 50, `Full session ${s.fullSession ? 'ON' : 'OFF'}`, { on: s.fullSession });
     y += 50 + gap;
 
+    // Screen in VR ⇄ Immersive / flat ⇄ curved screen (8.13)
+    const vm = this._vrMode(ctx);
+    this._button(g, 'vrmode', pad, y, half, 50, vm === 'screen' ? 'View: Screen' : 'View: Immersive', { disabled: !vm });
+    this._button(g, 'shape', pad + half + gap, y, half, 50, s.screenShape === 'curved' ? 'Screen: Curved' : 'Screen: Flat', { disabled: vm !== 'screen' });
+    y += 50 + gap;
+
     // Re-centre / reset layout, then exit
     this._button(g, 'recenter', pad, y, half, 50, 'Re-centre', { disabled: !ctx.actions.recenter });
     this._button(g, 'layout', pad + half + gap, y, half, 50, 'Reset layout', { disabled: !ctx.actions.resetLayout });
     y += 50 + gap;
     this._button(g, 'exit', pad, y, w - 2 * pad, 50, 'Exit', { danger: true });
+  }
+
+  /** 'screen' | 'immersive', or null when the app has no mode switch. */
+  _vrMode(ctx) {
+    return ctx.actions.getVrMode ? ctx.actions.getVrMode() : null;
   }
 
   _button(g, id, x, y, w, h, label, { strong = false, on = null, disabled = false, danger = false } = {}) {
@@ -197,6 +209,8 @@ export class WristMenu extends Panel {
       case 'engine': setSetting('engine', !getSettings().engine); break;
       case 'view': setSetting('screenView', getSettings().screenView === 'analytics' ? 'dashboard' : 'analytics'); break;
       case 'full': setSetting('fullSession', !getSettings().fullSession); break;
+      case 'vrmode': if (a.toggleVrMode) a.toggleVrMode(); break;
+      case 'shape': if (a.toggleScreenShape) a.toggleScreenShape(); break;
       case 'recenter': if (a.recenter) a.recenter(); break;
       case 'layout': if (a.resetLayout) a.resetLayout(); break;
       case 'exit': if (a.exit) a.exit(); break;

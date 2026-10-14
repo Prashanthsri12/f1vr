@@ -39,6 +39,8 @@ The dashboard sits on one screen about 4 m wide, 2.3 m in front of you. The trac
 | Trigger / pinch | Select what the ray points at |
 | Grip on the screen, or pinch and hold on the track | Pick the whole screen up; it follows the ray and keeps facing you. Right stick ↑ / ↓ pushes it away / pulls it closer, ← / → makes it smaller / larger, or grab it with your other hand too and stretch. Saved on the headset |
 | Wrist menu → Reset layout | Screen back to its default place and size |
+| Wrist menu → View: Screen / Immersive | Switch between the big screen and the floating panels without leaving VR. Remembered |
+| Wrist menu → Screen: Flat / Curved | Flat screen, or one that wraps around you. Remembered |
 
 The other buttons (play, seek, speed, drivers, re-centre, wrist menu) work as below. There is no table to grab in this view.
 
@@ -56,7 +58,7 @@ The other buttons (play, seek, speed, drivers, re-centre, wrist menu) work as be
 | Right stick ← / → | Seek −10 s / +10 s (hold to repeat) |
 | Right stick ↑ / ↓ | Playback speed up / down (0.5×, 1×, 2×, 5×, 10×) |
 | Left stick press | Re-centre the panels and table to where you stand and face |
-| Left palm toward you | Wrist menu (play, speed, driver grid, passthrough, radio, sounds, room theme, fps counter, track colours, engine hum, re-centre, reset layout, exit) |
+| Left palm toward you | Wrist menu (play, speed, driver grid, passthrough, radio, sounds, room theme, fps counter, track colours, engine hum, Analytics, full session, Screen / Immersive view, flat / curved screen, re-centre, reset layout, exit) |
 
 ### Hand tracking
 
@@ -64,7 +66,12 @@ Put the controllers down and your hands appear. **Pinch** to select. **Pinch and
 
 ### Desktop ("Open on desktop")
 
-The desktop shows a flat dashboard that fills the window: the track in the middle, the leaderboard and laps on the left, telemetry and Insights on the right with the main screen and weather side by side under them, race control on top and the playback bar below. It rearranges itself for vertical monitors and narrow windows (scrolling when the window is too small for readable text).
+The desktop shows a flat dashboard that fills the window:
+
+- **Top bar:** Exit, keyboard help (?), the session stickers, the latest race control message (click it for the last 5), the weather, and the Radio / Engine / Analytics / ⤢ buttons.
+- **Left:** the leaderboard over laps and tyres. **Middle:** the track, with the playback bar under it. **Right:** telemetry over the **hub**, whose tabs are Battles, H2H, Driver, Radio, Video and Charts.
+
+On a vertical monitor the track and playback bar go on top with the panels in two columns under them; narrow windows become one scrolling column.
 
 | Input | Action |
 |---|---|
@@ -73,7 +80,7 @@ The desktop shows a flat dashboard that fills the window: the track in the middl
 | Drag on the track | Pan (2D) or rotate (3D); right-drag pans |
 | Wheel on the track | Zoom |
 | Double-click the track | Reset the view |
-| ⤢ (or F) | Swap the track and the main screen, e.g. to watch your video big |
+| ⤢ (or F) | Swap the track and the hub, e.g. to watch your video big |
 | Sectors / Mini / Plain (or C) | Track colours: the selected driver's last lap by sector, each mini-sector in the team colour of whoever last went purple there, or plain |
 | Engine (or E) | Engine hum that follows the selected driver's RPM (off by default) |
 | Radio (or R) | Team radio: Off, Driver (the selected driver only) or All (every driver) |
@@ -89,7 +96,7 @@ The desktop shows a flat dashboard that fills the window: the track in the middl
 
 ## Main screen, video and sound
 
-The main screen (the big screen ahead of you in VR, a tile on the desktop) has two tabs:
+The main screen (in VR; on the desktop these are tabs of the hub tile) has two tabs:
 
 - **Video:** your own video source. Open **Video screen** on the start page to set a direct mp4/webm URL, an HLS `.m3u8` URL, or a local file, plus the video time at the race start if you want it synced to the replay. The app never ships or links broadcast streams.
 - **Radio:** the selected driver's team radio clips, with play buttons.
@@ -102,7 +109,7 @@ Team radio for the selected driver also plays automatically as the replay passes
 
 ## Insights, timeline and race moments
 
-- **Insights** (a tile under telemetry; a panel on your left in the floating-panel view) has three tabs. **Battles** lists pairs within 1 s, the selected driver's first, with the gap, whether it is closing over the last laps and a DRS chip. **Head-to-head** compares the selected driver with the car ahead (◀ ▶ picks another rival): position, gap, last and best lap, sector differences, tyre, stops and top speed. **Driver** shows the photo, team, status, position against the grid, laps led, best lap and its rank, and the stints so far.
+- **Insights** (the hub's Battles / H2H / Driver tabs on the desktop, a tile under telemetry on the VR big screen, a panel on your left in the floating-panel view) has three tabs. **Battles** lists pairs within 1 s, the selected driver's first, with the gap, whether it is closing over the last laps and a DRS chip. **Head-to-head** compares the selected driver with the car ahead (◀ ▶ picks another rival): position, gap, last and best lap, sector differences, tyre, stops and top speed. **Driver** shows the photo, team, status, position against the grid, laps led, best lap and its rank, and the stints so far.
 - **Race timeline:** the playback bar's lap slider shows safety car (orange), VSC (yellow) and red flag periods, the selected driver's pit stops (blue pins, other stops faint) and new fastest laps (purple). Click a mark to jump just before it. Like everything else it only shows what has happened by the playhead.
 - **Banners** announce lights out, the safety car, VSC, red and chequered flags, track clear, fastest laps, retirements, and pit stops and overtakes for the selected driver or the top 3. In VR they fade in ahead of you and stay put; they never follow your head.
 - **Flag lighting:** during a yellow, safety car or red flag, the room's light strips and the table rim (and the dashboard edge on desktop) slowly take the flag colour.
@@ -130,6 +137,8 @@ Tests (Node 24, no dependencies):
 
 ```sh
 node --test
+# also run the tests of modules that import three.js (point THREE_DIR at an unpacked three@0.160.0 package):
+THREE_DIR=/path/to/three/package node --import ./tests/support/three-register.mjs --test
 ```
 
 ## Deployment

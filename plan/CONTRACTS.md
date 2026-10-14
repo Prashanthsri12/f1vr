@@ -1,4 +1,4 @@
-# Module contracts (Phases 1–2)
+# Module contracts
 
 These are the shared interfaces between modules. Every module must implement its contract exactly so that modules written in parallel fit together. If a contract has to change, change it here first.
 
@@ -384,3 +384,23 @@ The desktop opens a flat dashboard (`js/screen/`) instead of the 3D room; the ro
   - `LAYOUT.playbackBar` is now 1.2 × 0.24 m with `row1Height: 0.16`. Its top edge stays 5 cm under the main screen; the centre is at `SCREEN_BOTTOM − 0.17`.
   - Row 2 holds Lights out, ◀ Lap / Lap ▶, and −5 / −1 [offset or VIDEO SYNC] +1 / +5. Hit ids are `lights`, `lapPrev`, `lapNext` and `n-5` … `n+5` (payload = seconds). `fmtOffset(ms)` formats the offset.
 - **Desktop keys:** L lights out, PgUp / PgDn lap, `,` / `.` ∓1 s, Shift for ∓5 s. `?debug` adds `__f1vr.sync`.
+
+### Screen ⇄ Immersive and Flat / Curved switches (8.13)
+
+- `app.js` builds the screen lazily (`ensureVrScreen()`), so a session started in Immersive can switch to Screen and back without a restart. `__f1vr.vrScreen` is a getter (null until the screen exists).
+- PanelContext actions (VR only): `toggleVrMode()` (`vrScreen.apply()` / `restore()`, then saves `vrMode`), `toggleScreenShape()` (saves `screenShape`, then `vrScreen.setShape()`), `getVrMode() -> 'screen' | 'immersive'`.
+- Wrist menu row (hit ids `vrmode`, `shape`): "View: Screen / Immersive" and "Screen: Flat / Curved". Shape is disabled in Immersive. The menu is now 0.22 × 0.42 m.
+- `restore()` returns the table to the pose it had when the screen came up. Re-centring while the screen is up moves only the rig.
+
+## Desktop dashboard (Phase 12)
+
+The desktop uses its own layout; Screen in VR keeps `screen-layout.js`.
+
+- **Layout** (`js/screen/dash-layout.js`, pure): `computeDashLayout(width, height, { top = 52, gap = 10, focus = 'track', view = 'dashboard' }) -> { orientation, scale, width, height, tiles }`.
+  - Tiles: `DASH_TILES` (`track, playbackBar, leaderboard, laps, telemetry, hub`), or `ANALYTICS_TILES` (track, playback bar, leaderboard, `chart1`–`chart6`) for `view: 'analytics'`.
+  - Landscape: leaderboard over laps on the left, the track with the playback bar under it in the middle, telemetry over the hub on the right. Portrait: track, playback bar, then leaderboard | telemetry and laps | hub. Narrow windows stack.
+  - All side panels share one `scale` (≥ `MIN_SCALE` 0.42). `top` is the measured top bar height.
+- **Panel host:** `add(panel, tileEl, { anchor: 'center' | 'top' | 'stretch' })`. Canvases are drawn at their exact on-screen size × dpr (`panel.setDensity(scale, true)`); `'stretch'` sets the playback bar's logical width from its tile (`panel.setLogicalWidth(lw)`).
+- **Top bar** (`js/screen/top-bar.js`): `createTopBar({ data, parent, onExit, help })` holds Exit, help (keyboard tooltip), session stickers, a one-line race control ticker (click for the last 5), a weather readout and the Radio / Engine / Analytics / swap buttons; `update(time)`.
+- **Hub tile** (`js/screen/main-tile.js`): `createMainTile({ tile, data, playback, host, onToggleFocus })` with tabs Battles / H2H / Driver (an `InsightsPanel` without its own tabs), Radio, Video and Charts. The tab is saved as the `hubTab` setting.
+- **Track tile:** no table disc or rim; only Sectors / 2D / 3D buttons over the track.
