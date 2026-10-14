@@ -253,3 +253,66 @@
   .f1-radio { transition: opacity 0.2s ease; transform: none; }
   .f1-radio.is-playing .f1-radio__wave i, .f1-radio.is-playing .f1-radio__live { animation: none; }
 }
+
+/* 13.3 settings drawer (⚙ in the top bar) */
+.f1-set {
+  position: fixed; top: 70px; right: 12px; bottom: 12px; z-index: 20;
+  width: min(420px, calc(100vw - 24px));
+  display: flex; flex-direction: column;
+  background: #0f1016; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 14px;
+  box-shadow: 0 24px 60px -20px #000, 0 0 0 1px rgba(225, 6, 0, 0.25);
+}
+.f1-set[hidden] { display: none; }
+.f1-set__head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.07); }
+.f1-set__title { margin: 0; font: italic 900 20px/1 var(--display, var(--font)); text-transform: uppercase; letter-spacing: 0.04em; }
+.f1-set__body { overflow-y: auto; padding: 4px 16px 16px; }
+.f1-set__sec { margin: 16px 0 6px; font: 700 11px/1 var(--font); letter-spacing: 0.14em; text-transform: uppercase; color: #e10600; }
+.f1-set__row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+.f1-set__row.is-off { opacity: 0.4; }
+.f1-set__label { font: 700 14px/1.2 var(--font); }
+.f1-set__hint { font: 400 12px/1.3 var(--font); color: #9aa0ad; margin-top: 2px; }
+.f1-set__ctl { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; align-items: center; flex-shrink: 0; max-width: 60%; }
+.f1-set__ctl .f1-dash__btn { padding: 6px 10px; min-height: 30px; font-size: 12px; }
+.f1-set__toggle { min-width: 58px; }
+.f1-set__val { font: italic 900 14px/1 var(--display, var(--font)); min-width: 62px; text-align: center; }
+
+/* 13.6 overtake warnings: stacked toasts, top right of the track tile */
+.f1-ot { position: absolute; top: 54px; right: 12px; z-index: 5; display: flex; flex-direction: column; gap: 6px; width: min(230px, calc(100% - 24px)); pointer-events: none; }
+.f1-ot__toast {
+  pointer-events: auto; cursor: pointer; display: flex; align-items: center; gap: 10px;
+  padding: 7px 12px 7px 8px; text-align: left; color: #f6f7fa;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--ca) 22%, #0f1016) 0%, #0f1016 60%);
+  border: 1px solid rgba(255, 255, 255, 0.12); border-left: 4px solid var(--ca); border-radius: 10px;
+  box-shadow: 0 10px 24px -14px #000;
+  opacity: 0; transform: translateX(16px);
+  transition: opacity .25s ease, transform .3s cubic-bezier(.2, 1.4, .4, 1), border-color .2s;
+}
+.f1-ot__toast.is-in { opacity: 1; transform: none; }
+.f1-ot__toast.is-done { border-color: rgba(255, 255, 255, 0.3); border-left-color: var(--ca); }
+.f1-ot__toast.is-fading, .f1-ot__toast.is-out { opacity: 0; transform: translateX(10px); }
+.f1-ot__ring { width: 30px; height: 30px; flex-shrink: 0; transform: rotate(-90deg); }
+.f1-ot__ring circle { fill: none; stroke-width: 3.2; }
+.f1-ot__ringbg { stroke: rgba(255, 255, 255, 0.12); }
+.f1-ot__ring circle:last-child { stroke: #2de2ff; stroke-linecap: round; transition: stroke-dashoffset .3s linear; }
+.f1-ot__toast.is-done .f1-ot__ring circle:last-child { stroke: var(--ca); }
+.f1-ot__secs { position: absolute; width: 30px; text-align: center; font: italic 900 11px/1 var(--display, var(--font)); }
+.f1-ot__toast { position: relative; }
+.f1-ot__secs { left: 8px; }
+.f1-ot__text { display: grid; gap: 2px; min-width: 0; }
+.f1-ot__head { font: 700 10px/1 var(--font); letter-spacing: 0.1em; text-transform: uppercase; color: #9aa0ad; white-space: nowrap; }
+.f1-ot__toast.is-done .f1-ot__head { color: #f6f7fa; }
+.f1-ot__names { display: flex; align-items: center; gap: 6px; font: italic 900 16px/1 var(--display, var(--font)); }
+.f1-ot__a { color: var(--ca); filter: brightness(1.25); }
+.f1-ot__b { color: var(--cb); filter: brightness(1.25); }
+.f1-ot__arrow { font-style: normal; font-size: 10px; color: #9aa0ad; }
+@media (prefers-reduced-motion: reduce) { .f1-ot__toast { transition: opacity .2s ease; transform: none; } }
+
+/* 13.9 2D weather widget, bottom left of the track tile */
+.f1-wxw {
+  position: absolute; left: 12px; bottom: 12px; z-index: 3; width: 200px;
+  border-radius: 10px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 10px 24px -14px #000; background: #0f1016;
+}
+.f1-wxw[hidden] { display: none; }
+.f1-wxw canvas { display: block; }
+.f1-wxw__label { padding: 5px 8px 6px; font: 600 11px/1.25 var(--font); color: #cfd3dc; }

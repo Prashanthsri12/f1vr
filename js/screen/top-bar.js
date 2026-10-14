@@ -6,10 +6,10 @@
 // changes, checked at 4 Hz.
 import { flagStyle } from '../panels/ticker.js';
 import { isNightSession } from '../session-index.js';
+import { newWeather, weatherAt, rainLabel, skyLabel, localTime, compass } from '../weather-model.js';
 
 const TICK_MS = 250;
 const ROWS = 5;
-const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
 
 function el(tag, cls, parent, text) {
   const e = document.createElement(tag);
@@ -112,16 +112,25 @@ export function createTopBar({ data, parent, onExit, help }) {
     }
   }
 
-  function renderWx(w) {
-    wx.hidden = !w;
-    if (!w) return;
-    wxAir.textContent = `AIR ${num(w.air_temperature, 1)}°`;
-    wxTrack.textContent = `TRACK ${num(w.track_temperature, 1)}°`;
-    const dir = Number.isFinite(w.wind_direction) ? COMPASS[Math.round(((w.wind_direction % 360) + 360) % 360 / 45) % 8] : '';
-    wxWind.textContent = `WIND ${num(w.wind_speed, 1)} m/s ${dir}`.trim();
+  // 13.8: every weather field, through the weather model (rain level and sky are estimates).
+  const model = newWeather();
+  function renderWx(sample, time) {
+    wx.hidden = !sample;
+    if (!sample) return;
+    const w = weatherAt(data, time, model);
+    wxAir.textContent = `AIR ${num(w.airTemp, 1)}°`;
+    wxTrack.textContent = `TRACK ${num(w.trackTemp, 1)}°`;
+    wxWind.textContent = `WIND ${num(w.windSpeed, 1)} m/s ${compass(w.windDir)}`;
     const rain = w.rainfall > 0;
-    wxRain.textContent = rain ? 'RAIN' : 'DRY';
-    wxRain.classList.toggle('is-rain', rain);
+    wxRain.textContent = rainLabel(w).toUpperCase();
+    wxRain.classList.toggle('is-rain', rain || w.trackWet);
+    wx.title = [
+      `Local time ${localTime(w)} · ${skyLabel(w)} (est.)`,
+      `Air ${num(w.airTemp, 1)} °C · track ${num(w.trackTemp, 1)} °C`,
+      `Humidity ${num(w.humidity, 0)}% · pressure ${num(w.pressure, 1)} hPa`,
+      `Wind ${num(w.windSpeed, 1)} m/s from ${compass(w.windDir)} (${Math.round(w.windDir)}°)`,
+      `${rainLabel(w)}${rain ? ' (level est. from the tyres in use)' : ''}`,
+    ].join(String.fromCharCode(10));
   }
 
   return {
@@ -137,7 +146,7 @@ export function createTopBar({ data, parent, onExit, help }) {
       const msgs = data.getRaceControlAt(time, ROWS);
       if (msgs[0] !== shownMsg) { shownMsg = msgs[0]; renderRc(msgs); }
       const w = data.getWeatherAt(time);
-      if (w !== shownWx) { shownWx = w; renderWx(w); }
+      if (w !== shownWx) { shownWx = w; renderWx(w, time); }
     },
     dispose() { bar.remove(); },
   };

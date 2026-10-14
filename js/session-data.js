@@ -464,6 +464,11 @@ export class SessionData {
     return itemAt(this._weather.all, t, indexAtOrBefore);
   }
 
+  /** Extra (13.7): the weather series `{ times, items }` (time-sorted samples). */
+  getWeatherSeries() {
+    return this._weather.all;
+  }
+
   /** Last n race control messages at or before t, newest first. */
   getRaceControlAt(t, n = 5) {
     const { times, items } = this._rc.all;
@@ -492,6 +497,11 @@ export class SessionData {
   /** Extra: all pit stops `{ driver_number, date (ms), lap_number, lane_duration, … }` in time order. */
   getPitStops() {
     return this._pit.all ? this._pit.all.items : [];
+  }
+
+  /** Extra (13.5): every position record `{ driver_number, position, date (ms) }` in time order. */
+  getPositionRecords() {
+    return this._position.all.items;
   }
 
   /** Extra: one driver's raw location records in [start, end) ms (through the queue and cache). */

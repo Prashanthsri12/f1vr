@@ -6,6 +6,7 @@
 //           than a texture), with Play / Mute / Sync / Sync here buttons. Same ScreenVideo logic
 //           as VR: with Sync on, the video drives the replay's timing (8.8).
 //   Charts: one analytics chart at a time (9.27).
+//   Quali:  the weekend's qualifying, Q1 / Q2 / Q3 and the result (13.12).
 // The last tab is remembered (settings.hubTab). The ⤢ button swaps this tile with the track:
 // the dashboard decides where the tile goes; this module only reports the click.
 import { ScreenVideo, NO_SOURCE } from '../scene/screen-video.js';
@@ -13,9 +14,10 @@ import { ScreenContent } from '../scene/screen-radio.js';
 import { loadVideoSettings } from '../video-settings.js';
 import { AnalyticsPanel } from '../panels/analytics-panel.js';
 import { InsightsPanel } from '../panels/insights.js';
+import { QualiPanel } from '../panels/quali-panel.js';
 import { getSettings, setSetting } from '../settings.js';
 
-const TABS = [['battle', 'Battles'], ['h2h', 'H2H'], ['driver', 'Driver'], ['radio', 'Radio'], ['video', 'Video'], ['analytics', 'Charts']];
+const TABS = [['battle', 'Battles'], ['h2h', 'H2H'], ['driver', 'Driver'], ['radio', 'Radio'], ['video', 'Video'], ['analytics', 'Charts'], ['quali', 'Quali']];
 const INSIGHT_TABS = new Set(['battle', 'h2h', 'driver']);
 
 function el(tag, cls, parent, text) {
@@ -40,10 +42,11 @@ function button(parent, text, onClick, cls = '') {
  * @param {import('../playback.js').Playback} o.playback
  * @param {import('./panel-host.js').PanelHost} o.host
  * @param {() => void} o.onToggleFocus
+ * @param {object} [o.extra] createExtraData() result (the Quali tab)
  * @returns {{setTab: (t: string) => void, getTab: () => string, setFocused: (on: boolean) => void,
  *   video: ScreenVideo, update: (dt: number) => void, dispose: () => void}}
  */
-export function createMainTile({ tile, data, playback, host, onToggleFocus }) {
+export function createMainTile({ tile, data, playback, host, onToggleFocus, extra = null }) {
   const video = new ScreenVideo(data, playback);
 
   const bar = el('div', 'f1-hub__tabs', tile);
@@ -77,6 +80,8 @@ export function createMainTile({ tile, data, playback, host, onToggleFocus }) {
   const analyticsBox = el('div', 'f1-dash__radio', body);
   const analytics = host.add(new AnalyticsPanel(data, { name: 'analytics-tab', width: 1.7, height: 0.85, pxPerM: 512 }), analyticsBox);
   analytics.mesh.visible = false; // skips its refresh while the tab is closed
+  const qualiBox = el('div', 'f1-dash__radio', body);
+  const quali = host.add(new QualiPanel(data, { extra, name: 'quali-tab', width: 1.7, height: 0.85, pxPerM: 512 }), qualiBox);
 
   let tab = '';
   let shown = -1;
@@ -101,11 +106,13 @@ export function createMainTile({ tile, data, playback, host, onToggleFocus }) {
     radioBox.hidden = t !== 'radio';
     analyticsBox.hidden = t !== 'analytics';
     analytics.mesh.visible = t === 'analytics';
+    qualiBox.hidden = t !== 'quali';
     // A box that was hidden measured 0 × 0: re-fit the canvases now that it shows.
     if (typeof window !== 'undefined') host.layout(window.devicePixelRatio || 1);
     if (isVideo) { video.open(); changed(); }
     else if (isInsight) insights.setTab(t);
     else if (t === 'radio') radio.invalidate();
+    else if (t === 'quali') quali.invalidate();
     else analytics.invalidate();
   }
 

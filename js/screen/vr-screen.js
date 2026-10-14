@@ -172,6 +172,8 @@ export function createVrScreen({ manager, mainScreen, table, cars, renderer, sha
     group,
     camera,
     track,
+    /** 13.10: the track tile's own lights (time of day). */
+    lights: { hemi, sun },
     isActive: () => active,
     getShape: () => curShape,
     getView: () => curView,

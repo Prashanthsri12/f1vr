@@ -8,9 +8,11 @@
 import * as THREE from 'three';
 import { createTable, loadTrack } from '../scene/track.js';
 import { Cars } from '../scene/cars.js';
-import { TrackStyle } from '../scene/track-style.js';
+import { TrackStyle, colourMode } from '../scene/track-style.js';
 import { getSettings } from '../settings.js';
 import { VIEWS, fitDistance, labelAngularSize } from './track-camera.js';
+import { createWeatherFx } from '../scene/weather-fx.js';
+import { newWeather, weatherAt } from '../weather-model.js';
 
 const LABEL_PX = 16;          // CSS px label height
 const BG = 0x0f1016; // the tile card colour (THEME.bg)
@@ -37,10 +39,12 @@ export async function createTrackView({ data, tile, view = '2d' }) {
   tile.prepend(canvas);
 
   const scene = new THREE.Scene();
-  scene.add(new THREE.HemisphereLight(0xb8c8e0, 0x14161c, 1.1));
+  const hemi = new THREE.HemisphereLight(0xb8c8e0, 0x14161c, 1.1);
+  scene.add(hemi);
   const dir = new THREE.DirectionalLight(0xdfe8ff, 1.2);
   dir.position.set(1.5, 4, 1);
   scene.add(dir);
+  const dirColour = dir.color.clone();
 
   const table = createTable(scene);
   table.position.set(0, 0, 0);
@@ -120,6 +124,14 @@ export async function createTrackView({ data, tile, view = '2d' }) {
   }
 
   let styleAt = -Infinity;
+  // 13.10: weather over the table in the 3D view (time-of-day light, clouds, rain).
+  const fx = createWeatherFx(table);
+  const wx = newWeather();
+  const bg = new THREE.Color(BG);
+  const clear = new THREE.Color();
+  let wxAt = -Infinity;
+  let lastFrame = performance.now();
+  let lit = false;
   canvas.addEventListener('dblclick', resetView);
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
@@ -142,13 +154,29 @@ export async function createTrackView({ data, tile, view = '2d' }) {
       if (now - styleAt > STYLE_MS) {
         styleAt = now;
         const sel = cars.drivers[cars.selectedIndex];
-        style.update(time, sel ? sel.number : null, getSettings().trackColours);
+        style.update(time, sel ? sel.number : null, colourMode(getSettings()));
       }
+      const dt = (now - lastFrame) / 1000;
+      lastFrame = now;
+      const fxOn = current === '3d' && getSettings().weatherFx;
+      if (fxOn && now - wxAt > 1000) {
+        wxAt = now;
+        weatherAt(data, time, wx);
+        fx.light(hemi, dir, wx);
+        renderer.setClearColor(fx.clearColour(clear, wx, bg), 1);
+        lit = true;
+      } else if (!fxOn && lit) {
+        lit = false; wxAt = -Infinity;
+        hemi.intensity = 1.1; dir.intensity = 1.2; dir.color.copy(dirColour); dir.position.set(1.5, 4, 1);
+        renderer.setClearColor(BG, 1);
+      }
+      fx.update(dt, wx, fxOn);
       renderer.render(scene, camera);
     },
     dispose() {
       canvas.removeEventListener('dblclick', resetView);
       controls.dispose();
+      fx.dispose();
       cars.dispose();
       if (transform && transform.dispose) transform.dispose();
       if (table.userData.dispose) table.userData.dispose();

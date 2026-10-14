@@ -2,13 +2,14 @@
 // passthrough, radio audio, sound effects, re-centre, exit to session picker, plus
 // "Reset layout" for panels the user has moved (4.18), the room theme (4b.5), the fps counter (6.7),
 // the track colours and engine hum (9b), the analytics view and full-session switch (9d), and the
-// Screen ⇄ Immersive and Flat / Curved switches (8.13).
+// Screen ⇄ Immersive and Flat / Curved switches (8.13), and a Settings page (13.3: overtake
+// warnings, mini-sectors, weather effects, banners, sounds).
 // Shown while the left palm faces the user's head (controller grip +X, or the
 // hand's wrist joint -Y, per the WebXR specs); operated with the right hand's ray.
 import * as THREE from 'three';
 import { Panel, THEME, font, roundRect } from './panel-base.js';
 import { getSettings, setSetting } from '../settings.js';
-import { TRACK_COLOUR_MODES } from '../scene/track-style.js';
+import { colourMode, nextColourMode } from '../scene/track-style.js';
 import { radioMode, cycleRadioMode, RADIO_LABEL } from '../radio-mode.js';
 
 const W = 0.22;              // metres
@@ -29,6 +30,7 @@ export class WristMenu extends Panel {
     this.mesh.renderOrder = 10;
     this._sig = '';
     this._order = data.drivers.map((d) => d.number);
+    this._page = 'main'; // 'main' | 'settings'
   }
 
   /** Always opaque: it is read up close, often against bright passthrough. */
@@ -40,7 +42,7 @@ export class WristMenu extends Panel {
     if (lb.length) this._order = lb.map((r) => r.driverNumber);
     const s = getSettings();
     const sig = `${ctx.playback.playing}|${ctx.playback.speed}|${ctx.selected}|${ctx.mode}|${ctx.canPassthrough}|`
-      + `${s.radio}|${s.radioAll}|${s.sfx}|${s.theme}|${s.fps}|${s.trackColours}|${s.engine}|${s.screenView}|${s.fullSession}|${!!ctx.actions.recenter}|${!!ctx.actions.resetLayout}|${!!ctx.actions.cycleTheme}|${s.screenShape}|${this._vrMode(ctx)}|`
+      + `${s.radio}|${s.radioAll}|${s.sfx}|${s.theme}|${s.fps}|${s.trackColours}|${s.minis}|${s.engine}|${s.screenView}|${s.fullSession}|${!!ctx.actions.recenter}|${!!ctx.actions.resetLayout}|${!!ctx.actions.cycleTheme}|${s.screenShape}|${this._vrMode(ctx)}|${this._page}|${s.overtakeAlerts}|${s.overtakeScope}|${s.overtakeTopN}|${s.weatherFx}|${s.banners}|`
       + `${this._order.join(',')}`;
     if (sig === this._sig) return false;
     this._sig = sig;
@@ -52,6 +54,7 @@ export class WristMenu extends Panel {
     const pad = 18;
     const gap = 10;
     let y = pad;
+    if (this._page === 'settings') { this._drawSettings(g, w, pad, gap); return; }
 
     // Title strip
     g.save();
@@ -136,7 +139,7 @@ export class WristMenu extends Panel {
     y += 50 + gap;
 
     // Track colours / engine hum (9b)
-    this._button(g, 'colours', pad, y, half, 50, `Track: ${COLOUR_LABELS[s.trackColours] || 'Sectors'}`);
+    this._button(g, 'colours', pad, y, half, 50, `Track: ${COLOUR_LABELS[colourMode(s)] || 'Sectors'}`);
     this._button(g, 'engine', pad + half + gap, y, half, 50, `Engine ${s.engine ? 'ON' : 'OFF'}`, { on: s.engine });
     y += 50 + gap;
 
@@ -155,7 +158,57 @@ export class WristMenu extends Panel {
     this._button(g, 'recenter', pad, y, half, 50, 'Re-centre', { disabled: !ctx.actions.recenter });
     this._button(g, 'layout', pad + half + gap, y, half, 50, 'Reset layout', { disabled: !ctx.actions.resetLayout });
     y += 50 + gap;
-    this._button(g, 'exit', pad, y, w - 2 * pad, 50, 'Exit', { danger: true });
+    this._button(g, 'settings', pad, y, half, 50, 'Settings ▸');
+    this._button(g, 'exit', pad + half + gap, y, half, 50, 'Exit', { danger: true });
+  }
+
+  /** 13.3: the Settings page (the desktop has the same settings in its ⚙ drawer). */
+  _drawSettings(g, w, pad, gap) {
+    const s = getSettings();
+    const half = (w - 2 * pad - gap) / 2;
+    const full = w - 2 * pad;
+    let y = pad;
+    g.save();
+    roundRect(g, 0, 0, w, this.lh, 28);
+    g.clip();
+    g.fillStyle = THEME.accent;
+    g.fillRect(0, 0, w, 8);
+    g.restore();
+    g.fillStyle = THEME.muted;
+    g.font = font(22, 700);
+    g.textBaseline = 'middle';
+    g.fillText('SETTINGS', pad, y + 16);
+    y += 40;
+    const row = (label) => { g.fillStyle = THEME.muted; g.font = font(20, 700); g.textAlign = 'left'; g.fillText(label, pad, y + 12); y += 30; };
+    row('OVERTAKE WARNINGS (~10 s AHEAD)');
+    this._button(g, 'set:ot', pad, y, full, 56, `Warnings ${s.overtakeAlerts ? 'ON' : 'OFF'}`, { on: s.overtakeAlerts });
+    y += 56 + gap;
+    this._button(g, 'set:scope', pad, y, half, 56, s.overtakeScope === 'top' ? 'Top N only' : 'All drivers', { disabled: !s.overtakeAlerts });
+    const sx = pad + half + gap;
+    const bw = 56;
+    const topOn = s.overtakeAlerts && s.overtakeScope === 'top';
+    this._button(g, 'set:n-', sx, y, bw, 56, '−', { disabled: !topOn || s.overtakeTopN <= 3 });
+    this._button(g, 'set:n+', sx + half - bw, y, bw, 56, '+', { disabled: !topOn || s.overtakeTopN >= 20 });
+    g.fillStyle = topOn ? THEME.text : THEME.muted;
+    g.font = font(28, 700);
+    g.textAlign = 'center';
+    g.fillText(`P1–P${s.overtakeTopN}`, sx + half / 2, y + 29);
+    g.textAlign = 'left';
+    y += 56 + gap + 10;
+    row('TRACK AND RACE');
+    this._button(g, 'set:minis', pad, y, half, 56, `Mini-sectors ${s.minis ? 'ON' : 'OFF'}`, { on: s.minis });
+    this._button(g, 'set:wx', pad + half + gap, y, half, 56, `Weather fx ${s.weatherFx ? 'ON' : 'OFF'}`, { on: s.weatherFx });
+    y += 56 + gap;
+    this._button(g, 'set:banners', pad, y, half, 56, `Banners ${s.banners ? 'ON' : 'OFF'}`, { on: s.banners });
+    this._button(g, 'sfx', pad + half + gap, y, half, 56, `Sounds ${s.sfx ? 'ON' : 'OFF'}`, { on: s.sfx });
+    y += 56 + gap;
+    const rm = radioMode(s);
+    this._button(g, 'radio', pad, y, half, 56, `Radio ${RADIO_LABEL[rm].toUpperCase()}`, { on: rm !== 'off' });
+    this._button(g, 'engine', pad + half + gap, y, half, 56, `Engine ${s.engine ? 'ON' : 'OFF'}`, { on: s.engine });
+    y += 56 + gap;
+    this._button(g, 'full', pad, y, full, 56, `Full session (spoilers) ${s.fullSession ? 'ON' : 'OFF'}`, { on: s.fullSession });
+    y += 56 + gap + 10;
+    this._button(g, 'back', pad, y, full, 56, '◂ Back', { strong: true });
   }
 
   /** 'screen' | 'immersive', or null when the app has no mode switch. */
@@ -202,8 +255,7 @@ export class WristMenu extends Panel {
       case 'theme': if (a.cycleTheme) a.cycleTheme(); break;
       case 'fps': setSetting('fps', !getSettings().fps); break;
       case 'colours': {
-        const m = getSettings().trackColours;
-        setSetting('trackColours', TRACK_COLOUR_MODES[(TRACK_COLOUR_MODES.indexOf(m) + 1) % TRACK_COLOUR_MODES.length]);
+        setSetting('trackColours', nextColourMode(getSettings()));
         break;
       }
       case 'engine': setSetting('engine', !getSettings().engine); break;
@@ -214,6 +266,20 @@ export class WristMenu extends Panel {
       case 'recenter': if (a.recenter) a.recenter(); break;
       case 'layout': if (a.resetLayout) a.resetLayout(); break;
       case 'exit': if (a.exit) a.exit(); break;
+      case 'settings': this._page = 'settings'; break;
+      case 'back': this._page = 'main'; break;
+      case 'set:ot': setSetting('overtakeAlerts', !getSettings().overtakeAlerts); break;
+      case 'set:scope': setSetting('overtakeScope', getSettings().overtakeScope === 'top' ? 'all' : 'top'); break;
+      case 'set:n-': setSetting('overtakeTopN', getSettings().overtakeTopN - 1); break;
+      case 'set:n+': setSetting('overtakeTopN', getSettings().overtakeTopN + 1); break;
+      case 'set:minis': {
+        const on = !getSettings().minis;
+        setSetting('minis', on);
+        if (!on && getSettings().trackColours === 'minis') setSetting('trackColours', 'sectors');
+        break;
+      }
+      case 'set:wx': setSetting('weatherFx', !getSettings().weatherFx); break;
+      case 'set:banners': setSetting('banners', !getSettings().banners); break;
       default:
         if (hit.id.startsWith('drv:')) a.selectDriver(hit.payload);
     }

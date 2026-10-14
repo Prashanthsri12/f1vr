@@ -21,9 +21,12 @@ import { PanelHost } from './panel-host.js';
 import { createTrackView } from './track-view.js';
 import { createMainTile } from './main-tile.js';
 import { createDashExtras } from './dash-extras.js';
+import { createSettingsDrawer } from './settings-drawer.js';
+import { createExtraData } from '../extra-data.js';
+import { createWeatherWidget } from './weather-widget.js';
 
 const KEYS_HELP = 'Space play/pause · ←/→ seek 10 s · ↑/↓ speed · [ ] driver · V 2D/3D · F swap track and screen · Esc exit'
-  + '\nC track colours (sectors / mini-sectors / plain) · E engine hum · R team radio (off / driver / all) · A analytics view'
+  + '\nC track colours (sectors / mini-sectors / plain) · E engine hum · R team radio (off / driver / all) · A analytics view · O settings'
   + '\nSync: L lights out · PgUp/PgDn previous/next lap · , / . nudge −1/+1 s · Shift+, / Shift+. nudge −5/+5 s'
   + '\nTrack: drag pans (2D) or rotates (3D), right-drag pans, wheel zooms, double-click resets';
 
@@ -64,6 +67,9 @@ export async function startDashboard({ data, container, onExit, onStatus }) {
   let audioEvents = null;
   let extras = null;
   let topBar = null;
+  let settingsDrawer = null;
+  let extra = null;
+  let weatherWidget = null;
   let disposed = false;
   let raf = 0;
   const unsubs = [];
@@ -88,6 +94,8 @@ export async function startDashboard({ data, container, onExit, onStatus }) {
     },
   };
   const host = new PanelHost(ctx);
+  // 13.2: overtakes, the weekend's qualifying, the season's standings (loaded in the background).
+  extra = createExtraData(data);
 
   // --- selection (the track view exists once setup has run; panels only call these later) ---
   function selectDriver(n) {
@@ -114,6 +122,9 @@ export async function startDashboard({ data, container, onExit, onStatus }) {
     if (audioEvents) audioEvents.dispose();
     if (extras) extras.dispose();
     if (topBar) topBar.dispose();
+    if (settingsDrawer) settingsDrawer.dispose();
+    if (extra) extra.dispose();
+    if (weatherWidget) weatherWidget.dispose();
     stopRadio();
     if (mainTile) mainTile.dispose();
     if (trackView) trackView.dispose();
@@ -138,7 +149,7 @@ export async function startDashboard({ data, container, onExit, onStatus }) {
 
     status('Building track…');
     trackView = await createTrackView({ data, tile: tiles.track, view: getSettings().trackView });
-    mainTile = createMainTile({ tile: tiles.hub, data, playback, host, onToggleFocus: () => toggleFocus() });
+    mainTile = createMainTile({ tile: tiles.hub, data, playback, host, extra, onToggleFocus: () => toggleFocus() });
 
     // Top bar (12.3) and the track's own overlay buttons: track colours, 2D / 3D.
     topBar = createTopBar({ data, parent: tiles.topbar, onExit: exit, help: KEYS_HELP });
@@ -159,6 +170,7 @@ export async function startDashboard({ data, container, onExit, onStatus }) {
       for (const [id, b] of Object.entries(viewBtns)) b.classList.toggle('is-active', id === trackView.getView());
     }
     setView(trackView.getView());
+    weatherWidget = createWeatherWidget({ data, tile: tiles.track }); // 13.9 (2D view)
     extras = createDashExtras({ data, playback, root, trackTile: tiles.track, trackTools: tools, right: topBar.right, el, selectDriver });
     const viewBtn = el('button', 'f1-dash__btn', topBar.right, 'Analytics');
     viewBtn.type = 'button';
@@ -167,6 +179,10 @@ export async function startDashboard({ data, container, onExit, onStatus }) {
     const swapBtn = el('button', 'f1-dash__btn f1-dash__btn--icon', topBar.right, '⤢');
     swapBtn.type = 'button';
     swapBtn.addEventListener('click', () => toggleFocus());
+    const setBtn = el('button', 'f1-dash__btn f1-dash__btn--icon', topBar.right, '⚙');
+    setBtn.type = 'button';
+    setBtn.title = 'Settings: sound, track, alerts, spoilers (O)';
+    settingsDrawer = createSettingsDrawer({ parent: root, button: setBtn });
 
     // --- layout ---
     let focus = 'track';
@@ -226,6 +242,8 @@ export async function startDashboard({ data, container, onExit, onStatus }) {
 
     const lb0 = data.getLeaderboardAt(playback.time);
     selectDriver((lb0 && lb0[0] && lb0[0].driverNumber) ?? (data.drivers[0] && data.drivers[0].number));
+    extra.onChange((x) => extras.setExtra(x));
+
     // Team radio autoplay (+ the pop-up, 11.2) and sound effects.
     audioEvents = createAudioEvents(data, { onRadio: (clip) => extras.showRadio(clip) });
 
@@ -246,6 +264,7 @@ export async function startDashboard({ data, container, onExit, onStatus }) {
         case 'KeyF': if (!e.repeat && screenView !== 'analytics') toggleFocus(); return;
         case 'KeyA': if (!e.repeat) toggleView(); return;
         case 'KeyL': if (!e.repeat) sync.lightsOut(); return;
+        case 'KeyO': if (!e.repeat) settingsDrawer.toggle(); return;
         case 'PageUp': e.preventDefault(); sync.stepLap(-1); return;
         case 'PageDown': e.preventDefault(); sync.stepLap(1); return;
         case 'Comma': sync.nudge(e.shiftKey ? -5 : -1); return;
@@ -271,6 +290,7 @@ export async function startDashboard({ data, container, onExit, onStatus }) {
       ctx.time = playback.time;
       host.update(dt);
       trackView.update(playback.time);
+      weatherWidget.update(dt, playback.time, trackView.getView() === '2d');
       mainTile.update(dt);
       topBar.update(playback.time);
       audioEvents.update(playback.time, selected, playback.playing && !playback.waiting);
@@ -291,7 +311,7 @@ export async function startDashboard({ data, container, onExit, onStatus }) {
     // Dev/test hook: ?debug exposes the live objects (used by headless tests).
     if (new URLSearchParams(location.search).has('debug')) {
       window.__f1vr = {
-        data, playback, sync, host, trackView, mainTile, sfxStats, extras, topBar, layout: () => currentLayout(),
+        data, playback, sync, host, trackView, mainTile, sfxStats, extras, topBar, settingsDrawer, getExtra: () => extra, layout: () => currentLayout(),
         toggleFocus, setView, getFocus: () => focus,
       };
       unsubs.push(() => { if (window.__f1vr && window.__f1vr.playback === playback) delete window.__f1vr; });

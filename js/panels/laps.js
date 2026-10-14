@@ -4,6 +4,7 @@
 import { Panel, THEME, TYRE_COLOURS, font, dfont, rgba, glowStroke, roundRect, fmtLap, panelTitle, sticker } from './panel-base.js';
 import { LAYOUT } from './layout.js';
 import { LapStats, newLapStatsOut } from './lap-stats.js';
+import { getSettings } from '../settings.js';
 
 const PAD = 28;
 const SECTOR_FILL = { purple: THEME.purple, green: THEME.green, yellow: THEME.yellow };
@@ -25,7 +26,7 @@ export class LapsPanel extends Panel {
     this.data = data;
     this.stats = new LapStats(data);
     this.out = newLapStatsOut();
-    this._snap = new Array(12).fill(undefined);
+    this._snap = new Array(13).fill(undefined);
   }
 
   refresh(ctx) {
@@ -39,6 +40,7 @@ export class LapsPanel extends Panel {
     this._cmp(6, o.sessionBestSectors[0]); this._cmp(7, o.sessionBestSectors[1]);
     this._cmp(8, o.sessionBestSectors[2]); this._cmp(9, o.stintCount); this._cmp(10, o.totalLaps);
     this._cmp(11, o.sessionBestDriver);
+    this._cmp(12, getSettings().minis);
     return this._changed;
   }
 
@@ -209,7 +211,7 @@ export class LapsPanel extends Panel {
    * 2051 purple, 2049 green, 2048 yellow, 2064 pit lane (blue); 0 and unknown codes grey.
    */
   _drawMinis(g, n, o, x, y, w) {
-    if (o.lastLapNumber == null) return;
+    if (o.lastLapNumber == null || !getSettings().minis) return; // 13.4: only when switched on
     const lap = this.data.getDriverLaps(n).find((l) => l.lap_number === o.lastLapNumber);
     if (!lap) return;
     let total = 0;

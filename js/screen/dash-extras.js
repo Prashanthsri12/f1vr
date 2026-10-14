@@ -4,16 +4,19 @@
 //   - race moment banners over the track tile (race-moments.js + banner-dom.js)
 //   - flag ambience: the dashboard edge glows in the track status colour when not green
 //   - team radio: Off / Driver / All button (key R) and the radio pop-up (11.1, 11.2)
+//   - overtake warnings (13.6): toasts ~10 s before each pass, from extra data (setExtra)
 // update() runs every frame but does its work at 10 Hz (no per-frame allocation).
-import { getSettings, setSetting } from '../settings.js';
+import { getSettings, setSetting, onSettingsChange } from '../settings.js';
 import { uiClick } from '../audio.js';
 import { createEngineSound } from '../engine-sound.js';
 import { createRaceMoments } from '../race-moments.js';
 import { trackStatusAt } from '../panels/race-status.js';
-import { TRACK_COLOUR_MODES } from '../scene/track-style.js';
+import { colourMode, nextColourMode } from '../scene/track-style.js';
 import { createBannerDom } from './banner-dom.js';
 import { createRadioPop } from './radio-pop.js';
 import { radioMode, cycleRadioMode, RADIO_LABEL } from '../radio-mode.js';
+import { createOvertakeAlerts, overtakeEventsFor } from '../overtake-alerts.js';
+import { createOvertakeToasts } from './overtake-toasts.js';
 
 const TICK_MS = 100;
 const COLOUR_LABEL = { sectors: 'Sectors', minis: 'Mini', plain: 'Plain' };
@@ -39,6 +42,9 @@ export function createDashExtras({ data, playback, root, trackTile, trackTools, 
   const moments = createRaceMoments(data);
   const banner = createBannerDom(trackTile);
   const radioPop = createRadioPop({ data, tile: trackTile, selectDriver });
+  const toasts = createOvertakeToasts({ data, tile: trackTile, selectDriver });
+  // Position swaps alone until the overtakes endpoint arrives (setExtra), then both.
+  let alerts = createOvertakeAlerts(overtakeEventsFor(data));
   const tel = { speed: 0, rpm: 0, gear: 0, throttle: 0, brake: 0, drs: 0 };
   let acc = TICK_MS;
   let flag = '';
@@ -54,14 +60,12 @@ export function createDashExtras({ data, playback, root, trackTile, trackTools, 
   engineBtn.title = 'Engine hum from the selected driver\'s RPM (E)';
 
   function showColour() {
-    const m = getSettings().trackColours;
+    const m = colourMode(getSettings());
     colourBtn.textContent = COLOUR_LABEL[m] || 'Sectors';
     colourBtn.title = `${COLOUR_TITLE[m] || ''} (C)`;
   }
   function cycleColour() {
-    const m = getSettings().trackColours;
-    const next = TRACK_COLOUR_MODES[(TRACK_COLOUR_MODES.indexOf(m) + 1) % TRACK_COLOUR_MODES.length];
-    setSetting('trackColours', next);
+    setSetting('trackColours', nextColourMode(getSettings()));
     showColour();
   }
   function showEngine() { engineBtn.classList.toggle('is-on', getSettings().engine); }
@@ -78,6 +82,8 @@ export function createDashExtras({ data, playback, root, trackTile, trackTools, 
   showColour();
   showEngine();
   showRadio();
+  // 13.3: the settings drawer (or the VR menu) can change these too.
+  const offSettings = onSettingsChange(() => { showColour(); showEngine(); showRadio(); });
 
   // A soft tick on every toolbar / tab button press (the sfx setting mutes it).
   const onClick = (e) => { if (e.target.closest && e.target.closest('.f1-dash__btn')) uiClick(); };
@@ -98,8 +104,10 @@ export function createDashExtras({ data, playback, root, trackTile, trackTools, 
       const t = playback.time;
       const running = playback.playing && !playback.waiting;
       const s = getSettings();
+      toasts.render(alerts.at(t, s), t);
       const ev = moments.update(t, selected, running);
-      if (ev && s.banners) banner.show(ev);
+      // The overtake toasts replace the overtake banner while they are on.
+      if (ev && s.banners && !(ev.kind === 'overtake' && s.overtakeAlerts)) banner.show(ev);
       const st = trackStatusAt(data, t);
       const f = st.status === 'GREEN' ? '' : st.colour;
       if (f !== flag) {
@@ -114,12 +122,17 @@ export function createDashExtras({ data, playback, root, trackTile, trackTools, 
     showBanner: (ev) => banner.show(ev),
     /** A team radio clip started (audio-events onRadio). */
     showRadio: (clip) => radioPop.show(clip),
+    /** 13.2 extra data arrived or changed: rebuild the overtake list with the API records. */
+    setExtra(extra) { alerts = createOvertakeAlerts(overtakeEventsFor(data, extra.overtakes)); },
+    getAlerts: () => alerts,
     moments,
     dispose() {
       root.removeEventListener('click', onClick);
+      offSettings();
       engine.dispose();
       banner.dispose();
       radioPop.dispose();
+      toasts.dispose();
     },
   };
 }

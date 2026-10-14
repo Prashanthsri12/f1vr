@@ -12,6 +12,18 @@
 import { LapStats, newLapStatsOut } from '../panels/lap-stats.js';
 
 export const TRACK_COLOUR_MODES = ['sectors', 'minis', 'plain'];
+
+/** 13.4: the colour mode to draw: mini-sectors only when the minis setting is on. */
+export function colourMode(s) {
+  return s.trackColours === 'minis' && !s.minis ? 'sectors' : s.trackColours;
+}
+
+/** The next mode for the C key / button; skips mini-sectors while they are switched off. */
+export function nextColourMode(s) {
+  const modes = s.minis ? TRACK_COLOUR_MODES : TRACK_COLOUR_MODES.filter((m) => m !== 'minis');
+  const cur = colourMode(s);
+  return modes[(modes.indexOf(cur) + 1) % modes.length];
+}
 export const SEG_PURPLE = 2051;
 
 const HEX = { purple: '#b84dff', green: '#2ee67a', yellow: '#ffd21f', plain: '#5c6b8c' };

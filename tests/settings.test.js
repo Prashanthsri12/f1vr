@@ -30,3 +30,19 @@ test('setSetting saves valid choices and ignores invalid ones', () => {
   assert.equal(saved.trackView, '3d');
   assert.equal(saved.nope, undefined);
 });
+
+test('13.3: Phase 13 settings: defaults, ranges and choices', () => {
+  const s = getSettings();
+  assert.equal(s.minis, false);
+  assert.equal(s.overtakeAlerts, true);
+  assert.equal(s.overtakeScope, 'all');
+  setSetting('overtakeTopN', 25);
+  setSetting('overtakeTopN', 4.5);
+  assert.equal(s.overtakeTopN, 10);
+  setSetting('overtakeTopN', 5);
+  assert.equal(s.overtakeTopN, 5);
+  setSetting('overtakeScope', 'some');
+  assert.equal(s.overtakeScope, 'all');
+  setSetting('screenView', 'standings');
+  assert.equal(s.screenView, 'standings');
+});

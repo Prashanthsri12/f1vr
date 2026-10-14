@@ -17,6 +17,7 @@ import { createAudioEvents } from './audio-events.js';
 import { stopRadio, sfxStats } from './audio.js';
 import { createMainScreen } from './scene/screen.js';
 import { createVrScreen } from './screen/vr-screen.js';
+import { createExtraData } from './extra-data.js';
 import { createSyncControl } from './sync-control.js';
 import { createVrExtras } from './scene/vr-extras.js';
 
@@ -98,6 +99,7 @@ export async function startApp({
   let xrInput = null;
   let fpsMeter = null;
   let audioEvents = null;
+  let extra = null;
   const unsubs = [];
   // Phase 9: rain, track colours, race banners, flag ambience, engine hum (scene/vr-extras.js).
   const extras = createVrExtras({ world, table });
@@ -118,6 +120,7 @@ export async function startApp({
     if (input) input.dispose();
     if (fpsMeter) fpsMeter.dispose();
     if (audioEvents) audioEvents.dispose();
+    if (extra) extra.dispose();
     stopRadio();
     if (vrScreen) vrScreen.dispose();
     if (screen) screen.dispose();
@@ -194,6 +197,15 @@ export async function startApp({
     status('Placing cars…');
     cars = new Cars(data.drivers, transform, table);
     extras.setSession(data, transform);
+    // 13.2: overtakes, the weekend's qualifying and the season's standings, in the background.
+    extra = createExtraData(data);
+    extra.onChange((x) => extras.setExtra(x));
+    extras.setFxContext((out) => {
+      const up = screenUp();
+      out.on = !up || vrScreen.getView() === '3d';
+      out.lights = up ? vrScreen.lights : null;
+      return out;
+    });
     playback = new Playback(data);
     const sync = createSyncControl({ data, playback }); // 8.9: playback bar sync row
     status('Building panels…');
@@ -456,7 +468,7 @@ export async function startApp({
   // Dev/test hook: ?debug exposes the live objects (used by headless XR tests).
   if (new URLSearchParams(location.search).has('debug')) {
     window.__f1vr = {
-      world, table, data, playback, pitWall, panelGrab, recenter, sfxStats, screen, get vrScreen() { return vrScreen; }, getMode: () => mode,
+      world, table, data, playback, pitWall, panelGrab, recenter, sfxStats, screen, get vrScreen() { return vrScreen; }, getExtra: () => extra, getMode: () => mode,
       banner3d: extras.banner3d, setDebugFlag: extras.setDebugFlag, showRadio: (clip) => extras.showRadio(clip, world.camera),
     };
     unsubs.push(() => { if (window.__f1vr && window.__f1vr.table === table) delete window.__f1vr; });

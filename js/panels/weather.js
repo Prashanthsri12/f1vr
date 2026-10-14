@@ -1,8 +1,11 @@
 // Weather panel (spec §5): air and track temperature (big), humidity, wind speed with a
 // direction arrow, and a rain chip. Uses the latest sample at or before the playhead.
+// 13.8: through the weather model: the chip shows the rain level (est.) or a wet track, the icon
+// the estimated sky (sun, cloud, rain, moon), and a row adds pressure and the local time.
 import { Panel, THEME, font, dfont, rgba, roundRect, panelTitle, sticker, stickerSize } from './panel-base.js';
 import { isNightSession } from '../session-index.js';
 import { LAYOUT } from './layout.js';
+import { newWeather, weatherAt, rainLabel, localTime } from '../weather-model.js';
 
 const PAD = 22;
 const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
@@ -16,13 +19,18 @@ export class WeatherPanel extends Panel {
     super({ name: 'weather', width: LAYOUT.weather.width, height: LAYOUT.weather.height, maxHz: 2 });
     this.data = data;
     this.sample = undefined;
+    this.w = newWeather();
+    this._min = -1;
   }
 
   refresh(ctx) {
     // getWeatherAt returns the stored record object, so identity tells us if it changed.
     const s = this.data.getWeatherAt(ctx.time);
-    if (s === this.sample) return false;
+    const min = Math.floor(ctx.time / 60000); // the local clock and the tyre-based estimates move each minute
+    if (s === this.sample && min === this._min) return false;
     this.sample = s;
+    this._min = min;
+    if (s) weatherAt(this.data, ctx.time, this.w);
     return true;
   }
 
@@ -36,20 +44,23 @@ export class WeatherPanel extends Panel {
     panelTitle(g, PAD - 6, 34, 'Weather', 26);
     g.textBaseline = 'alphabetic';
     const night = isNightSession(this.data.session);
+    const wm = this.w;
     const rain = !!(s && s.rainfall > 0);
-    const chipW = rain ? 96 : 84;
+    const wet = rain || (s && wm.trackWet);
+    const chip = s ? rainLabel(wm).toUpperCase() + (rain ? ' EST.' : '') : '–';
+    g.font = font(22, 700);
+    const chipW = Math.max(84, g.measureText(chip).width + 30);
     const cx = w - PAD - chipW;
-    g.fillStyle = rain ? THEME.blue : THEME.surface;
+    g.fillStyle = wet ? THEME.blue : THEME.surface;
     roundRect(g, cx, 14, chipW, 40, 20);
     g.fill();
     g.textAlign = 'center';
-    g.fillStyle = rain ? '#ffffff' : THEME.muted;
-    g.font = font(24, 700);
-    g.fillText(s ? (rain ? 'RAIN' : 'DRY') : '–', cx + chipW / 2, 43);
-    if (night) {
+    g.fillStyle = wet ? '#ffffff' : THEME.muted;
+    g.fillText(chip, cx + chipW / 2, 42);
+    if (night && wm.daylight < 0.25 && !rain) {
       const label = this.data.hasIntervals ? 'Night race' : 'Night';
       sticker(g, cx - 12 - stickerSize(g, label, 16).w, 20, label, { bg: THEME.yellow, px: 16, rot: -4 });
-    } else if (s) drawIcon(g, cx - 40, 34, rain);
+    } else if (s) drawIcon(g, cx - 40, 34, wm);
     g.textBaseline = 'alphabetic';
 
     // No weather records at all (6.11), or none yet before the first sample.
@@ -85,8 +96,26 @@ export class WeatherPanel extends Panel {
       g.fillText(fmtNum(temps[i][1], 1), x + colW - 12 - unitW, 170);
     }
 
+    // Middle row (13.8): pressure, local time and the sky estimate.
+    g.textAlign = 'left';
+    g.fillStyle = THEME.muted;
+    g.font = font(22, 600);
+    g.fillText('PRESS', PAD, 222);
+    const pw = g.measureText('PRESS').width + 10;
+    g.fillStyle = THEME.text;
+    g.font = dfont(26, 700);
+    g.fillText(`${fmtNum(wm.pressure, 0)} hPa`, PAD + pw, 223);
+    g.textAlign = 'right';
+    g.fillStyle = THEME.text;
+    g.font = dfont(26, 700);
+    g.fillText(localTime(wm), w - PAD, 223);
+    const tw = g.measureText(localTime(wm)).width + 10;
+    g.fillStyle = THEME.muted;
+    g.font = font(22, 600);
+    g.fillText('LOCAL', w - PAD - tw, 222);
+
     // Bottom row: humidity (left), wind arrow + speed (right).
-    const y = 268;
+    const y = 274;
     g.textAlign = 'left';
     g.fillStyle = THEME.muted;
     g.font = font(24, 600);
@@ -133,16 +162,27 @@ export class WeatherPanel extends Panel {
     g.fillText('m/s', w - PAD, y);
     if (dir != null && Number.isFinite(dir)) {
       g.textAlign = 'right';
-      g.fillText(`FROM ${COMPASS[Math.round(dir / 45) % 8]}`, w - PAD, y - 40);
+      g.fillStyle = THEME.muted;
+      g.font = font(20, 700);
+      g.fillText(COMPASS[Math.round(((dir % 360) + 360) % 360 / 45) % 8], ax - 32, y);
     }
   }
 }
 
 /**
- * Small drawn icon centred at (x, y): a glowing sun when dry, a cloud with rain when
- * rainfall is set. OpenF1 weather has no cloud cover, so "dry" never shows clouds.
+ * Small drawn icon centred at (x, y) from the weather model: a sun (or moon after dark), with a
+ * cloud in front when the estimated cloud cover is high, and rain under it when it rains.
  */
-function drawIcon(g, x, y, rain) {
+function drawIcon(g, x, y, wm) {
+  const rain = wm.rainfall > 0;
+  if (!rain && wm.cloud >= 0.5) { drawCloud(g, x, y, wm.cloud >= 0.75 ? '#9aa3b2' : '#cfd8e6'); return; }
+  if (!rain && wm.daylight < 0.25) {
+    g.fillStyle = '#e6ecf5';
+    g.beginPath(); g.arc(x, y, 12, 0, Math.PI * 2); g.fill();
+    g.fillStyle = THEME.bg;
+    g.beginPath(); g.arc(x + 6, y - 4, 10, 0, Math.PI * 2); g.fill();
+    return;
+  }
   if (!rain) {
     g.fillStyle = 'rgba(255,190,40,0.25)';
     g.beginPath();
@@ -175,7 +215,11 @@ function drawIcon(g, x, y, rain) {
   }
   g.stroke();
   g.lineCap = 'butt';
-  g.fillStyle = '#cfd8e6';
+  drawCloud(g, x, y, '#cfd8e6');
+}
+
+function drawCloud(g, x, y, colour) {
+  g.fillStyle = colour;
   g.beginPath();
   g.arc(x - 8, y - 2, 8, 0, Math.PI * 2);
   g.arc(x + 2, y - 7, 10, 0, Math.PI * 2);

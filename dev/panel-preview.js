@@ -12,7 +12,6 @@ const MODULES = {
   insights: ['../js/panels/insights.js', 'InsightsPanel'],
   analytics: ['../js/panels/analytics-panel.js', 'AnalyticsPanel'],
   ticker: ['../js/panels/ticker.js', 'TickerPanel'],
-  picker: ['../js/panels/driver-picker.js', 'DriverPicker'],
   playback: ['../js/panels/playback-bar.js', 'PlaybackBarPanel'],
   wrist: ['../js/panels/wrist-menu.js', 'WristMenu'],
 };

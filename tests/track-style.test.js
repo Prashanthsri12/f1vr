@@ -63,3 +63,12 @@ test('TrackStyle: plain without sector bounds, recolours only on change', () => 
   assert.equal(s.effectiveMode('minis'), 'sectors'); // no segment data
   assert.deepEqual(hexRgb('#ff0000'), [1, 0, 0]);
 });
+
+test('13.4: mini-sectors only when switched on', async () => {
+  const { colourMode, nextColourMode } = await import('../js/scene/track-style.js');
+  assert.equal(colourMode({ trackColours: 'minis', minis: false }), 'sectors');
+  assert.equal(colourMode({ trackColours: 'minis', minis: true }), 'minis');
+  assert.equal(nextColourMode({ trackColours: 'sectors', minis: false }), 'plain');
+  assert.equal(nextColourMode({ trackColours: 'plain', minis: false }), 'sectors');
+  assert.equal(nextColourMode({ trackColours: 'sectors', minis: true }), 'minis');
+});
