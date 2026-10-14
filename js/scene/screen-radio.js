@@ -207,7 +207,7 @@ export class ScreenContent extends Panel {
   }
 }
 
-const TABS = [['video', 'Video'], ['radio', 'Radio'], ['analytics', 'Analytics']]; // 9.27: Analytics tab
+const TABS = [['video', 'Video'], ['radio', 'Radio'], ['analytics', 'Analytics'], ['quali', 'Quali']]; // 9.27: Analytics tab, 13.12: Quali
 
 export class ScreenTabs extends Panel {
   /** @param {(tab: string) => void} onTab */

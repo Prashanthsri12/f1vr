@@ -238,7 +238,7 @@ export async function startApp({
       canPassthrough,
     });
     // Main screen (Phase 5): video / radio tabs, in the panel rig.
-    screen = createMainScreen({ manager: pitWall.manager, data, playback });
+    screen = createMainScreen({ manager: pitWall.manager, data, playback, extra });
     if (screenMode) ensureVrScreen().apply();
   } catch (err) {
     dispose();

@@ -1,13 +1,14 @@
 // Main screen (spec §6): a 2.4 m 16:9 screen at MAIN_SCREEN in the layout rig (so re-centre
-// carries it), with three tabs (Analytics added in 9.27):
+// carries it), with four tabs (Analytics added in 9.27, Quali in 13.12):
 //   Video: the start page's video source (or "Add a video source…"), play / mute / sync strip
 //   Radio: the selected driver's team radio clips with play buttons
+//   Analytics: one chart; Quali: the weekend's qualifying (Q1 / Q2 / Q3, result)
 // It opens on Video when a source is set, otherwise on Radio. (The Onboard camera tab was
 // removed at the user's request, Phase 8.)
 // Placement: everything sits on the screen face, inside its centre band (|x| < 0.8 m): from
 // the user's start position the leaderboard and telemetry panels (±17°–53°) hide the screen's
 // outer 0.35 m on each side. Screen-local, 2 cm in front of the bottom edge:
-//   tab strip 0.80 x 0.10 m at x +0.4 (Video / Radio / Analytics) (y -0.615, rig-local y 0.985)
+//   tab strip 0.80 x 0.10 m at x +0.4 (Video / Radio / Analytics / Quali) (y -0.615, rig-local y 0.985)
 //   Analytics chart 1.6 m wide above the strips
 //   video controls 0.62 x 0.10 m at x -0.5 (Video tab: play, mute, sync, sync here)
 // The playback bar stays just below the screen and the ticker above it.
@@ -17,6 +18,7 @@ import { MAIN_SCREEN } from '../panels/layout.js';
 import { ScreenVideo, VideoControls, NO_SOURCE } from './screen-video.js';
 import { ScreenContent, ScreenTabs } from './screen-radio.js';
 import { AnalyticsPanel } from '../panels/analytics-panel.js';
+import { QualiPanel } from '../panels/quali-panel.js';
 import { loadVideoSettings } from '../video-settings.js';
 
 const W = MAIN_SCREEN.width;
@@ -32,10 +34,11 @@ const CHART_W = 1.6;             // Analytics tab chart: inside |x| < 0.8 m too
  * @param {import('../panels/panel-base.js').PanelManager} o.manager panels go in its layout rig
  * @param {import('../session-data.js').SessionData} o.data
  * @param {import('../playback.js').Playback} o.playback
- * @returns {{group: THREE.Group, setTab: (t: 'video'|'radio'|'analytics') => void, getTab: () => string,
+ * @param {object} [o.extra] createExtraData() result (the Quali tab)
+ * @returns {{group: THREE.Group, setTab: (t: 'video'|'radio'|'analytics'|'quali') => void, getTab: () => string,
  *   update: (dt: number) => void, video: ScreenVideo, dispose: () => void}}
  */
-export function createMainScreen({ manager, data, playback }) {
+export function createMainScreen({ manager, data, playback, extra = null }) {
   const group = new THREE.Group();
   group.name = 'main-screen';
   const p = MAIN_SCREEN.position;
@@ -63,6 +66,9 @@ export function createMainScreen({ manager, data, playback }) {
   // Analytics tab (9.27): a chart above the tab strip.
   const analytics = add(new AnalyticsPanel(data, { name: 'analytics-screen', width: CHART_W, height: H - 0.14, pxPerM: 640 }), 0, 0.07, 0.004);
   analytics.mesh.visible = false;
+  // Quali tab (13.12): same place and size as the chart.
+  const quali = add(new QualiPanel(data, { extra, name: 'quali-screen', width: CHART_W, height: H - 0.14, pxPerM: 640 }), 0, 0.07, 0.004);
+  quali.mesh.visible = false;
 
   let tab = '';
   let videoVersion = -1;
@@ -83,6 +89,8 @@ export function createMainScreen({ manager, data, playback }) {
     controls.mesh.visible = t === 'video';
     content.mesh.visible = t === 'radio';
     analytics.mesh.visible = t === 'analytics';
+    quali.mesh.visible = t === 'quali';
+    if (t === 'quali') { showMap(null); quali.invalidate(); }
     if (t === 'radio') { showMap(null); content.show('radio'); }
     if (t === 'analytics') { showMap(null); analytics.invalidate(); }
     if (t === 'video') { video.open(); videoVersion = -1; }

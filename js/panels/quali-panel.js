@@ -38,6 +38,7 @@ export class QualiPanel extends Panel {
   }
 
   refresh(ctx) {
+    if (!this.mesh.visible) return false; // closed tab: no work
     const x = this.extra;
     const qs = x ? x.qualis : [];
     const q = qs[Math.min(this.which, qs.length - 1)] || null;

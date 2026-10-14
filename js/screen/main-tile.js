@@ -82,6 +82,7 @@ export function createMainTile({ tile, data, playback, host, onToggleFocus, extr
   analytics.mesh.visible = false; // skips its refresh while the tab is closed
   const qualiBox = el('div', 'f1-dash__radio', body);
   const quali = host.add(new QualiPanel(data, { extra, name: 'quali-tab', width: 1.7, height: 0.85, pxPerM: 512 }), qualiBox);
+  quali.mesh.visible = false;
 
   let tab = '';
   let shown = -1;
@@ -107,6 +108,7 @@ export function createMainTile({ tile, data, playback, host, onToggleFocus, extr
     analyticsBox.hidden = t !== 'analytics';
     analytics.mesh.visible = t === 'analytics';
     qualiBox.hidden = t !== 'quali';
+    quali.mesh.visible = t === 'quali';
     // A box that was hidden measured 0 × 0: re-fit the canvases now that it shows.
     if (typeof window !== 'undefined') host.layout(window.devicePixelRatio || 1);
     if (isVideo) { video.open(); changed(); }
